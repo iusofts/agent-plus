@@ -1,4 +1,17 @@
-# agent-plus
+<p align="center">
+	<img alt="logo" width="100" src="https://raw.gitcode.com/iusoft/vue-agent-template/raw/master/public/logo/ap.png">
+</p>
+<h1 align="center" style="margin: 30px 0 30px; font-weight: bold;">Agent Plus</h1>
+<h4 align="center">开源AI基座
+</h4>
+<p align="center">
+  <img src="https://img.shields.io/badge/version-1.0.0-blue" alt="version">
+  <img src="https://img.shields.io/badge/vue-3.5%2B-orange" alt="rust">
+  <img src="https://img.shields.io/badge/license-MIT-green" alt="license">
+    <a href="https://gitcode.com/iusoft/agent-plus" target="_blank">
+    <img src="https://gitcode.com/iusoft/agent-plus/star/badge.svg" alt="AtomGit Star"/>
+  </a>
+</p>
 
 基于 Spring Boot 3.5 + JDK 21 + LangChain4j 构建的企业级 AI Agent 应用开发平台，提供模型接入、知识库（RAG）、工具调用、工作流编排、智能体（Agent）等完整能力。
 
