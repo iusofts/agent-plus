@@ -1,7 +1,7 @@
 package common;
 
-import com.iusofts.web.Application;
-import com.iusofts.web.config.DatabaseConfig;
+import com.iusofts.agentplus.web.Application;
+import com.iusofts.agentplus.web.config.DatabaseConfig;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.boot.test.context.SpringBootTest;

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.iusofts.agentplus.ai.mapper.AiCallLogMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="com.iusofts.agentplus.ai.entity.AiCallLog">
+        <id column="id" property="id" />
+        <result column="business_type" property="businessType" />
+        <result column="business_id" property="businessId" />
+        <result column="input_tokens" property="inputTokens" />
+        <result column="output_tokens" property="outputTokens" />
+        <result column="total_tokens" property="totalTokens" />
+        <result column="time_sign" property="timeSign" />
+        <result column="create_by" property="createBy" />
+        <result column="create_time" property="createTime" />
+        <result column="update_by" property="updateBy" />
+        <result column="update_time" property="updateTime" />
+        <result column="delete_flag" property="deleteFlag" />
+        <result column="org_id" property="orgId" />
+    </resultMap>
+
+    <!-- 通用查询结果列 -->
+    <sql id="Base_Column_List">
+        id, business_type, business_id, input_tokens, output_tokens, total_tokens, time_sign, create_by, create_time, update_by, update_time, delete_flag, org_id
+    </sql>
+
+</mapper>

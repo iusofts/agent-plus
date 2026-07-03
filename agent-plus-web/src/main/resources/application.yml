@@ -38,7 +38,7 @@ spring:
 
 
 mybatis-plus:
-  mapper-locations: classpath*:com/iusofts/**/*Mapper.xml
+  mapper-locations: classpath*:com/iusofts/agentplus/**/*Mapper.xml
 
 springdoc:
   swagger-ui:

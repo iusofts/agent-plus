@@ -1,8 +1,8 @@
 package concurrent;
 
-import com.iusofts.basic.enums.AsyncTaskGroup;
-import com.iusofts.basic.enums.ExecutionStrategy;
-import com.iusofts.basic.thread.AsyncManager;
+import com.iusofts.agentplus.basic.enums.AsyncTaskGroup;
+import com.iusofts.agentplus.basic.enums.ExecutionStrategy;
+import com.iusofts.agentplus.basic.thread.AsyncManager;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.CountDownLatch;
