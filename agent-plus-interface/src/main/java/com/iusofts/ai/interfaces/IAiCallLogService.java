@@ -1,4 +1,4 @@
-package com.iusofts.ai.Interfaces;
+package com.iusofts.ai.interfaces;
 
 /**
  * <p>

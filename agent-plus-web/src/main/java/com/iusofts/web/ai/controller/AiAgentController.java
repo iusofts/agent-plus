@@ -1,6 +1,6 @@
 package com.iusofts.web.ai.controller;
 
-import com.iusofts.ai.Interfaces.IAiAgentService;
+import com.iusofts.ai.interfaces.IAiAgentService;
 import com.iusofts.ai.vo.*;
 import com.iusofts.basic.annotation.BLoginUser;
 import com.iusofts.basic.annotation.OperationLogExclude;

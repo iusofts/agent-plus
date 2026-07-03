@@ -1,4 +1,4 @@
-package com.iusofts.aiflow.Interfaces;
+package com.iusofts.aiflow.interfaces;
 
 import com.iusofts.aiflow.vo.*;
 import com.iusofts.common.vo.IdReqVo;

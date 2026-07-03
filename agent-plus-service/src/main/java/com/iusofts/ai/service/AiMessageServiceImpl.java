@@ -2,7 +2,7 @@ package com.iusofts.ai.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
-import com.iusofts.ai.Interfaces.IAiMessageService;
+import com.iusofts.ai.interfaces.IAiMessageService;
 import com.iusofts.ai.entity.AiMessage;
 import com.iusofts.ai.mapper.AiMessageMapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;

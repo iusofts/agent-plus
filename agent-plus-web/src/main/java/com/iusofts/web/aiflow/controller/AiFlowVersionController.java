@@ -1,6 +1,6 @@
 package com.iusofts.web.aiflow.controller;
 
-import com.iusofts.aiflow.Interfaces.IAiFlowVersionService;
+import com.iusofts.aiflow.interfaces.IAiFlowVersionService;
 import com.iusofts.aiflow.vo.*;
 import com.iusofts.basic.annotation.BLoginUser;
 import com.iusofts.basic.annotation.OperationLogExclude;

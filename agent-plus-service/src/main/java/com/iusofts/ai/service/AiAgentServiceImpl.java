@@ -5,7 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.iusofts.ai.Interfaces.IAiAgentService;
+import com.iusofts.ai.interfaces.IAiAgentService;
 import com.iusofts.ai.entity.AiAgent;
 import com.iusofts.ai.mapper.AiAgentMapper;
 import com.iusofts.ai.vo.*;

@@ -6,7 +6,7 @@
  */
 package com.iusofts.ai.service;
 
-import com.iusofts.ai.Interfaces.IAiTokenService;
+import com.iusofts.ai.interfaces.IAiTokenService;
 import com.iusofts.ai.enums.AiTokenApplySource;
 import com.iusofts.ai.vo.AiTokenApplyReqVo;
 import com.iusofts.ai.vo.AiTokenVo;

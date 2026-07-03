@@ -4,7 +4,7 @@
  * Date: 2026-05-08
  * Description:IAiLimitService.java
  */
-package com.iusofts.ai.Interfaces;
+package com.iusofts.ai.interfaces;
 
 import com.iusofts.ai.vo.AiTokenApplyReqVo;
 import com.iusofts.ai.vo.AiTokenVo;

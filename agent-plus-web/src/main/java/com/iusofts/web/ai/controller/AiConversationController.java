@@ -1,6 +1,6 @@
 package com.iusofts.web.ai.controller;
 
-import com.iusofts.ai.Interfaces.IAiConversationService;
+import com.iusofts.ai.interfaces.IAiConversationService;
 import com.iusofts.ai.vo.conversation.AiConversationTestInfoVo;
 import com.iusofts.ai.vo.conversation.AiConversationQueryPageReqVo;
 import com.iusofts.ai.vo.conversation.AiConversationUpdateTitleReqVo;

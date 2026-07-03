@@ -5,7 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.iusofts.aiflow.Interfaces.IAiFlowRuntimeService;
+import com.iusofts.aiflow.interfaces.IAiFlowRuntimeService;
 import com.iusofts.aiflow.entity.AiFlow;
 import com.iusofts.aiflow.entity.AiFlowRuntime;
 import com.iusofts.aiflow.enums.RunStatusEnum;

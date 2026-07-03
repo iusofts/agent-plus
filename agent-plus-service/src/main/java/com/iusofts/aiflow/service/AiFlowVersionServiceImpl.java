@@ -7,7 +7,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.iusofts.aiflow.Interfaces.IAiFlowVersionService;
+import com.iusofts.aiflow.interfaces.IAiFlowVersionService;
 import com.iusofts.aiflow.entity.AiFlow;
 import com.iusofts.aiflow.entity.AiFlowVersion;
 import com.iusofts.aiflow.enums.PublishingStatusEnum;

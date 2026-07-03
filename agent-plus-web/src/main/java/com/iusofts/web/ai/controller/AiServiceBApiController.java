@@ -1,7 +1,7 @@
 package com.iusofts.web.ai.controller;
 
 import com.alibaba.dashscope.common.Role;
-import com.iusofts.ai.Interfaces.IAiServiceInterface;
+import com.iusofts.ai.interfaces.IAiServiceInterface;
 import com.iusofts.ai.vo.service.AiMessageVo;
 import com.iusofts.ai.vo.service.AiServiceChatReqVo;
 import com.iusofts.ai.vo.service.AiServiceChatReqVo.Message;

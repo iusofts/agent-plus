@@ -1,6 +1,6 @@
 package com.iusofts.ai.service;
 
-import com.iusofts.ai.Interfaces.IAiCallLogService;
+import com.iusofts.ai.interfaces.IAiCallLogService;
 import com.iusofts.ai.entity.AiCallLog;
 import com.iusofts.ai.mapper.AiCallLogMapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;

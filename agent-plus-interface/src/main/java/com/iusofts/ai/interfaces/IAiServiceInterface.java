@@ -1,4 +1,4 @@
-package com.iusofts.ai.Interfaces;
+package com.iusofts.ai.interfaces;
 
 import com.iusofts.ai.vo.service.AiMessageVo;
 import com.iusofts.ai.vo.service.AiServiceCallReqVo;

@@ -3,7 +3,7 @@ package com.iusofts.aiflow.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.iusofts.aiflow.Interfaces.IAiFlowRuntimeNodeService;
+import com.iusofts.aiflow.interfaces.IAiFlowRuntimeNodeService;
 import com.iusofts.aiflow.entity.AiFlowRuntimeNode;
 import com.iusofts.aiflow.mapper.AiFlowRuntimeNodeMapper;
 import com.iusofts.aiflow.vo.*;
