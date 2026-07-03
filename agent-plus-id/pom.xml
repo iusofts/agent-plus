@@ -9,12 +9,12 @@
         <version>1.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>id-service</artifactId>
+    <artifactId>agent-plus-id</artifactId>
 
     <dependencies>
         <dependency>
             <groupId>com.iusofts</groupId>
-            <artifactId>common-basic</artifactId>
+            <artifactId>agent-plus-common</artifactId>
             <version>1.0-SNAPSHOT</version>
             <scope>compile</scope>
         </dependency>

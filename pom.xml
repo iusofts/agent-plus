@@ -14,11 +14,14 @@
     <version>1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
     <modules>
-        <module>common-basic</module>
-        <module>services</module>
-        <module>web</module>
-        <module>interface</module>
-        <module>id-service</module>
+        <module>agent-plus-common</module>
+        <module>agent-plus-service</module>
+        <module>agent-plus-web</module>
+        <module>agent-plus-interface</module>
+        <module>agent-plus-id</module>
+        <module>agent-plus-core</module>
+        <module>agent-plus-engine</module>
+        <module>agent-plus-plugin</module>
     </modules>
 
     <properties>

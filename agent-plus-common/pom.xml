@@ -9,7 +9,7 @@
         <version>1.0-SNAPSHOT</version>
     </parent>
     <version>1.0-SNAPSHOT</version>
-    <artifactId>common-basic</artifactId>
+    <artifactId>agent-plus-common</artifactId>
 
     <dependencies>
         <dependency>

@@ -9,7 +9,7 @@
         <version>1.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>web</artifactId>
+    <artifactId>agent-plus-web</artifactId>
     <packaging>war</packaging>
 
     <properties>
@@ -20,12 +20,12 @@
     <dependencies>
         <dependency>
             <groupId>com.iusofts</groupId>
-            <artifactId>services</artifactId>
+            <artifactId>agent-plus-service</artifactId>
             <version>1.0-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>com.iusofts</groupId>
-            <artifactId>common-basic</artifactId>
+            <artifactId>agent-plus-common</artifactId>
             <version>1.0-SNAPSHOT</version>
         </dependency>
         <dependency>
