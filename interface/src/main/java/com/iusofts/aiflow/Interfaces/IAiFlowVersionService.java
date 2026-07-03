@@ -1,0 +1,35 @@
+package com.iusofts.aiflow.Interfaces;
+
+import com.iusofts.aiflow.vo.*;
+import com.iusofts.basic.page.PageResult;
+import com.iusofts.common.vo.IdReqVo;
+
+import java.util.List;
+
+/**
+ * <p>
+ * AI流程版本 服务类
+ * </p>
+ *
+ * @author Ivan
+ * @since 2026-06-12
+ */
+public interface IAiFlowVersionService {
+
+    void saveWorkflow(AiFlowVersionSaveReqVo reqVo);
+
+    void updateConfig(AiFlowVersionConfigUpdateReqVo reqVo);
+
+    PageResult<AiFlowVersionVo> queryPage(AiFlowVersionQueryPageReqVo reqVo);
+
+    List<AiFlowVersionVo> queryByFlowId(Long flowId);
+
+    void remove(IdReqVo reqVo);
+
+    AiFlowVersionDetailVo getById(IdReqVo reqVo);
+
+    void publish(AiFlowVersionPublishReqVo reqVo);
+
+    AiFlowVersionDetailVo getWorkflowEditDetailByFlowId(Long flowId);
+
+}

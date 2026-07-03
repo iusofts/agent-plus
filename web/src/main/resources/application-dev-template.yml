@@ -1,0 +1,5 @@
+##dev config###
+spring:
+  config:
+    activate:
+      on-profile: "dev"

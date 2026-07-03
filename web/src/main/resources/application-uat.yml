@@ -1,0 +1,5 @@
+###uat config###
+spring:
+  config:
+    activate:
+      on-profile: "uat"

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.iusofts.ai.mapper.AiConversationMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="com.iusofts.ai.entity.AiConversation">
+        <id column="id" property="id" />
+        <result column="title" property="title" />
+        <result column="user_id" property="userId" />
+        <result column="agent_id" property="agentId" />
+        <result column="model" property="model" />
+        <result column="current_rounds" property="currentRounds" />
+        <result column="create_by" property="createBy" />
+        <result column="create_time" property="createTime" />
+        <result column="update_by" property="updateBy" />
+        <result column="update_time" property="updateTime" />
+        <result column="delete_flag" property="deleteFlag" />
+        <result column="org_id" property="orgId" />
+    </resultMap>
+
+    <!-- 通用查询结果列 -->
+    <sql id="Base_Column_List">
+        id, title, user_id, agent_id, model, current_rounds, create_by, create_time, update_by, update_time, delete_flag, org_id
+    </sql>
+
+</mapper>

@@ -1,0 +1,55 @@
+package com.iusofts.aiflow.vo;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.Data;
+
+import java.time.LocalDateTime;
+
+/**
+ * <p>
+ * 流程运行实例 详情对象
+ * </p>
+ *
+ * @author Ivan
+ * @since 2026-06-12
+ */
+@Data
+public class AiFlowRuntimeDetailVo {
+
+    @Schema(description = "执行实例ID")
+    private Long id;
+
+    @Schema(description = "流程ID")
+    private Long flowId;
+
+    @Schema(description = "执行使用的语义化版本v1.0.0")
+    private String versionNo;
+
+    @Schema(description = "全局追踪ID")
+    private String traceId;
+
+    @Schema(description = "运行状态 0等待 1运行中 2成功 3失败 4终止")
+    private Integer runStatus;
+
+    @Schema(description = "开始时间")
+    private LocalDateTime startTime;
+
+    @Schema(description = "结束时间")
+    private LocalDateTime endTime;
+
+    @Schema(description = "本次执行入参JSON")
+    private String inputParams;
+
+    @Schema(description = "全局输出结果")
+    private String outputResult;
+
+    @Schema(description = "错误信息")
+    private String errorMsg;
+
+    @Schema(description = "耗时毫秒")
+    private Long costMs;
+
+    @Schema(description = "创建时间")
+    private LocalDateTime createTime;
+
+}

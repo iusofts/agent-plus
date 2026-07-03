@@ -1,0 +1,5 @@
+###prd config###
+spring:
+  config:
+    activate:
+      on-profile: "prd"

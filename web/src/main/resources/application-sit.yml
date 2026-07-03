@@ -1,0 +1,5 @@
+###sit config###
+spring:
+  config:
+    activate:
+      on-profile: "sit"
