@@ -81,6 +81,9 @@
 
         <!-- Maven 插件 -->
         <maven-war-plugin.version>3.3.2</maven-war-plugin.version>
+
+        <!-- AI / LangChain4j -->
+        <langchain4j.version>1.0.1</langchain4j.version>
     </properties>
 
     <dependencyManagement>
@@ -320,6 +323,15 @@
                 <groupId>com.github.oshi</groupId>
                 <artifactId>oshi-core</artifactId>
                 <version>${oshi-core.version}</version>
+            </dependency>
+
+            <!-- ================= LangChain4j ================= -->
+            <dependency>
+                <groupId>dev.langchain4j</groupId>
+                <artifactId>langchain4j-bom</artifactId>
+                <version>${langchain4j.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>

@@ -10,4 +10,27 @@
     </parent>
 
     <artifactId>agent-plus-engine</artifactId>
+
+    <dependencies>
+        <!-- 复用 core 中定义的 workflow VO -->
+        <dependency>
+            <groupId>com.iusofts</groupId>
+            <artifactId>agent-plus-core</artifactId>
+        </dependency>
+
+        <!-- LangChain4j 核心 -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-core</artifactId>
+        </dependency>
+        <!-- OpenAI 兼容渠道(可对接 DashScope / vLLM / 自建 OpenAI 网关) -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-open-ai</artifactId>
+        </dependency>
+    </dependencies>
 </project>
