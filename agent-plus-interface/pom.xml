@@ -16,5 +16,9 @@
             <groupId>com.iusofts</groupId>
             <artifactId>agent-plus-common</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.iusofts</groupId>
+            <artifactId>agent-plus-core</artifactId>
+        </dependency>
     </dependencies>
 </project>
