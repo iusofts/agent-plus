@@ -83,7 +83,7 @@
         <maven-war-plugin.version>3.3.2</maven-war-plugin.version>
 
         <!-- AI / LangChain4j -->
-        <langchain4j.version>1.0.1</langchain4j.version>
+        <langchain4j.version>1.17.1</langchain4j.version>
     </properties>
 
     <dependencyManagement>
