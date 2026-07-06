@@ -25,7 +25,7 @@
 | 知识库检索      | `Knowledge`  | `KnowledgeNodeData`      | 委托 `KnowledgeRetriever`                  |
 | 条件分支       | `Condition`  | `ConditionNodeData`      | 命中分支通过 `Edge.sourceHandle` 剪枝            |
 | 变量聚合       | `Aggregator` | `AggregatorNodeData`     | 输出分组: list / map / first                 |
-| 批处理        | `Batch`      | `BatchNodeData`          | 读取集合输入,产出 items/size,便于下游 fan-out        |
+| 批处理        | `Batch`      | `BatchNodeData`          | 通过 `parentNode` 归属子节点,子图并行迭代,聚合 `results/total/success/failed` |
 
 ---
 
@@ -135,6 +135,7 @@ input.paramMapKey.name    // 引用该节点哪个 output 名
 - 命中的 `condition.id` 通过 `NodeOutput.chosenBranch` 上报
 - 调度器把 `Edge.sourceHandle` 匹配 chosen 的边视为 alive,其余剪掉
 - 全部落空时 `chosenBranch = "else"`,约定 `sourceHandle == "else"` 的边为兜底分支
+- 前端 `sourceHandle` 若采用 `condition:<condition.id>` 前缀写法,调度器自动脱前缀匹配,与裸 id 写法兼容
 
 **支持的 operator**(不区分大小写,推荐使用符号 / 蛇形写法):
 
@@ -164,6 +165,57 @@ input.paramMapKey.name    // 引用该节点哪个 output 名
 | boolean | `==`, `!=`                                                                                                      |
 | array   | `contains`, `not_contains`, `len_gt`, `len_gte`, `len_lt`, `len_lte`, `is_empty`, `not_empty`                   |
 | object  | `is_empty`, `not_empty`                                                                                         |
+
+---
+
+## 6.5 批处理子图
+
+Batch 节点作为可视化"容器",通过两条通道识别子图:
+
+- **子节点归属**: `node.parentNode == batchId` 的所有节点组成迭代子图
+- **边分类**: 通过 batch 节点上的 4 个约定 handle 划分边角色
+
+| handle | 位置 | 语义 |
+|--------|------|------|
+| `batch-external-target` | 入边 `targetHandle` | 主图上游 → batch(数据入口) |
+| `batch-internal-source` | 出边 `sourceHandle` | batch → 子图起点(迭代进入) |
+| `batch-internal-target` | 入边 `targetHandle` | 子图终点 → batch(迭代回流) |
+| `batch-external-source` | 出边 `sourceHandle` | batch → 主图下游(迭代完成) |
+
+数据结构上"起终点都连回 batch 自己"呈环,`DagBuilder` 在环检测阶段自动剔除 `batch-internal-target` 边,故不会误报"存在环"。
+
+**执行流程**:
+
+1. 从 `inputParams` 首项解析出集合 `items`
+2. 对每个 `item[i]` 用 `ExecutionContext.newScope("<batchId>#<i>")` 生成隔离作用域,并把 `{item, index, items}` + inputParams 结果写入该作用域下的 `<batchId>` 输出
+3. 用 `Executors.newFixedThreadPool(maxParallel)` 并行触发子图迭代;子图内部复用同一个 `TopologicalScheduler`
+4. 迭代结束后从子作用域中收集每个 sub-node 的 outputs 聚合为 `Map<nodeId, outputs>`
+5. 单个 iteration 抛异常不中断其它 iteration,失败位置在 `results` 中为 `null`,`failed` 计数递增
+
+**子作用域可读变量**(子节点用 `{{<batchId>.item}}` / `{{<batchId>.index}}` 引用):
+
+| key | 说明 |
+|-----|------|
+| `item` | 当前迭代的元素 |
+| `index` | 当前迭代下标 |
+| `items` | 完整集合(便于聚合类子节点使用) |
+| ... | `inputParams` 解析后的所有键(直接透传) |
+
+**主作用域输出**(下游节点通过 `{{<batchId>.results}}` 等引用):
+
+| key | 类型 | 说明 |
+|-----|------|------|
+| `results` | `List<Map<String, Map<String, Object>>>` | 每个 item 对应一个 `{subNodeId: outputs}`,失败位为 null |
+| `total` | `Integer` | items 数量 |
+| `success` | `Integer` | 成功完成的迭代数 |
+| `failed` | `Integer` | `total - success` |
+
+**关键行为**:
+
+- `maxParallel` 未配置或 ≤ 0 → 默认并发数 4;传 1 则严格串行
+- 子作用域读取时,batch 之外的上游节点仍然可见(读取回退到父作用域),但**不能**跨迭代引用彼此的数据
+- 暂不支持嵌套 batch,构建期即报错
+- batch 上若未挂任何子节点,则退化为旧行为,仅输出 `items` / `size`
 
 ---
 

@@ -18,7 +18,7 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * 基于 Kahn 算法的拓扑调度器,同时处理条件分支剪枝。
+ * 基于 Kahn 算法的拓扑调度器,同时处理条件分支剪枝与批处理子图跳过。
  *
  * <p>核心思路:每个节点跟踪一个"待决 incoming 边"计数与"是否至少有一条 incoming 被激活"标志。
  * 当所有 incoming 边都出结果时:</p>
@@ -27,14 +27,16 @@ import java.util.Objects;
  *   <li>全部被剪 -> 标记 SKIPPED,并继续向下游传播剪枝信号。</li>
  * </ul>
  *
- * <p>条件节点执行后,{@link NodeOutput#getChosenBranch()} 决定哪个 sourceHandle 被激活,
- * 其他 outgoing 边视为 dead。</p>
+ * <p>批处理子节点(node.parentNode == batchId)不在主循环中调度,由
+ * {@code BatchNodeExecutor} 在 batch 节点执行时接管;批处理节点的 loop-back 入边
+ * 与 body-entry 出边被剔除,不参与主图 pending/release 计算。</p>
  *
  * @author Ivan
  */
 public class TopologicalScheduler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TopologicalScheduler.class);
+    private static final String CONDITION_HANDLE_PREFIX = "condition:";
 
     private final DagGraph graph;
     private final NodeExecutorRegistry registry;
@@ -45,15 +47,21 @@ public class TopologicalScheduler {
     }
 
     public void run(ExecutionContext ctx) {
+        if (ctx.getGraph() == null) {
+            ctx.attachGraph(graph);
+        }
+
         Map<String, Integer> pending = new HashMap<>();
         Map<String, Boolean> hasLive = new HashMap<>();
         for (String id : graph.getNodes().keySet()) {
-            pending.put(id, graph.incomingOf(id).size());
+            if (graph.isBatchInternal(id)) {
+                continue;
+            }
+            pending.put(id, countPendingIncoming(id));
             hasLive.put(id, false);
         }
 
         Deque<String> ready = new ArrayDeque<>(graph.getStartNodeIds());
-        // Start 节点视为默认激活
         for (String id : graph.getStartNodeIds()) {
             hasLive.put(id, true);
         }
@@ -77,8 +85,30 @@ public class TopologicalScheduler {
             NodeOutput output = executeNode(node, ctx);
             ctx.putOutput(output);
             ctx.updateStatus(cur, NodeExecutionStatus.SUCCESS);
-            releaseDownstream(cur, output, ctx, pending, hasLive, ready);
+            releaseDownstream(cur, output, pending, hasLive, ready);
         }
+    }
+
+    private int countPendingIncoming(String nodeId) {
+        int count = 0;
+        for (Edge edge : graph.incomingOf(nodeId)) {
+            if (isMainScopeEdge(edge)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private boolean isMainScopeEdge(Edge edge) {
+        // 剔除 batch 子图相关的边:loop-back(回流)与 body-entry(进入子图)。
+        if (DagBuilder.HANDLE_BATCH_INTERNAL_TARGET.equals(edge.getTargetHandle())) {
+            return false;
+        }
+        if (DagBuilder.HANDLE_BATCH_INTERNAL_SOURCE.equals(edge.getSourceHandle())) {
+            return false;
+        }
+        // batch-internal 节点之间的边也不属于主图。
+        return !graph.isBatchInternal(edge.getSource()) && !graph.isBatchInternal(edge.getTarget());
     }
 
     private NodeOutput executeNode(Node node, ExecutionContext ctx) {
@@ -97,12 +127,14 @@ public class TopologicalScheduler {
 
     private void releaseDownstream(String cur,
                                    NodeOutput output,
-                                   ExecutionContext ctx,
                                    Map<String, Integer> pending,
                                    Map<String, Boolean> hasLive,
                                    Deque<String> ready) {
         String chosen = output.getChosenBranch();
         for (Edge edge : graph.outgoingOf(cur)) {
+            if (!isMainScopeEdge(edge)) {
+                continue;
+            }
             boolean alive = chosen == null || matchesBranch(edge, chosen);
             String target = edge.getTarget();
             if (alive) {
@@ -121,12 +153,19 @@ public class TopologicalScheduler {
         ctx.putOutput(NodeOutput.empty(cur));
         LOGGER.debug("skip node id={}", cur);
         for (Edge edge : graph.outgoingOf(cur)) {
+            if (!isMainScopeEdge(edge)) {
+                continue;
+            }
             decrement(edge.getTarget(), pending, ready);
         }
     }
 
     private void decrement(String target, Map<String, Integer> pending, Deque<String> ready) {
-        int left = pending.getOrDefault(target, 0) - 1;
+        Integer cur = pending.get(target);
+        if (cur == null) {
+            return;
+        }
+        int left = cur - 1;
         pending.put(target, left);
         if (left <= 0) {
             ready.offerLast(target);
@@ -134,10 +173,16 @@ public class TopologicalScheduler {
     }
 
     private boolean matchesBranch(Edge edge, String chosen) {
-        // 优先看 sourceHandle,其次看 edge.id
-        return Objects.equals(edge.getSourceHandle(), chosen)
-                || Objects.equals(edge.getId(), chosen)
-                || (edge.getSourceHandle() == null && "else".equalsIgnoreCase(chosen));
+        String handle = edge.getSourceHandle();
+        if (Objects.equals(handle, chosen) || Objects.equals(edge.getId(), chosen)) {
+            return true;
+        }
+        // 兼容前端形如 "condition:<id>" 的 handle 写法
+        if (handle != null && handle.startsWith(CONDITION_HANDLE_PREFIX)
+                && Objects.equals(handle.substring(CONDITION_HANDLE_PREFIX.length()), chosen)) {
+            return true;
+        }
+        return handle == null && "else".equalsIgnoreCase(chosen);
     }
 
     // 参数保留供未来扩展并行调度使用

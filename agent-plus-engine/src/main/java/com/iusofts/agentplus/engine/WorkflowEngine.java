@@ -137,7 +137,7 @@ public class WorkflowEngine {
                     .register(new EndNodeExecutor())
                     .register(new ConditionNodeExecutor())
                     .register(new AggregatorNodeExecutor())
-                    .register(new BatchNodeExecutor())
+                    .register(new BatchNodeExecutor(registry))
                     .register(new KnowledgeNodeExecutor(retriever))
                     .register(new LLMNodeExecutor(chatModelProvider));
 
