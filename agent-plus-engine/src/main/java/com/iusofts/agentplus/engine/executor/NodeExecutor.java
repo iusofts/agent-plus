@@ -1,5 +1,6 @@
 package com.iusofts.agentplus.engine.executor;
 
+import com.iusofts.agentplus.aiflow.enums.FlowNodeType;
 import com.iusofts.agentplus.aiflow.vo.workflow.Node;
 import com.iusofts.agentplus.engine.context.ExecutionContext;
 import com.iusofts.agentplus.engine.context.NodeOutput;
@@ -12,7 +13,7 @@ import com.iusofts.agentplus.engine.context.NodeOutput;
 public interface NodeExecutor {
 
     /** 支持的节点类型,如 {@code Start}、{@code LLM}、{@code Condition} 等。 */
-    String type();
+    FlowNodeType type();
 
     /**
      * 执行节点。实现应保证幂等或至少可重入,以配合重试策略。

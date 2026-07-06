@@ -1,5 +1,6 @@
 package com.iusofts.agentplus.engine.executor.impl;
 
+import com.iusofts.agentplus.aiflow.enums.FlowNodeType;
 import com.iusofts.agentplus.aiflow.vo.workflow.Node;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.BatchNodeData;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.common.OutputParam;
@@ -37,8 +38,8 @@ public class BatchNodeExecutor implements NodeExecutor {
     private static final Logger LOGGER = LoggerFactory.getLogger(BatchNodeExecutor.class);
 
     @Override
-    public String type() {
-        return "Batch";
+    public FlowNodeType type() {
+        return FlowNodeType.BATCH;
     }
 
     @Override

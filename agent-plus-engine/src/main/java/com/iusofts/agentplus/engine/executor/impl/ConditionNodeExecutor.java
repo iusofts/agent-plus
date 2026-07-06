@@ -1,5 +1,6 @@
 package com.iusofts.agentplus.engine.executor.impl;
 
+import com.iusofts.agentplus.aiflow.enums.FlowNodeType;
 import com.iusofts.agentplus.aiflow.vo.workflow.Node;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.condition.Condition;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.condition.ConditionNodeData;
@@ -34,8 +35,8 @@ public class ConditionNodeExecutor implements NodeExecutor {
     public static final String ELSE_BRANCH = "else";
 
     @Override
-    public String type() {
-        return "Condition";
+    public FlowNodeType type() {
+        return FlowNodeType.CONDITION;
     }
 
     @Override

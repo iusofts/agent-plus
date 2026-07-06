@@ -1,5 +1,6 @@
 package com.iusofts.agentplus.engine.executor.impl;
 
+import com.iusofts.agentplus.aiflow.enums.FlowNodeType;
 import com.iusofts.agentplus.aiflow.vo.workflow.Node;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.KnowledgeNodeData;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.common.OutputParam;
@@ -30,8 +31,8 @@ public class KnowledgeNodeExecutor implements NodeExecutor {
     }
 
     @Override
-    public String type() {
-        return "Knowledge";
+    public FlowNodeType type() {
+        return FlowNodeType.KNOWLEDGE;
     }
 
     @Override

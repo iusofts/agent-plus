@@ -15,7 +15,7 @@ public class NodeExecutorRegistry {
     private final Map<String, NodeExecutor> executors = new HashMap<>();
 
     public NodeExecutorRegistry register(NodeExecutor executor) {
-        executors.put(executor.type().toLowerCase(), executor);
+        executors.put(executor.type().getCode().toLowerCase(), executor);
         return this;
     }
 

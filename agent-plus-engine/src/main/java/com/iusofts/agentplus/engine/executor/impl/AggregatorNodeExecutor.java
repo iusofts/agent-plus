@@ -1,5 +1,6 @@
 package com.iusofts.agentplus.engine.executor.impl;
 
+import com.iusofts.agentplus.aiflow.enums.FlowNodeType;
 import com.iusofts.agentplus.aiflow.vo.workflow.Node;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.AggregatorNodeData;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.aggregator.OutputGroup;
@@ -29,8 +30,8 @@ import java.util.Map;
 public class AggregatorNodeExecutor implements NodeExecutor {
 
     @Override
-    public String type() {
-        return "Aggregator";
+    public FlowNodeType type() {
+        return FlowNodeType.AGGREGATOR;
     }
 
     @Override

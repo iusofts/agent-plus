@@ -1,5 +1,6 @@
 package com.iusofts.agentplus.engine.executor.impl;
 
+import com.iusofts.agentplus.aiflow.enums.FlowNodeType;
 import com.iusofts.agentplus.aiflow.vo.workflow.Node;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.StartNodeData;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.common.Param;
@@ -22,8 +23,8 @@ import java.util.Map;
 public class StartNodeExecutor implements NodeExecutor {
 
     @Override
-    public String type() {
-        return "Start";
+    public FlowNodeType type() {
+        return FlowNodeType.START;
     }
 
     @Override

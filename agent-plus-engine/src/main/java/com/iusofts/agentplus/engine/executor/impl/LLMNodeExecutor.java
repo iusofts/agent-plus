@@ -1,6 +1,7 @@
 package com.iusofts.agentplus.engine.executor.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.iusofts.agentplus.aiflow.enums.FlowNodeType;
 import com.iusofts.agentplus.aiflow.vo.workflow.Node;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.common.OutputParam;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.llm.LLMNodeData;
@@ -50,8 +51,8 @@ public class LLMNodeExecutor implements NodeExecutor {
     }
 
     @Override
-    public String type() {
-        return "LLM";
+    public FlowNodeType type() {
+        return FlowNodeType.LLM;
     }
 
     @Override
