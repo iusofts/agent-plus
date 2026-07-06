@@ -136,10 +136,34 @@ input.paramMapKey.name    // 引用该节点哪个 output 名
 - 调度器把 `Edge.sourceHandle` 匹配 chosen 的边视为 alive,其余剪掉
 - 全部落空时 `chosenBranch = "else"`,约定 `sourceHandle == "else"` 的边为兜底分支
 
-**支持的 operator**(不区分大小写):
+**支持的 operator**(不区分大小写,推荐使用符号 / 蛇形写法):
 
-`eq`/`==`, `ne`/`!=`, `gt`/`>`, `gte`/`>=`, `lt`/`<`, `lte`/`<=`,
-`contains`, `notContains`, `empty`, `notEmpty`, `in`
+| 运算符             | 含义     | 备注                                                       |
+|-----------------|--------|----------------------------------------------------------|
+| `==` / `eq`     | 等于     | 数字按数值比较,布尔按 `Boolean.parseBoolean`,其它按字符串                 |
+| `!=` / `ne`     | 不等于    | 同 `==` 取反                                                |
+| `>` / `gt`      | 大于     | 双方按数值解析;解析失败退化为字符串字典序                                    |
+| `>=` / `gte`    | 大于等于   | 同上                                                       |
+| `<` / `lt`      | 小于     | 同上                                                       |
+| `<=` / `lte`    | 小于等于   | 同上                                                       |
+| `contains`      | 包含     | 字符串→子串;`Collection`/数组→元素相等;`Map`→包含 key                 |
+| `not_contains`  | 不包含    | 同 `contains` 取反                                          |
+| `len_gt`        | 长度大于   | 长度定义:`CharSequence.length`、`Collection.size`、`Map.size`、数组 length |
+| `len_gte`       | 长度大于等于 | 同上                                                       |
+| `len_lt`        | 长度小于   | 同上                                                       |
+| `len_lte`       | 长度小于等于 | 同上                                                       |
+| `is_empty`      | 为空     | `null` / 空字符串 / 空集合 / 空 Map / 空数组 均视为空                    |
+| `not_empty`     | 不为空    | 同 `is_empty` 取反                                          |
+
+**变量类型 → 可用运算符**(前端建议限制):
+
+| 类型      | 支持的运算符                                                                                                          |
+|---------|-----------------------------------------------------------------------------------------------------------------|
+| string  | `==`, `!=`, `contains`, `not_contains`, `len_gt`, `len_gte`, `len_lt`, `len_lte`, `is_empty`, `not_empty`       |
+| number  | `==`, `!=`, `>`, `<`, `>=`, `<=`                                                                                |
+| boolean | `==`, `!=`                                                                                                      |
+| array   | `contains`, `not_contains`, `len_gt`, `len_gte`, `len_lt`, `len_lte`, `is_empty`, `not_empty`                   |
+| object  | `is_empty`, `not_empty`                                                                                         |
 
 ---
 

@@ -12,6 +12,8 @@ import com.iusofts.agentplus.engine.util.ParamResolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.Array;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -71,37 +73,129 @@ public class ConditionNodeExecutor implements NodeExecutor {
         return result;
     }
 
-    @SuppressWarnings({"rawtypes", "unchecked"})
     private boolean evaluate(ConditionRule r, ExecutionContext ctx) {
         Object left = ParamResolver.resolve(r.getVariable(), ctx);
         String right = r.getValue();
-        String op = r.getOperator() == null ? "eq" : r.getOperator().toLowerCase();
+        String op = r.getOperator() == null ? "==" : r.getOperator().toLowerCase();
         return switch (op) {
-            case "eq", "==", "equals" -> Objects.equals(String.valueOf(left), right);
-            case "ne", "!=" -> !Objects.equals(String.valueOf(left), right);
-            case "gt", ">" -> compare(left, right) > 0;
-            case "gte", ">=" -> compare(left, right) >= 0;
-            case "lt", "<" -> compare(left, right) < 0;
-            case "lte", "<=" -> compare(left, right) <= 0;
-            case "contains" -> left != null && String.valueOf(left).contains(right);
-            case "notcontains", "!contains" -> left == null || !String.valueOf(left).contains(right);
-            case "empty", "isempty" -> left == null || String.valueOf(left).isEmpty();
-            case "notempty", "isnotempty" -> left != null && !String.valueOf(left).isEmpty();
-            case "in" -> right != null && (right.contains("," + left + ",")
-                    || right.startsWith(left + ",")
-                    || right.endsWith("," + left)
-                    || right.equals(String.valueOf(left)));
+            case "==", "eq", "equals" -> equalsValue(left, right);
+            case "!=", "ne" -> !equalsValue(left, right);
+            case ">", "gt" -> compareNumber(left, right) > 0;
+            case ">=", "gte" -> compareNumber(left, right) >= 0;
+            case "<", "lt" -> compareNumber(left, right) < 0;
+            case "<=", "lte" -> compareNumber(left, right) <= 0;
+            case "contains" -> contains(left, right);
+            case "not_contains", "notcontains", "!contains" -> !contains(left, right);
+            case "len_gt" -> length(left) > parseInt(right);
+            case "len_gte" -> length(left) >= parseInt(right);
+            case "len_lt" -> length(left) < parseInt(right);
+            case "len_lte" -> length(left) <= parseInt(right);
+            case "is_empty", "empty", "isempty" -> isEmpty(left);
+            case "not_empty", "notempty", "isnotempty" -> !isEmpty(left);
             default -> false;
         };
     }
 
-    private int compare(Object left, String right) {
+    private boolean equalsValue(Object left, String right) {
+        if (left == null) {
+            return right == null || right.isEmpty();
+        }
+        if (left instanceof Boolean b) {
+            return b.equals(Boolean.parseBoolean(right));
+        }
+        if (left instanceof Number n) {
+            try {
+                return Double.compare(n.doubleValue(), Double.parseDouble(right)) == 0;
+            } catch (NumberFormatException ignore) {
+                return false;
+            }
+        }
+        return Objects.equals(String.valueOf(left), right);
+    }
+
+    private int compareNumber(Object left, String right) {
         try {
-            double l = Double.parseDouble(String.valueOf(left));
+            double l = left instanceof Number n ? n.doubleValue() : Double.parseDouble(String.valueOf(left));
             double r = Double.parseDouble(right);
             return Double.compare(l, r);
         } catch (NumberFormatException e) {
             return String.valueOf(left).compareTo(right);
+        }
+    }
+
+    private boolean contains(Object left, String right) {
+        if (left == null || right == null) {
+            return false;
+        }
+        if (left instanceof Collection<?> col) {
+            for (Object o : col) {
+                if (Objects.equals(String.valueOf(o), right)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        if (left instanceof Map<?, ?> map) {
+            return map.containsKey(right);
+        }
+        if (left.getClass().isArray()) {
+            int n = Array.getLength(left);
+            for (int i = 0; i < n; i++) {
+                if (Objects.equals(String.valueOf(Array.get(left, i)), right)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        return String.valueOf(left).contains(right);
+    }
+
+    private int length(Object left) {
+        if (left == null) {
+            return 0;
+        }
+        if (left instanceof CharSequence cs) {
+            return cs.length();
+        }
+        if (left instanceof Collection<?> col) {
+            return col.size();
+        }
+        if (left instanceof Map<?, ?> map) {
+            return map.size();
+        }
+        if (left.getClass().isArray()) {
+            return Array.getLength(left);
+        }
+        return String.valueOf(left).length();
+    }
+
+    private boolean isEmpty(Object left) {
+        if (left == null) {
+            return true;
+        }
+        if (left instanceof CharSequence cs) {
+            return cs.isEmpty();
+        }
+        if (left instanceof Collection<?> col) {
+            return col.isEmpty();
+        }
+        if (left instanceof Map<?, ?> map) {
+            return map.isEmpty();
+        }
+        if (left.getClass().isArray()) {
+            return Array.getLength(left) == 0;
+        }
+        return String.valueOf(left).isEmpty();
+    }
+
+    private int parseInt(String s) {
+        if (s == null) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(s.trim());
+        } catch (NumberFormatException e) {
+            return 0;
         }
     }
 }
