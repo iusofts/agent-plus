@@ -3,6 +3,8 @@ package com.iusofts.agentplus.aiflow.vo.workflow.config;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
+import java.io.Serializable;
+
 /**
  * 环境变量项
  *
@@ -11,7 +13,7 @@ import lombok.Data;
  */
 @Data
 @Schema(description = "环境变量配置项")
-public class EnvVar {
+public class EnvVar implements Serializable {
 
     @Schema(description = "变量名称", example = "apiKey")
     private String name;

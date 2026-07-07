@@ -1,0 +1,198 @@
+{
+  "nodes": [
+    {
+      "id": "start",
+      "type": "Start",
+      "initialized": false,
+      "position": {
+        "x": 100.0,
+        "y": 100.0
+      },
+      "label": "开始",
+      "data": {
+        "label": "开始",
+        "description": "流程入口",
+        "inputParams": [
+          {
+            "name": "query",
+            "type": "string",
+            "description": "",
+            "defaultValue": "",
+            "required": false,
+            "isDefault": null,
+            "children": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "end",
+      "type": "End",
+      "initialized": false,
+      "position": {
+        "x": 1184.271186440678,
+        "y": 113.0
+      },
+      "label": "结束",
+      "data": {
+        "label": "结束",
+        "description": "工作流程完成。",
+        "outputParams": [
+          {
+            "name": "res",
+            "type": "string",
+            "description": null,
+            "paramMapKey": {
+              "nodeId": "node-LLM-1783413076451",
+              "name": "text",
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "node-Knowledge-1783413063988",
+      "type": "Knowledge",
+      "initialized": false,
+      "position": {
+        "x": 442.1797121364772,
+        "y": 71.0
+      },
+      "label": null,
+      "data": {
+        "label": "知识库",
+        "description": "",
+        "knowledgeId": 1,
+        "topK": 3,
+        "inputParams": [
+          {
+            "name": "query",
+            "type": "string",
+            "paramMapKey": {
+              "nodeId": "start",
+              "name": "query",
+              "type": "string"
+            }
+          }
+        ],
+        "outputParams": []
+      }
+    },
+    {
+      "id": "node-LLM-1783413076451",
+      "type": "LLM",
+      "initialized": false,
+      "position": {
+        "x": 812.1797121364773,
+        "y": 24.0
+      },
+      "label": null,
+      "data": {
+        "label": "大模型",
+        "description": "",
+        "model": 1,
+        "temperature": 0.7,
+        "systemPrompt": "你是一个智能客服",
+        "userPrompt": "用户说了：{{query}}\n------------------------------\n参考资料是：{{FAQ}}",
+        "inputParams": [
+          {
+            "name": "query",
+            "type": "string",
+            "paramMapKey": {
+              "nodeId": "start",
+              "name": "query",
+              "type": "string"
+            }
+          },
+          {
+            "name": "FAQ",
+            "type": "array",
+            "paramMapKey": {
+              "nodeId": "node-Knowledge-1783413063988",
+              "name": "documents",
+              "type": "array"
+            }
+          }
+        ],
+        "outputParams": [],
+        "timeout": 60,
+        "retryCount": 0,
+        "errorHandling": "stop",
+        "customErrorContent": ""
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-start-node-Knowledge-1783413063988-1783413069897",
+      "source": "start",
+      "target": "node-Knowledge-1783413063988",
+      "sourceHandle": null,
+      "targetHandle": null,
+      "data": {},
+      "animated": false,
+      "type": "default",
+      "label": "",
+      "style": {
+        "stroke": "var(--el-border-color-darker)",
+        "strokeWidth": 1
+      },
+      "labelBgStyle": null,
+      "sourceX": 343.00001525878906,
+      "sourceY": 159.8000030517578,
+      "targetX": 439.1797121364772,
+      "targetY": 185.60000610351562
+    },
+    {
+      "id": "e-node-Knowledge-1783413063988-node-LLM-1783413076451-1783413079940",
+      "source": "node-Knowledge-1783413063988",
+      "target": "node-LLM-1783413076451",
+      "sourceHandle": null,
+      "targetHandle": null,
+      "data": {},
+      "animated": false,
+      "type": "default",
+      "label": "",
+      "style": {
+        "stroke": "var(--el-border-color-darker)",
+        "strokeWidth": 1
+      },
+      "labelBgStyle": null,
+      "sourceX": 685.1797121364772,
+      "sourceY": 185.60000610351562,
+      "targetX": 809.1797121364773,
+      "targetY": 169.5500030517578
+    },
+    {
+      "id": "e-node-LLM-1783413076451-end-1783413082686",
+      "source": "node-LLM-1783413076451",
+      "target": "end",
+      "sourceHandle": null,
+      "targetHandle": null,
+      "data": {},
+      "animated": false,
+      "type": "default",
+      "label": "",
+      "style": {
+        "stroke": "var(--el-border-color-darker)",
+        "strokeWidth": 1
+      },
+      "labelBgStyle": null,
+      "sourceX": 1055.1797731716335,
+      "sourceY": 222.59999084472656,
+      "targetX": 1181.271186440678,
+      "targetY": 176.79998779296875
+    }
+  ],
+  "position": [
+    59.36415734420734,
+    211.85215768231757
+  ],
+  "zoom": 1.0,
+  "viewport": {
+    "x": 59.36415734420734,
+    "y": 211.85215768231757,
+    "zoom": 1.0
+  }
+}
