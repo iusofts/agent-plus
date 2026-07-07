@@ -17,12 +17,6 @@ import java.util.List;
 @Schema(description = "工作流配置")
 public class WorkflowConfig {
 
-    @Schema(description = "模型列表")
-    private List<Model> modelList;
-
-    @Schema(description = "知识库列表")
-    private List<Knowledge> knowledgeList;
-
     @Schema(description = "环境变量列表")
     private List<EnvVar> envVars;
 

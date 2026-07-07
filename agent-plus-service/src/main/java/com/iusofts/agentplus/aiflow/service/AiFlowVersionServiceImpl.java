@@ -201,7 +201,7 @@ public class AiFlowVersionServiceImpl extends ServiceImpl<AiFlowVersionMapper, A
         AiFlowVersion latestVersion = getOne(wrapper);
 
         if (latestVersion == null) {
-            // 没有版本，仅返回写死的模型/知识库配置
+            // 没有版本，返回空详情
             AiFlowVersionDetailVo detailVo = new AiFlowVersionDetailVo();
             detailVo.setFlowId(flowId);
             detailVo.setConfig(deserializeWorkflowConfig(null));
@@ -218,6 +218,27 @@ public class AiFlowVersionServiceImpl extends ServiceImpl<AiFlowVersionMapper, A
         }
 
         return detailVo;
+    }
+
+    @Override
+    public List<Model> queryModelList() {
+        // 模型列表暂时写死，未来改为查询独立的数据库表
+        return List.of(
+                buildModel(1L, "GPT-4o"),
+                buildModel(2L, "GPT-4 Turbo"),
+                buildModel(3L, "GPT-3.5 Turbo"),
+                buildModel(4L, "Claude 3.5 Sonnet")
+        );
+    }
+
+    @Override
+    public List<Knowledge> queryKnowledgeList() {
+        // 知识库列表暂时写死，未来改为查询独立的数据库表
+        return List.of(
+                buildKnowledge(1L, "知识库1"),
+                buildKnowledge(2L, "知识库2"),
+                buildKnowledge(3L, "知识库3")
+        );
     }
 
     private String serializeWorkflow(Workflow workflow) {
@@ -254,29 +275,14 @@ public class AiFlowVersionServiceImpl extends ServiceImpl<AiFlowVersionMapper, A
     }
 
     private WorkflowConfig deserializeWorkflowConfig(String configJson) {
-        WorkflowConfig config = new WorkflowConfig();
-        // 模型/知识库暂时写死，未来改为查询各自独立的数据库表
-        config.setModelList(buildDefaultModelList());
-        config.setKnowledgeList(buildDefaultKnowledgeList());
-
-        if (configJson != null && !configJson.isBlank()) {
-            try {
-                WorkflowConfig saved = objectMapper.readValue(configJson, WorkflowConfig.class);
-                config.setEnvVars(saved.getEnvVars());
-            } catch (JsonProcessingException e) {
-                throw new SystemBusinessException("流程配置数据解析失败");
-            }
+        if (configJson == null || configJson.isBlank()) {
+            return new WorkflowConfig();
         }
-        return config;
-    }
-
-    private List<Model> buildDefaultModelList() {
-        return List.of(
-                buildModel(1L, "GPT-4o"),
-                buildModel(2L, "GPT-4 Turbo"),
-                buildModel(3L, "GPT-3.5 Turbo"),
-                buildModel(4L, "Claude 3.5 Sonnet")
-        );
+        try {
+            return objectMapper.readValue(configJson, WorkflowConfig.class);
+        } catch (JsonProcessingException e) {
+            throw new SystemBusinessException("流程配置数据解析失败");
+        }
     }
 
     private Model buildModel(Long id, String modelName) {
@@ -284,14 +290,6 @@ public class AiFlowVersionServiceImpl extends ServiceImpl<AiFlowVersionMapper, A
         model.setId(id);
         model.setModelName(modelName);
         return model;
-    }
-
-    private List<Knowledge> buildDefaultKnowledgeList() {
-        return List.of(
-                buildKnowledge(1L, "知识库1"),
-                buildKnowledge(2L, "知识库2"),
-                buildKnowledge(3L, "知识库3")
-        );
     }
 
     private Knowledge buildKnowledge(Long id, String name) {
