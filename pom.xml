@@ -42,7 +42,7 @@
         <dynamic-datasource.version>4.5.0</dynamic-datasource.version>
         <redisson.version>3.24.3</redisson.version>
         <mysql-connector.version>8.0.33</mysql-connector.version>
-        <hibernate-validator.version>7.0.5.Final</hibernate-validator.version>
+        <hibernate-validator.version>8.0.1.Final</hibernate-validator.version>
         <tomcat-embed.version>10.1.39</tomcat-embed.version>
 
         <!-- Web / API 文档 / 工具 -->
@@ -160,7 +160,7 @@
 
             <!-- ================= 校验 / Web 容器 ================= -->
             <dependency>
-                <groupId>org.hibernate</groupId>
+                <groupId>org.hibernate.validator</groupId>
                 <artifactId>hibernate-validator</artifactId>
                 <version>${hibernate-validator.version}</version>
             </dependency>
@@ -351,12 +351,6 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.hibernate</groupId>
-                    <artifactId>hibernate-validator</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -409,7 +403,7 @@
             <artifactId>caffeine</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.hibernate</groupId>
+            <groupId>org.hibernate.validator</groupId>
             <artifactId>hibernate-validator</artifactId>
         </dependency>
         <dependency>
