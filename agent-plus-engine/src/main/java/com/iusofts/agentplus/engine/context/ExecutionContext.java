@@ -2,8 +2,8 @@ package com.iusofts.agentplus.engine.context;
 
 import com.iusofts.agentplus.aiflow.vo.workflow.config.EnvVar;
 import com.iusofts.agentplus.aiflow.vo.workflow.config.WorkflowConfig;
-import com.iusofts.agentplus.engine.dag.DagGraph;
 import lombok.Getter;
+import org.bsc.langgraph4j.CompiledGraph;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -33,7 +33,9 @@ public class ExecutionContext {
     private final Map<String, NodeExecutionStatus> nodeStatus = new ConcurrentHashMap<>();
     private final ExecutionContext parent;
     private final String scopeKey;
-    private DagGraph graph;
+
+    /** 主图运行时可用的批处理子图,由 {@code WorkflowGraphCompiler} 预编译写入,BatchNodeExecutor 直接调用。 */
+    private final Map<String, CompiledGraph<?>> batchSubGraphs = new ConcurrentHashMap<>();
 
     public ExecutionContext(String runId,
                             WorkflowConfig config,
@@ -53,9 +55,9 @@ public class ExecutionContext {
         this.config = parent.config;
         this.globalInputs = parent.globalInputs;
         this.envVars = parent.envVars;
-        this.graph = parent.graph;
         this.parent = parent;
         this.scopeKey = scopeKey;
+        this.batchSubGraphs.putAll(parent.batchSubGraphs);
     }
 
     private static Map<String, Object> buildEnvVars(WorkflowConfig config) {
@@ -68,10 +70,6 @@ public class ExecutionContext {
             }
         }
         return map;
-    }
-
-    public void attachGraph(DagGraph graph) {
-        this.graph = graph;
     }
 
     public ExecutionContext newScope(String scopeKey) {
@@ -106,5 +104,13 @@ public class ExecutionContext {
 
     public Map<String, NodeOutput> snapshotOutputs() {
         return Collections.unmodifiableMap(new LinkedHashMap<>(nodeOutputs));
+    }
+
+    public void registerBatchSubGraph(String batchId, CompiledGraph<?> subGraph) {
+        batchSubGraphs.put(batchId, subGraph);
+    }
+
+    public CompiledGraph<?> getBatchSubGraph(String batchId) {
+        return batchSubGraphs.get(batchId);
     }
 }
