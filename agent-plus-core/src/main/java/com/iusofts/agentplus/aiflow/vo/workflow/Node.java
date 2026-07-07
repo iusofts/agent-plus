@@ -8,6 +8,9 @@ import com.iusofts.agentplus.aiflow.vo.workflow.data.condition.ConditionNodeData
 import com.iusofts.agentplus.aiflow.vo.workflow.data.llm.LLMNodeData;
 import com.iusofts.agentplus.aiflow.vo.workflow.style.NodeStyle;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 /**
@@ -22,9 +25,11 @@ import lombok.Data;
 @Schema(description = "节点")
 public class Node {
 
+    @NotBlank(message = "节点ID不能为空")
     @Schema(description = "节点ID")
     private String id;
 
+    @NotBlank(message = "节点类型不能为空")
     @Schema(description = "节点类型")
     private String type;
 
@@ -36,11 +41,13 @@ public class Node {
 
     @Schema(description = "标签")
     private String label;
-    
+
     @Schema(description = "样式")
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private NodeStyle style;
 
+    @Valid
+    @NotNull(message = "节点数据不能为空")
     @Schema(description = "节点数据")
     @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.EXTERNAL_PROPERTY, property = "type")
     @JsonSubTypes({

@@ -1,6 +1,7 @@
 package com.iusofts.agentplus.ai.vo;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 
@@ -18,6 +19,7 @@ public class AiAgentAddReqVo {
     @Schema(description = "类型 1.问候型 2.销售型 3.鉴别型")
     private Integer type;
 
+    @NotBlank(message = "智能体名称不能为空")
     @Schema(description = "智能体名称")
     private String name;
 

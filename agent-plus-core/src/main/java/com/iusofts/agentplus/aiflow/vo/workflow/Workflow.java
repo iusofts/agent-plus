@@ -1,6 +1,8 @@
 package com.iusofts.agentplus.aiflow.vo.workflow;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
 import lombok.Data;
 
 import java.util.List;
@@ -17,9 +19,12 @@ import java.util.List;
 @Schema(description = "工作流")
 public class Workflow {
 
+    @Valid
+    @NotEmpty(message = "节点列表不能为空")
     @Schema(description = "节点列表")
     private List<Node> nodes;
 
+    @Valid
     @Schema(description = "边列表")
     private List<Edge> edges;
 

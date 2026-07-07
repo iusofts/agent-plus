@@ -4,6 +4,10 @@ import com.iusofts.agentplus.aiflow.vo.workflow.data.NodeData;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.common.OutputParam;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.common.InputParam;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
@@ -22,18 +26,22 @@ import java.util.List;
 @Schema(description = "LLM节点数据")
 public class LLMNodeData extends NodeData {
 
+    @NotNull(message = "模型不能为空")
     @Schema(description = "模型ID")
     private Long model;
 
     @Schema(description = "温度参数")
     private Double temperature;
 
+    @NotBlank(message = "系统提示词不能为空")
     @Schema(description = "系统提示词")
     private String systemPrompt;
 
+    @Valid
     @Schema(description = "输入参数列表")
     private List<InputParam> inputParams;
 
+    @Valid
     @Schema(description = "输出参数列表")
     private List<OutputParam> outputParams;
 

@@ -14,6 +14,7 @@ import com.iusofts.agentplus.aiflow.enums.PublishingStatusEnum;
 import com.iusofts.agentplus.aiflow.mapper.AiFlowMapper;
 import com.iusofts.agentplus.aiflow.mapper.AiFlowVersionMapper;
 import com.iusofts.agentplus.aiflow.utils.AiFlowVersionUtil;
+import com.iusofts.agentplus.aiflow.utils.WorkflowValidator;
 import com.iusofts.agentplus.aiflow.vo.*;
 import com.iusofts.agentplus.aiflow.vo.workflow.Workflow;
 import com.iusofts.agentplus.aiflow.vo.workflow.config.Knowledge;
@@ -177,6 +178,9 @@ public class AiFlowVersionServiceImpl extends ServiceImpl<AiFlowVersionMapper, A
         if (aiFlow == null) {
             throw new SystemBusinessException("流程不存在");
         }
+
+        // 发布前先对工作流数据做完整性校验
+        WorkflowValidator.validate(deserializeWorkflow(version.getFlowJson()));
 
         // 更新版本状态
         version.setPublishingStatus(PublishingStatusEnum.PUBLISHED.getCode());

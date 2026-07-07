@@ -3,6 +3,8 @@ package com.iusofts.agentplus.aiflow.vo.workflow.data;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.common.InputParam;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.common.OutputParam;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
@@ -24,9 +26,13 @@ public class BatchNodeData extends NodeData {
     @Schema(description = "最大并行数")
     private Integer maxParallel;
 
+    @Valid
+    @NotEmpty(message = "批处理节点输入参数列表不能为空")
     @Schema(description = "输入参数列表")
     private List<InputParam> inputParams;
 
+    @Valid
+    @NotEmpty(message = "批处理节点输出参数列表不能为空")
     @Schema(description = "输出参数列表")
     private List<OutputParam> outputParams;
 
