@@ -250,7 +250,7 @@ public class WorkflowGraphCompiler {
 
     private AsyncNodeAction<WorkflowState> wrapExecutor(Node node) {
         NodeExecutor executor = registry.get(node.getType());
-        return state -> CompletableFuture.supplyAsync(() -> {
+        return state -> {
             ExecutionContext ctx = state.ctx();
             ctx.updateStatus(node.getId(), NodeExecutionStatus.RUNNING);
             try {
@@ -265,8 +265,8 @@ public class WorkflowGraphCompiler {
                 ctx.updateStatus(node.getId(), NodeExecutionStatus.FAILED);
                 throw new WorkflowExecutionException(node.getId(), "节点执行异常", e);
             }
-            return Collections.emptyMap();
-        });
+            return CompletableFuture.completedFuture(Collections.emptyMap());
+        };
     }
 
     private String canonicalBranchKey(String sourceHandle) {

@@ -16,6 +16,7 @@ import com.iusofts.agentplus.engine.executor.impl.EndNodeExecutor;
 import com.iusofts.agentplus.engine.executor.impl.KnowledgeNodeExecutor;
 import com.iusofts.agentplus.engine.executor.impl.LLMNodeExecutor;
 import com.iusofts.agentplus.engine.executor.impl.StartNodeExecutor;
+import com.iusofts.agentplus.engine.graph.ExecutionContextTracker;
 import com.iusofts.agentplus.engine.graph.WorkflowGraphCompiler;
 import com.iusofts.agentplus.engine.graph.WorkflowState;
 import com.iusofts.agentplus.engine.knowledge.KnowledgeRetriever;
@@ -71,11 +72,16 @@ public class WorkflowEngine {
 
         CompiledGraph<WorkflowState> mainGraph = compiled.mainGraph();
         try {
-            mainGraph.invoke(Map.of(WorkflowState.CTX_KEY, ctx));
+            // 将 ctx 注册到 tracker 中
+            ExecutionContextTracker tracker = new ExecutionContextTracker(ctx);
+            mainGraph.invoke(Map.of(WorkflowState.CTX_KEY, tracker));
         } catch (WorkflowExecutionException e) {
             throw e;
         } catch (Exception e) {
             throw new WorkflowExecutionException("工作流执行失败: " + e.getMessage(), e);
+        } finally {
+            // 执行完毕清理 tracker，防止内存泄漏
+            ExecutionContextTracker.remove(runId);
         }
 
         fillSkipped(compiled.nodeIds(), ctx);
