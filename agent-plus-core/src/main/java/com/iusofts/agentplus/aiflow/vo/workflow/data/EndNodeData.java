@@ -23,7 +23,7 @@ import java.util.List;
 public class EndNodeData extends NodeData {
 
     @Valid
-    @NotEmpty(message = "结束节点输出参数列表不能为空")
+    @NotEmpty(message = "输出参数不能为空")
     @Schema(description = "输出参数列表")
     private List<OutputParam> outputParams;
 

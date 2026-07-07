@@ -27,12 +27,12 @@ public class BatchNodeData extends NodeData {
     private Integer maxParallel;
 
     @Valid
-    @NotEmpty(message = "批处理节点输入参数列表不能为空")
+    @NotEmpty(message = "输入参数不能为空")
     @Schema(description = "输入参数列表")
     private List<InputParam> inputParams;
 
     @Valid
-    @NotEmpty(message = "批处理节点输出参数列表不能为空")
+    @NotEmpty(message = "输出参数不能为空")
     @Schema(description = "输出参数列表")
     private List<OutputParam> outputParams;
 

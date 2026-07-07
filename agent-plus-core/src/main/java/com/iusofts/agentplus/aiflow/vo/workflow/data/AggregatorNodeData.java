@@ -23,7 +23,7 @@ import java.util.List;
 public class AggregatorNodeData extends NodeData {
 
     @Valid
-    @NotEmpty(message = "聚合节点输出分组列表不能为空")
+    @NotEmpty(message = "输出分组不能为空")
     @Schema(description = "输出分组列表")
     private List<OutputGroup> outputGroups;
 

@@ -23,7 +23,7 @@ import java.util.List;
 public class ConditionNodeData extends NodeData {
 
     @Valid
-    @NotEmpty(message = "条件节点条件列表不能为空")
+    @NotEmpty(message = "条件不能为空")
     @Schema(description = "条件列表")
     private List<Condition> conditions;
 
