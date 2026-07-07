@@ -37,6 +37,10 @@ public class LLMNodeData extends NodeData {
     @Schema(description = "系统提示词")
     private String systemPrompt;
 
+    @NotBlank(message = "用户提示词不能为空")
+    @Schema(description = "用户提示词")
+    private String userPrompt;
+
     @Valid
     @Schema(description = "输入参数列表")
     private List<InputParam> inputParams;
