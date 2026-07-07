@@ -6,6 +6,7 @@ import com.iusofts.agentplus.aiflow.vo.workflow.data.BatchNodeData;
 import com.iusofts.agentplus.engine.context.ExecutionContext;
 import com.iusofts.agentplus.engine.context.NodeOutput;
 import com.iusofts.agentplus.engine.executor.NodeExecutor;
+import com.iusofts.agentplus.engine.graph.ExecutionContextTracker;
 import com.iusofts.agentplus.engine.graph.WorkflowState;
 import com.iusofts.agentplus.engine.util.ParamResolver;
 import org.bsc.langgraph4j.CompiledGraph;
@@ -69,7 +70,7 @@ public class BatchNodeExecutor implements NodeExecutor {
         AtomicInteger success = new AtomicInteger();
 
         if (items.isEmpty()) {
-            return finalOutput(node.getId(), items, results, 0);
+            return finalOutput(node.getId(), items, results, 0, data);
         }
 
         ExecutorService pool = Executors.newFixedThreadPool(parallel);
@@ -92,7 +93,7 @@ public class BatchNodeExecutor implements NodeExecutor {
             pool.shutdown();
         }
 
-        return finalOutput(node.getId(), items, results, success.get());
+        return finalOutput(node.getId(), items, results, success.get(), data);
     }
 
     private Map<String, Map<String, Object>> runIteration(String batchId,
@@ -110,11 +111,18 @@ public class BatchNodeExecutor implements NodeExecutor {
         batchLocal.putAll(resolvedInputs);
         scoped.putOutput(new NodeOutput(batchId, batchLocal));
 
+        LOGGER.debug("batch iteration starting batchId={} index={} item={} inputs={}", batchId, index, item, resolvedInputs);
+
+        // 为 scoped ctx 创建 tracker，避免 langgraph4j 克隆问题
+        ExecutionContextTracker tracker = new ExecutionContextTracker(scoped);
         try {
-            subGraph.invoke(Map.of(WorkflowState.CTX_KEY, scoped));
+            subGraph.invoke(Map.of(WorkflowState.CTX_KEY, tracker));
         } catch (Exception e) {
-            LOGGER.warn("batch iteration failed batchId={} index={} err={}", batchId, index, e.getMessage());
+            LOGGER.warn("batch iteration failed batchId={} index={} err={}", batchId, index, e.getMessage(), e);
             return null;
+        } finally {
+            // 清理该 scope 的 tracker
+            ExecutionContextTracker.remove(scoped.getRunId() + "#" + scoped.getScopeKey());
         }
 
         Map<String, Map<String, Object>> collected = new LinkedHashMap<>();
@@ -127,6 +135,7 @@ public class BatchNodeExecutor implements NodeExecutor {
                 collected.put(entry.getKey(), new LinkedHashMap<>(outs));
             }
         }
+        LOGGER.debug("batch iteration collected batchId={} index={} outputs={}", batchId, index, collected);
         return collected;
     }
 
@@ -139,9 +148,8 @@ public class BatchNodeExecutor implements NodeExecutor {
 
     private NodeOutput degradedOutput(String nodeId, List<Object> items) {
         Map<String, Object> outputs = new LinkedHashMap<>();
-        outputs.put("items", items);
-        outputs.put("size", items.size());
-        outputs.put("results", Collections.emptyList());
+        // 无张子图时，默认输出 "output" = items
+        outputs.put("output", items);
         outputs.put("total", items.size());
         outputs.put("success", 0);
         outputs.put("failed", 0);
@@ -151,13 +159,55 @@ public class BatchNodeExecutor implements NodeExecutor {
     private NodeOutput finalOutput(String nodeId,
                                    List<Object> items,
                                    List<Map<String, Map<String, Object>>> results,
-                                   int success) {
-        int total = items.size();
+                                   int success,
+                                   BatchNodeData data) {
         Map<String, Object> outputs = new LinkedHashMap<>();
-        outputs.put("results", results);
-        outputs.put("total", total);
+        List<com.iusofts.agentplus.aiflow.vo.workflow.data.common.OutputParam> outputParams =
+                data != null ? data.getOutputParams() : null;
+
+        if (outputParams != null && !outputParams.isEmpty()) {
+            // 有自定义输出参数时，按参数名聚合每轮结果
+            LOGGER.debug("batch node={} outputParams={}, results={}", nodeId, outputParams, results);
+            for (com.iusofts.agentplus.aiflow.vo.workflow.data.common.OutputParam param : outputParams) {
+                String paramName = param.getName();
+                if (paramName == null || paramName.isEmpty()) {
+                    continue;
+                }
+                List<Object> paramResults = new ArrayList<>();
+                for (int i = 0; i < results.size(); i++) {
+                    Map<String, Map<String, Object>> round = results.get(i);
+                    if (round == null) {
+                        paramResults.add(null);
+                        continue;
+                    }
+                    // 从本轮结果中查找该参数
+                    Object value = null;
+                    if (param.getParamMapKey() != null) {
+                        String sourceNodeId = param.getParamMapKey().getNodeId();
+                        String sourceParamName = param.getParamMapKey().getName();
+                        LOGGER.debug("looking for node={} param={} in round={} data={}",
+                                sourceNodeId, sourceParamName, i, round);
+                        if (sourceNodeId != null && round.containsKey(sourceNodeId)) {
+                            Map<String, Object> nodeOut = round.get(sourceNodeId);
+                            if (nodeOut != null) {
+                                value = nodeOut.get(sourceParamName);
+                            }
+                        }
+                    }
+                    LOGGER.debug("round={} value={}", i, value);
+                    paramResults.add(value);
+                }
+                outputs.put(paramName, paramResults);
+            }
+        } else {
+            // 无自定义输出时，使用默认 "output" 数组
+            outputs.put("output", results);
+        }
+
+        // 始终包含统计信息（补充字段，非约定但有用）
+        outputs.put("total", items.size());
         outputs.put("success", success);
-        outputs.put("failed", total - success);
+        outputs.put("failed", items.size() - success);
         return new NodeOutput(nodeId, outputs);
     }
 

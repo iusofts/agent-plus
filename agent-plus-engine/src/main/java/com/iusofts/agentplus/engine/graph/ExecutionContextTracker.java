@@ -14,24 +14,25 @@ import java.util.concurrent.ConcurrentHashMap;
  * @author Ivan
  */
 public class ExecutionContextTracker implements Serializable {
-    // 静态的 tracker，存储所有正在执行的 ctx，key 是 runId
+    // 静态的 tracker，存储所有正在执行的 ctx，key 是 runId#scopeKey 或 runId
     private static final Map<String, ExecutionContext> tracker = new ConcurrentHashMap<>();
 
-    private final String runId;
+    private final String key;
 
     public ExecutionContextTracker(ExecutionContext ctx) {
-        this.runId = ctx.getRunId();
-        tracker.put(this.runId, ctx);
+        this.key = ctx.getScopeKey() == null ? ctx.getRunId() : ctx.getRunId() + "#" + ctx.getScopeKey();
+        tracker.put(this.key, ctx);
     }
 
     public ExecutionContext get() {
-        return tracker.get(runId);
+        return tracker.get(key);
     }
 
     /**
      * 执行完毕后清理 tracker，防止内存泄漏
      */
     public static void remove(String runId) {
-        tracker.remove(runId);
+        // 移除所有以该 runId 开头的键
+        tracker.keySet().removeIf(k -> k.startsWith(runId));
     }
 }

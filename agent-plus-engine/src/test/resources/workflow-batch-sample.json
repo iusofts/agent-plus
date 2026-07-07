@@ -1,0 +1,419 @@
+{
+  "nodes": [
+    {
+      "id": "start",
+      "type": "Start",
+      "initialized": false,
+      "position": {
+        "x": 24.576271186440692,
+        "y": 114.40677966101694
+      },
+      "label": "开始",
+      "data": {
+        "label": "开始",
+        "description": "流程入口",
+        "inputParams": [
+          {
+            "name": "query",
+            "type": "string",
+            "description": "xxx",
+            "defaultValue": "",
+            "required": false,
+            "isDefault": false,
+            "children": []
+          },
+          {
+            "name": "ssss",
+            "type": "array",
+            "description": "",
+            "defaultValue": "",
+            "required": false,
+            "isDefault": false,
+            "children": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "end",
+      "type": "End",
+      "initialized": false,
+      "position": {
+        "x": 2016.7152188228288,
+        "y": 187.40677966101694
+      },
+      "label": "结束",
+      "data": {
+        "label": "结束",
+        "description": "工作流程完成。",
+        "outputParams": [
+          {
+            "name": "resultList",
+            "type": "array",
+            "description": null,
+            "paramMapKey": {
+              "nodeId": "node-Batch-1783390242671",
+              "name": "output",
+              "type": "array"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "node-LLM-1783389919291",
+      "type": "LLM",
+      "initialized": false,
+      "position": {
+        "x": 396.3728813559322,
+        "y": 114.40677966101694
+      },
+      "label": null,
+      "data": {
+        "label": "大模型",
+        "description": "",
+        "model": 1,
+        "temperature": 0.7,
+        "systemPrompt": "根据用户说的：{{query}}\n分析意图：\n1.吃饭；\n2.喝水；\n3.打游戏；",
+        "userPrompt": "asdasdasd",
+        "inputParams": [
+          {
+            "name": "query",
+            "type": "string",
+            "paramMapKey": {
+              "nodeId": "start",
+              "name": "query",
+              "type": "string"
+            }
+          }
+        ],
+        "outputParams": [
+          {
+            "name": "intention",
+            "type": "array",
+            "description": "意图",
+            "paramMapKey": null
+          }
+        ],
+        "timeout": 60,
+        "retryCount": 0,
+        "errorHandling": "stop",
+        "customErrorContent": ""
+      }
+    },
+    {
+      "id": "node-Condition-1783390169800",
+      "type": "Condition",
+      "initialized": false,
+      "position": {
+        "x": 848.3648251101527,
+        "y": 105.0
+      },
+      "label": null,
+      "data": {
+        "label": "条件分支",
+        "description": "",
+        "conditions": [
+          {
+            "id": "condition-1783390169807-pxz5i9",
+            "logic": "and",
+            "rules": [
+              {
+                "id": "rule-1783390169807-odrypd",
+                "variable": {
+                  "nodeId": "node-LLM-1783389919291",
+                  "name": "intention",
+                  "type": "array"
+                },
+                "operator": "contains",
+                "value": "吃饭"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "node-Batch-1783390242671",
+      "type": "Batch",
+      "initialized": false,
+      "position": {
+        "x": 1164.357792644625,
+        "y": 402.4370656859302
+      },
+      "label": null,
+      "style": {
+        "height": "470.4629040069375px",
+        "width": "709px"
+      },
+      "data": {
+        "label": "批处理",
+        "description": "",
+        "maxParallel": 1,
+        "inputParams": [
+          {
+            "name": "input",
+            "type": "array",
+            "paramMapKey": {
+              "nodeId": "node-LLM-1783389919291",
+              "name": "intention",
+              "type": "array"
+            }
+          }
+        ],
+        "outputParams": [
+          {
+            "name": "output",
+            "type": "string",
+            "description": "批处理结果数组",
+            "paramMapKey": {
+              "nodeId": "node-LLM-1783393654868",
+              "name": "text",
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "node-LLM-1783393654868",
+      "type": "LLM",
+      "initialized": false,
+      "position": {
+        "x": 97.04204411316209,
+        "y": 97.05084745762707
+      },
+      "label": null,
+      "data": {
+        "label": "大模型-批处理",
+        "description": "",
+        "model": 1,
+        "temperature": 0.7,
+        "systemPrompt": "aaaaaa",
+        "userPrompt": "vvvvvvvvvv",
+        "inputParams": [
+          {
+            "name": "aaaa",
+            "type": "object",
+            "paramMapKey": {
+              "nodeId": "node-Batch-1783390242671",
+              "name": "item",
+              "type": "object"
+            }
+          }
+        ],
+        "outputParams": [],
+        "timeout": 60,
+        "retryCount": 0,
+        "errorHandling": "stop",
+        "customErrorContent": ""
+      },
+      "parentNode": "node-Batch-1783390242671",
+      "expandParent": true,
+      "extent": "parent"
+    },
+    {
+      "id": "node-Knowledge-1783394530574",
+      "type": "Knowledge",
+      "initialized": false,
+      "position": {
+        "x": 396.3728813559322,
+        "y": 97.05084745762707
+      },
+      "label": null,
+      "data": {
+        "label": "知识库",
+        "description": "",
+        "knowledgeId": 1,
+        "topK": 3,
+        "inputParams": [
+          {
+            "name": "query",
+            "type": "string",
+            "paramMapKey": {
+              "nodeId": "node-LLM-1783393654868",
+              "name": "text",
+              "type": "string"
+            }
+          }
+        ],
+        "outputParams": []
+      },
+      "parentNode": "node-Batch-1783390242671",
+      "expandParent": true,
+      "extent": "parent"
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-start-node-LLM-1783389919291-1783389924383",
+      "source": "start",
+      "target": "node-LLM-1783389919291",
+      "sourceHandle": null,
+      "targetHandle": null,
+      "data": {},
+      "animated": false,
+      "type": "default",
+      "label": "",
+      "style": {
+        "stroke": "var(--el-border-color-darker)",
+        "strokeWidth": 1
+      },
+      "labelBgStyle": null,
+      "sourceX": 267.57628644522975,
+      "sourceY": 174.20679797156382,
+      "targetX": 393.3728813559322,
+      "targetY": 245.156794919806
+    },
+    {
+      "id": "e-node-LLM-1783389919291-node-Condition-1783390169800",
+      "source": "node-LLM-1783389919291",
+      "target": "node-Condition-1783390169800",
+      "sourceHandle": null,
+      "targetHandle": null,
+      "data": {},
+      "animated": false,
+      "type": "default",
+      "label": "",
+      "style": {
+        "stroke": "var(--el-border-color-darker)",
+        "strokeWidth": 1
+      },
+      "labelBgStyle": null,
+      "sourceX": 639.3728813559321,
+      "sourceY": 283.406794919806,
+      "targetX": 845.3648251101527,
+      "targetY": 194.39999389648438
+    },
+    {
+      "id": "e-node-Condition-1783390169800-end-1783390249430",
+      "source": "node-Condition-1783390169800",
+      "target": "end",
+      "sourceHandle": "condition:condition-1783390169807-pxz5i9",
+      "targetHandle": null,
+      "data": {},
+      "animated": false,
+      "type": "default",
+      "label": "",
+      "style": {
+        "stroke": "var(--el-border-color-darker)",
+        "strokeWidth": 1
+      },
+      "labelBgStyle": null,
+      "sourceX": 1091.5647762820277,
+      "sourceY": 199.60000610351562,
+      "targetX": 2013.71523997181,
+      "targetY": 251.20677042935637
+    },
+    {
+      "id": "e-node-Condition-1783390169800-node-Batch-1783390242671-1783390251983",
+      "source": "node-Condition-1783390169800",
+      "target": "node-Batch-1783390242671",
+      "sourceHandle": "else",
+      "targetHandle": "batch-external-target",
+      "data": {},
+      "animated": false,
+      "type": "default",
+      "label": "",
+      "style": {
+        "stroke": "var(--el-border-color-darker)",
+        "strokeWidth": 1
+      },
+      "labelBgStyle": null,
+      "sourceX": 1091.5647762820277,
+      "sourceY": 255.00001525878906,
+      "targetX": 1162.9577682305626,
+      "targetY": 509.82457789296143
+    },
+    {
+      "id": "e-node-Batch-1783390242671-end-1783390253979",
+      "source": "node-Batch-1783390242671",
+      "target": "end",
+      "sourceHandle": "batch-external-source",
+      "targetHandle": null,
+      "data": {},
+      "animated": false,
+      "type": "default",
+      "label": "",
+      "style": {
+        "stroke": "var(--el-border-color-darker)",
+        "strokeWidth": 1
+      },
+      "labelBgStyle": null,
+      "sourceX": 1874.7578170586876,
+      "sourceY": 513.8245778929614,
+      "targetX": 2013.71523997181,
+      "targetY": 251.20677042935637
+    },
+    {
+      "id": "e-node-Batch-1783390242671-node-LLM-1783393654868",
+      "source": "node-Batch-1783390242671",
+      "target": "node-LLM-1783393654868",
+      "sourceHandle": "batch-internal-source",
+      "targetHandle": null,
+      "data": {},
+      "animated": false,
+      "type": "default",
+      "label": "",
+      "style": {
+        "stroke": "var(--el-border-color-darker)",
+        "strokeWidth": 1
+      },
+      "labelBgStyle": null,
+      "sourceX": 1168.9577682305626,
+      "sourceY": 637.6621023070239,
+      "targetX": 1258.3998367577872,
+      "targetY": 630.2379131435573
+    },
+    {
+      "id": "e-node-LLM-1783393654868-node-Knowledge-1783394530574",
+      "source": "node-LLM-1783393654868",
+      "target": "node-Knowledge-1783394530574",
+      "sourceHandle": null,
+      "targetHandle": null,
+      "data": {},
+      "animated": false,
+      "type": "default",
+      "label": "",
+      "style": {
+        "stroke": "var(--el-border-color-darker)",
+        "strokeWidth": 1
+      },
+      "labelBgStyle": null,
+      "sourceX": 1504.3998367577872,
+      "sourceY": 668.4879131435573,
+      "targetX": 1557.7306740005572,
+      "targetY": 614.0878887294948
+    },
+    {
+      "id": "e-node-Knowledge-1783394530574-node-Batch-1783390242671-1783394538824",
+      "source": "node-Knowledge-1783394530574",
+      "target": "node-Batch-1783390242671",
+      "sourceHandle": null,
+      "targetHandle": "batch-internal-target",
+      "data": {},
+      "animated": false,
+      "type": "default",
+      "label": "",
+      "style": {
+        "stroke": "var(--el-border-color-darker)",
+        "strokeWidth": 1
+      },
+      "labelBgStyle": null,
+      "sourceX": 1803.7306740005572,
+      "sourceY": 614.0878887294948,
+      "targetX": 1866.7578170586876,
+      "targetY": 637.6621023070239
+    }
+  ],
+  "position": [
+    -294.5239996524856,
+    106.36182775305105
+  ],
+  "zoom": 0.6597539553864482,
+  "viewport": {
+    "x": -294.5239996524856,
+    "y": 106.36182775305105,
+    "zoom": 0.6597539553864482
+  }
+}

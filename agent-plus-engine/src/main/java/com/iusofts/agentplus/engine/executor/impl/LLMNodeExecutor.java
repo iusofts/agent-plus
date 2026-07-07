@@ -141,10 +141,16 @@ public class LLMNodeExecutor implements NodeExecutor {
 
         // 追加自定义输出参数
         if (outputParams.size() == 1) {
-            // 只有一个自定义输出时，直接用 text 赋值（避免覆盖默认 text）
+            // 只有一个自定义输出时，也尝试先解析 JSON，如果不是 JSON 则用原始 text
             String customName = outputParams.get(0).getName();
             if (!"text".equals(customName) && !"reasoningContent".equals(customName) && !"usage".equals(customName)) {
-                out.put(customName, text);
+                Object value = text;
+                try {
+                    value = JSON.readValue(text, Object.class);
+                } catch (Exception ignore) {
+                    // 解析失败，保持原始字符串
+                }
+                out.put(customName, value);
             }
             return out;
         }
