@@ -3,6 +3,7 @@ package com.iusofts.agentplus.aiflow.vo.workflow.config;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
+import java.io.Serializable;
 import java.util.List;
 
 /**
@@ -15,7 +16,7 @@ import java.util.List;
  */
 @Data
 @Schema(description = "工作流配置")
-public class WorkflowConfig {
+public class WorkflowConfig implements Serializable {
 
     @Schema(description = "环境变量列表")
     private List<EnvVar> envVars;

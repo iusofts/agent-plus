@@ -178,10 +178,7 @@ public class WorkflowGraphCompiler {
             throw new WorkflowExecutionException("找不到入口节点");
         }
 
-        Map<String, Channel<?>> schema = new HashMap<>();
-        schema.put(WorkflowState.CTX_KEY, Channels.<Object>base(() -> null));
-
-        StateGraph<WorkflowState> graph = new StateGraph<>(schema, WorkflowState::new);
+        StateGraph<WorkflowState> graph = new StateGraph<>(WorkflowState::new);
 
         try {
             for (String id : includedNodes) {

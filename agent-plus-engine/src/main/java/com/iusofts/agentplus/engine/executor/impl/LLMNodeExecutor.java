@@ -64,7 +64,10 @@ public class LLMNodeExecutor implements NodeExecutor {
 
         Map<String, Object> inputs = ParamResolver.resolveInputs(data.getInputParams(), ctx);
         String systemPrompt = ParamResolver.renderTemplate(data.getSystemPrompt(), ctx);
-        String userPrompt = buildUserPrompt(inputs);
+        String userPromptTemplate = data.getUserPrompt();
+        String userPrompt = userPromptTemplate != null
+                ? ParamResolver.renderTemplate(userPromptTemplate, ctx)
+                : buildUserPrompt(inputs);
 
         List<ChatMessage> messages = new ArrayList<>();
         if (systemPrompt != null && !systemPrompt.isBlank()) {

@@ -5,6 +5,7 @@ import com.iusofts.agentplus.aiflow.vo.workflow.config.WorkflowConfig;
 import lombok.Getter;
 import org.bsc.langgraph4j.CompiledGraph;
 
+import java.io.Serializable;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -23,7 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * @author Ivan
  */
 @Getter
-public class ExecutionContext {
+public class ExecutionContext implements Serializable {
 
     private final String runId;
     private final WorkflowConfig config;
@@ -31,11 +32,11 @@ public class ExecutionContext {
     private final Map<String, Object> envVars;
     private final Map<String, NodeOutput> nodeOutputs = new ConcurrentHashMap<>();
     private final Map<String, NodeExecutionStatus> nodeStatus = new ConcurrentHashMap<>();
-    private final ExecutionContext parent;
+    private transient final ExecutionContext parent;
     private final String scopeKey;
 
     /** 主图运行时可用的批处理子图,由 {@code WorkflowGraphCompiler} 预编译写入,BatchNodeExecutor 直接调用。 */
-    private final Map<String, CompiledGraph<?>> batchSubGraphs = new ConcurrentHashMap<>();
+    private transient final Map<String, CompiledGraph<?>> batchSubGraphs = new ConcurrentHashMap<>();
 
     public ExecutionContext(String runId,
                             WorkflowConfig config,
