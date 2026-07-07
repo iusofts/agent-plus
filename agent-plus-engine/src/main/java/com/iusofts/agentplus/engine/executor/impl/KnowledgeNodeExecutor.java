@@ -49,7 +49,7 @@ public class KnowledgeNodeExecutor implements NodeExecutor {
         List<String> chunks = retriever.retrieve(data.getKnowledgeId(), query, topK);
 
         Map<String, Object> outputs = new LinkedHashMap<>();
-        String outName = "chunks";
+        String outName = "documents";
         if (data.getOutputParams() != null && !data.getOutputParams().isEmpty()) {
             OutputParam p = data.getOutputParams().get(0);
             if (p.getName() != null) {
