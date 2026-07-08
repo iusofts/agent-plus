@@ -10,6 +10,7 @@ import lombok.Setter;
 import lombok.ToString;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -33,23 +34,47 @@ public class AiAgent implements Serializable {
     @TableId(value = "id", type = IdType.NONE)
     private Long id;
 
-    @Schema(description = "类型 1.问候型 2.销售型 3.鉴别型")
-    private Integer type;
-
     @Schema(description = "智能体名称")
     private String name;
-    
-    @Schema(description = "代码")
-    private String code;
-
-    @Schema(description = "最大轮次")
-    private Integer maxRounds;
 
     @Schema(description = "设定描述")
     private String systemPrompt;
-    
-    @Schema(description = "转人工")
-    private String transferHuman;
+
+    @Schema(description = "使用模型ID")
+    private Long modelId;
+
+    @Schema(description = "绑定工作流ID列表(JSON数组存储)")
+    private String workflowIds;
+
+    @Schema(description = "开场白文案")
+    private String openingStatement;
+
+    @Schema(description = "开场白预置问题(JSON数组存储)")
+    private String openingQuestions;
+
+    @Schema(description = "绑定知识库ID列表(JSON数组存储)")
+    private String knowledgeBaseIds;
+
+    @Schema(description = "生成随机性(temperature)")
+    private BigDecimal temperature;
+
+    @Schema(description = "携带上下文轮数")
+    private Integer contextRounds;
+
+    @Schema(description = "最大回复长度")
+    private Integer maxReplyLength;
+
+    @Schema(description = "最大推理回答长度")
+    private Integer maxInferenceLength;
+
+    @Schema(description = "是否启用用户问题建议 0:否 1:是")
+    private Integer enableQuestionSuggestion;
+
+    @Schema(description = "是否自定义建议提示词 0:否 1:是")
+    private Integer customSuggestionPrompt;
+
+    @Schema(description = "自定义建议提示词")
+    private String suggestionPrompt;
 
     @Schema(description = "创建人ID")
     private Long createBy;
@@ -70,15 +95,4 @@ public class AiAgent implements Serializable {
     @Schema(description = "所属组织ID")
     private Integer orgId;
 
-    @Schema(description = "是否默认智能体 0:否 1:是")
-    private Integer isDefault;
-
-    @Schema(description = "是否系统预制 0:用户自定义 1:系统内置不可删改")
-    private Integer isSystem;
-
-    @Schema(description = "行业id")
-    private Long industryId;
-
-    @Schema(description = "行业名称")
-    private String industryName;
 }

@@ -10,6 +10,7 @@ import com.iusofts.agentplus.chat.mapper.AiCallLogMapper;
 import com.iusofts.agentplus.chat.vo.AiMessageVo;
 import com.iusofts.agentplus.chat.vo.AiServiceCallReqVo;
 import com.iusofts.agentplus.chat.vo.AiServiceChatReqVo;
+import com.iusofts.agentplus.basic.exception.SystemBusinessException;
 import com.iusofts.agentplus.basic.utils.JsonUtils;
 import com.iusofts.agentplus.basic.utils.ModelMapperUtil;
 import com.iusofts.agentplus.basic.utils.StringUtils;
@@ -18,7 +19,6 @@ import com.iusofts.agentplus.id.service.IdService.UidTypeEnum;
 import com.iusofts.agentplus.llm.AiChatService;
 import com.iusofts.agentplus.llm.ChatMessage;
 import com.iusofts.agentplus.llm.ChatResponse;
-import com.iusofts.agentplus.llm.LlmModelQueryProvider;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
@@ -51,8 +51,6 @@ public class AiServiceImpl implements IAiServiceInterface {
 
     @Resource
     private AiChatService aiChatService;
-    @Resource
-    private LlmModelQueryProvider modelQueryProvider;
 
     @Override
     public AiMessageVo chat(AiServiceChatReqVo reqVo) {
@@ -83,7 +81,7 @@ public class AiServiceImpl implements IAiServiceInterface {
             conversation.setBusinessType(reqVo.getBusinessType());
             conversation.setBusinessId(reqVo.getBusinessID());
             conversation.setAgentId(reqVo.getAgentId());
-            conversation.setAgentType(aiAgent.getType());
+            conversation.setModelId(aiAgent.getModelId());
             conversation.setCurrentRounds(0);
             conversation.setOrgId(reqVo.getOrgId());
             conversation.setCreateBy(reqVo.getOperatorId());
@@ -107,45 +105,35 @@ public class AiServiceImpl implements IAiServiceInterface {
             });
         }
 
-        boolean needAi = true;
-        if (conversation.getCurrentRounds() >= aiAgent.getMaxRounds()) {
+        try {
+            // 构建对话上下文
+            List<ChatMessage> msgList = new ArrayList<>();
+
+            // 预制内容
+            for (AiMessageVo msg : messageVoList) {
+                msgList.add(ChatMessage.builder().role(msg.getRole()).content(msg.getContent()).build());
+            }
+
+            // 获取模型ID
+            Long modelId = aiAgent.getModelId();
+            if (modelId == null) {
+                throw new SystemBusinessException("智能体未配置模型");
+            }
+
+            // 调用 AiChatService
+            ChatResponse response = aiChatService.chat(msgList, modelId, null);
+
             resultMessage = new AiMessageVo();
             resultMessage.setRole("assistant");
-            resultMessage.setContent(aiAgent.getTransferHuman());
-            resultMessage.setNeedTransferHuman(true);
+            resultMessage.setContent(response.getContent());
+            resultMessage.setInputTokens(response.getInputTokens());
+            resultMessage.setOutputTokens(response.getOutputTokens());
+            resultMessage.setTotalTokens(response.getTotalTokens());
             resultMessage.setConversationId(conversation.getId());
             messageVoList.add(resultMessage);
-            needAi = false;
-        }
 
-        if (needAi) {
-            try {
-                // 构建对话上下文
-                List<ChatMessage> msgList = new ArrayList<>();
-
-                // 预制内容
-                for (AiMessageVo msg : messageVoList) {
-                    msgList.add(ChatMessage.builder().role(msg.getRole()).content(msg.getContent()).build());
-                }
-
-                // 获取默认模型
-                Long modelId = modelQueryProvider.getDefaultModelId();
-
-                // 调用 AiChatService
-                ChatResponse response = aiChatService.chat(msgList, modelId, null);
-
-                resultMessage = new AiMessageVo();
-                resultMessage.setRole("assistant");
-                resultMessage.setContent(response.getContent());
-                resultMessage.setInputTokens(response.getInputTokens());
-                resultMessage.setOutputTokens(response.getOutputTokens());
-                resultMessage.setTotalTokens(response.getTotalTokens());
-                resultMessage.setConversationId(conversation.getId());
-                messageVoList.add(resultMessage);
-
-            } catch (Exception e) {
-                log.error("AI服务异常", e);
-            }
+        } catch (Exception e) {
+            log.error("AI服务异常", e);
         }
 
         // 保存上下文
@@ -158,7 +146,6 @@ public class AiServiceImpl implements IAiServiceInterface {
             aiMessage.setConversationId(conversation.getId());
             if (aiAgent != null) {
                 aiMessage.setAgentId(aiAgent.getId());
-                aiMessage.setAgentType(aiAgent.getType());
             }
             aiMessage.setCreateBy(reqVo.getOperatorId());
             aiMessage.setOrgId(reqVo.getOrgId());
@@ -204,8 +191,17 @@ public class AiServiceImpl implements IAiServiceInterface {
 
             long callTimeStart = System.currentTimeMillis();
 
-            // 获取默认模型
-            Long modelId = modelQueryProvider.getDefaultModelId();
+            // 获取模型ID
+            Long modelId = null;
+            if (reqVo.getAgentId() != null) {
+                AiAgent aiAgent = aiAgentMapper.selectById(reqVo.getAgentId());
+                if (aiAgent != null) {
+                    modelId = aiAgent.getModelId();
+                }
+            }
+            if (modelId == null) {
+                throw new SystemBusinessException("智能体未配置模型");
+            }
 
             // 调用 AiChatService
             ChatResponse response = aiChatService.chat(msgList, modelId, null);
@@ -225,7 +221,6 @@ public class AiServiceImpl implements IAiServiceInterface {
             callLog.setBusinessType(reqVo.getBusinessType());
             callLog.setBusinessId(reqVo.getBusinessID());
             callLog.setAgentId(reqVo.getAgentId());
-            callLog.setAgentType(reqVo.getAgentType());
             callLog.setInputTokens(response.getInputTokens());
             callLog.setOutputTokens(response.getOutputTokens());
             callLog.setTotalTokens(response.getTotalTokens());

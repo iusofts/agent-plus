@@ -15,12 +15,4 @@ public interface LlmModelQueryProvider {
      * @throws IllegalStateException 模型不存在或禁用时抛出
      */
     LlmModelDTO getModel(Long modelId);
-
-    /**
-     * 获取默认模型 ID。
-     *
-     * @return 默认模型 ID
-     * @throws IllegalStateException 无默认模型时抛出
-     */
-    Long getDefaultModelId();
 }

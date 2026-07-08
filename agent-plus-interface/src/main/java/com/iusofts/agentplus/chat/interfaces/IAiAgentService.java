@@ -28,16 +28,4 @@ public interface IAiAgentService {
 
     AiAgentDetailVo getById(IdReqVo reqVo);
 
-    /**
-     * 设置智能体为默认智能体
-     */
-    void setDefault(AiAgentSetDefaultReqVo reqVo);
-
-    /**
-     * 设置智能体为系统预制智能体
-     */
-    void setSystem(AiAgentSetSystemReqVo reqVo);
-
-    AiAgentDetailVo getByCode(String code);
-
 }

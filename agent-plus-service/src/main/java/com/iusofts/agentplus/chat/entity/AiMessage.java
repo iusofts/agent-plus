@@ -48,9 +48,6 @@ public class AiMessage implements Serializable {
     @Schema(description = "智能体ID")
     private Long agentId;
 
-    @Schema(description = "智能体类型")
-    private Integer agentType;
-
     @Schema(description = "输入消耗token数")
     private Integer inputTokens;
 

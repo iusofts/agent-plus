@@ -45,11 +45,8 @@ public class AiConversation implements Serializable {
     @Schema(description = "智能体id")
     private Long agentId;
 
-    @Schema(description = "智能体类型 1.问候型 2.销售型 3.鉴别型")
-    private Integer agentType;
-
-    @Schema(description = "使用模型")
-    private String model;
+    @Schema(description = "使用模型ID")
+    private Long modelId;
 
     @Schema(description = "当前轮次")
     private Integer currentRounds;

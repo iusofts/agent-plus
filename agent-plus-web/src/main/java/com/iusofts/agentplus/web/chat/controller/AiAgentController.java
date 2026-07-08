@@ -1,12 +1,10 @@
 package com.iusofts.agentplus.web.chat.controller;
 
 import com.iusofts.agentplus.chat.interfaces.IAiAgentService;
-import com.iusofts.agentplus.basic.web.annotation.BLoginUser;
 import com.iusofts.agentplus.basic.web.annotation.OperationLogExclude;
 import com.iusofts.agentplus.basic.web.vo.page.PageResult;
 import com.iusofts.agentplus.chat.vo.agent.*;
 import com.iusofts.agentplus.common.vo.IdReqVo;
-import com.iusofts.agentplus.system.vo.BLoginUserVo;
 import com.iusofts.agentplus.web.common.controller.BApiController;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -56,7 +54,7 @@ public class AiAgentController extends BApiController {
         reqVo.setOrgId(SYSCODE);
         return aiAgentService.queryPage(reqVo);
     }
-    
+
     @Operation(description = "删除ai智能体")
     @PostMapping("/remove")
     public void remove(@RequestBody IdReqVo reqVo) {
@@ -69,22 +67,6 @@ public class AiAgentController extends BApiController {
     public AiAgentDetailVo getById(@RequestBody IdReqVo reqVo) {
         reqVo.setOrgId(SYSCODE);
         return aiAgentService.getById(reqVo);
-    }
-
-    @Operation(description = "设置为默认智能体")
-    @PostMapping("/setDefault")
-    public void setDefault(@RequestBody AiAgentSetDefaultReqVo reqVo, @BLoginUser BLoginUserVo loginUserVo) {
-        reqVo.setOrgId(SYSCODE);
-        reqVo.setOperatorId(loginUserVo.getUser().getUserId());
-        aiAgentService.setDefault(reqVo);
-    }
-
-    @Operation(description = "设置为系统预制智能体")
-    @PostMapping("/setSystem")
-    public void setSystem(@RequestBody AiAgentSetSystemReqVo reqVo, @BLoginUser BLoginUserVo loginUserVo) {
-        reqVo.setOrgId(SYSCODE);
-        reqVo.setOperatorId(loginUserVo.getUser().getUserId());
-        aiAgentService.setSystem(reqVo);
     }
 
 }

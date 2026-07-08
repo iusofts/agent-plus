@@ -25,9 +25,6 @@ public class AiServiceCallReqVo {
     @Schema(description = "智能体ID")
     private Long agentId;
 
-    @Schema(description = "智能体类型")
-    private Integer agentType;
-
     @Schema(description = "组织ID")
     private Integer orgId;
 

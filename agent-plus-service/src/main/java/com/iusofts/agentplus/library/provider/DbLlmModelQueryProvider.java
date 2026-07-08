@@ -1,7 +1,5 @@
 package com.iusofts.agentplus.library.provider;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.iusofts.agentplus.library.entity.AiModel;
 import com.iusofts.agentplus.library.mapper.AiModelMapper;
 import com.iusofts.agentplus.llm.LlmModelDTO;
@@ -51,18 +49,5 @@ public class DbLlmModelQueryProvider implements LlmModelQueryProvider {
         dto.setBaseUrl(model.getBaseUrl());
         dto.setModelName(model.getModelName());
         return dto;
-    }
-
-    @Override
-    public Long getDefaultModelId() {
-        LambdaQueryWrapper<AiModel> wrapper = Wrappers.lambdaQuery();
-        wrapper.eq(AiModel::getModelType, 1) // 1:LLM
-                .eq(AiModel::getStatus, 1) // 1:启用
-                .eq(AiModel::getIsDefault, 1); // 1:默认
-        AiModel model = aiModelMapper.selectOne(wrapper);
-        if (model == null) {
-            throw new IllegalStateException("未配置默认 LLM 模型");
-        }
-        return model.getId();
     }
 }
