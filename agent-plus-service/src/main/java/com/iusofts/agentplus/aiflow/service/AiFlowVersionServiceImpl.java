@@ -7,6 +7,10 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.iusofts.agentplus.ai.interfaces.IAiKnowledgeBaseService;
+import com.iusofts.agentplus.ai.interfaces.IAiModelService;
+import com.iusofts.agentplus.ai.vo.knowledge.AiKnowledgeBaseVo;
+import com.iusofts.agentplus.ai.vo.model.AiModelVo;
 import com.iusofts.agentplus.aiflow.interfaces.IAiFlowVersionService;
 import com.iusofts.agentplus.aiflow.entity.AiFlow;
 import com.iusofts.agentplus.aiflow.entity.AiFlowVersion;
@@ -23,6 +27,7 @@ import com.iusofts.agentplus.aiflow.vo.workflow.config.WorkflowConfig;
 import com.iusofts.agentplus.basic.exception.SystemBusinessException;
 import com.iusofts.agentplus.basic.page.PageResult;
 import com.iusofts.agentplus.basic.utils.ModelMapperUtil;
+import com.iusofts.agentplus.common.constants.SysConstant;
 import com.iusofts.agentplus.common.vo.IdReqVo;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
@@ -46,6 +51,10 @@ public class AiFlowVersionServiceImpl extends ServiceImpl<AiFlowVersionMapper, A
     private AiFlowMapper aiFlowMapper;
     @Resource
     private ObjectMapper objectMapper;
+    @Resource
+    private IAiModelService aiModelService;
+    @Resource
+    private IAiKnowledgeBaseService aiKnowledgeBaseService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -226,23 +235,18 @@ public class AiFlowVersionServiceImpl extends ServiceImpl<AiFlowVersionMapper, A
 
     @Override
     public List<Model> queryModelList() {
-        // 模型列表暂时写死，未来改为查询独立的数据库表
-        return List.of(
-                buildModel(1L, "GPT-4o"),
-                buildModel(2L, "GPT-4 Turbo"),
-                buildModel(3L, "GPT-3.5 Turbo"),
-                buildModel(4L, "Claude 3.5 Sonnet")
-        );
+        // 查询当前组织下启用的 LLM 模型(modelType=1)
+        return aiModelService.queryEnabled(SysConstant.SYSCODE, 1).stream()
+                .map(this::buildModel)
+                .toList();
     }
 
     @Override
     public List<Knowledge> queryKnowledgeList() {
-        // 知识库列表暂时写死，未来改为查询独立的数据库表
-        return List.of(
-                buildKnowledge(1L, "知识库1"),
-                buildKnowledge(2L, "知识库2"),
-                buildKnowledge(3L, "知识库3")
-        );
+        // 查询当前组织下的全部知识库
+        return aiKnowledgeBaseService.queryAll(SysConstant.SYSCODE).stream()
+                .map(this::buildKnowledge)
+                .toList();
     }
 
     private String serializeWorkflow(Workflow workflow) {
@@ -289,17 +293,18 @@ public class AiFlowVersionServiceImpl extends ServiceImpl<AiFlowVersionMapper, A
         }
     }
 
-    private Model buildModel(Long id, String modelName) {
+    private Model buildModel(AiModelVo modelVo) {
         Model model = new Model();
-        model.setId(id);
-        model.setModelName(modelName);
+        model.setId(modelVo.getId());
+        // 优先使用显示名称
+        model.setModelName(modelVo.getDisplayName() != null ? modelVo.getDisplayName() : modelVo.getModelName());
         return model;
     }
 
-    private Knowledge buildKnowledge(Long id, String name) {
+    private Knowledge buildKnowledge(AiKnowledgeBaseVo baseVo) {
         Knowledge knowledge = new Knowledge();
-        knowledge.setId(id);
-        knowledge.setName(name);
+        knowledge.setId(baseVo.getId());
+        knowledge.setName(baseVo.getName());
         return knowledge;
     }
 
