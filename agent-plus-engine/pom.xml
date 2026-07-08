@@ -46,12 +46,6 @@
             <artifactId>langchain4j-open-ai</artifactId>
         </dependency>
 
-        <!-- LangChain4j Chroma (向量数据库) -->
-        <dependency>
-            <groupId>dev.langchain4j</groupId>
-            <artifactId>langchain4j-chroma</artifactId>
-        </dependency>
-
         <!-- LangGraph4j: 工作流 DAG / 状态图执行 -->
         <dependency>
             <groupId>org.bsc.langgraph4j</groupId>

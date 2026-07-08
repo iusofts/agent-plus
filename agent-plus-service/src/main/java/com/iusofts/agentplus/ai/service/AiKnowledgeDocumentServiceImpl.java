@@ -9,6 +9,8 @@ import com.iusofts.agentplus.ai.entity.AiKnowledgeBase;
 import com.iusofts.agentplus.ai.entity.AiKnowledgeChunk;
 import com.iusofts.agentplus.ai.entity.AiKnowledgeDocument;
 import com.iusofts.agentplus.ai.interfaces.IAiKnowledgeDocumentService;
+import com.iusofts.agentplus.ai.knowledge.KnowledgeIngestExecutor;
+import com.iusofts.agentplus.ai.knowledge.RedisVectorStoreManager;
 import com.iusofts.agentplus.ai.mapper.AiKnowledgeBaseMapper;
 import com.iusofts.agentplus.ai.mapper.AiKnowledgeChunkMapper;
 import com.iusofts.agentplus.ai.mapper.AiKnowledgeDocumentMapper;
@@ -26,6 +28,8 @@ import com.iusofts.agentplus.id.service.IdService.UidTypeEnum;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -35,8 +39,8 @@ import java.util.List;
  * AI知识库文档 服务实现类
  * </p>
  *
- * <p>仅登记文档元数据(OSS url + 文件名),新增时 status=0(待处理)。
- * 文档内容的拉取、分块、向量化由后续管线消费待处理记录完成。</p>
+ * <p>新增时仅登记文档元数据(OSS url + 文件名),status=0(待处理),随后在事务提交后
+ * 异步提交到有界线程池执行「下载->解析->分块->向量化->落库」管线。</p>
  *
  * @author Ivan
  * @since 2026-07-08
@@ -57,6 +61,12 @@ public class AiKnowledgeDocumentServiceImpl extends ServiceImpl<AiKnowledgeDocum
     @Resource
     private AiKnowledgeChunkMapper aiKnowledgeChunkMapper;
 
+    @Resource
+    private KnowledgeIngestExecutor ingestExecutor;
+
+    @Resource
+    private RedisVectorStoreManager vectorStoreManager;
+
     @Override
     public Long add(AiKnowledgeDocumentAddReqVo reqVo) {
         AiKnowledgeBase kb = requireKnowledgeBase(reqVo.getKnowledgeBaseId(), reqVo.getOrgId());
@@ -67,6 +77,7 @@ public class AiKnowledgeDocumentServiceImpl extends ServiceImpl<AiKnowledgeDocum
         doc.setOrgId(kb.getOrgId());
         doc.setCreateBy(reqVo.getOperatorId());
         super.save(doc);
+        submitAfterCommit(doc.getId());
         return doc.getId();
     }
 
@@ -92,6 +103,9 @@ public class AiKnowledgeDocumentServiceImpl extends ServiceImpl<AiKnowledgeDocum
             docs.add(doc);
         }
         super.saveBatch(docs);
+        for (AiKnowledgeDocument doc : docs) {
+            submitAfterCommit(doc.getId());
+        }
     }
 
     @Override
@@ -129,9 +143,22 @@ public class AiKnowledgeDocumentServiceImpl extends ServiceImpl<AiKnowledgeDocum
         if (reqVo.getOrgId() != null && !reqVo.getOrgId().equals(doc.getOrgId())) {
             throw new SystemBusinessException("操作权限获取失败！");
         }
-        // 同步删除该文档已产生的分块记录(向量库中的向量由后续管线清理)
+        // 先删除向量库中的向量,再删除分块记录,最后删文档
+        AiKnowledgeBase kb = aiKnowledgeBaseMapper.selectById(doc.getKnowledgeBaseId());
         LambdaQueryWrapper<AiKnowledgeChunk> chunkWrapper = Wrappers.lambdaQuery();
         chunkWrapper.eq(AiKnowledgeChunk::getDocumentId, reqVo.getId());
+        if (kb != null) {
+            List<AiKnowledgeChunk> chunks = aiKnowledgeChunkMapper.selectList(chunkWrapper);
+            List<String> vectorIds = chunks.stream()
+                    .map(AiKnowledgeChunk::getVectorId)
+                    .filter(v -> v != null && !v.isEmpty())
+                    .toList();
+            try {
+                vectorStoreManager.removeAll(kb.getCollectionName(), vectorIds);
+            } catch (Exception e) {
+                throw new SystemBusinessException("删除向量数据失败:" + e.getMessage());
+            }
+        }
         aiKnowledgeChunkMapper.delete(chunkWrapper);
         super.removeById(reqVo.getId());
     }
@@ -146,6 +173,23 @@ public class AiKnowledgeDocumentServiceImpl extends ServiceImpl<AiKnowledgeDocum
             throw new SystemBusinessException("操作权限获取失败！");
         }
         return ModelMapperUtil.strictMap(doc, AiKnowledgeDocumentVo.class);
+    }
+
+    /**
+     * 在当前事务提交后再提交异步处理任务,避免异步线程读不到尚未提交的文档记录。
+     * 无事务时直接提交。
+     */
+    private void submitAfterCommit(Long documentId) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    ingestExecutor.submit(documentId);
+                }
+            });
+        } else {
+            ingestExecutor.submit(documentId);
+        }
     }
 
     private AiKnowledgeBase requireKnowledgeBase(Long knowledgeBaseId, Integer orgId) {

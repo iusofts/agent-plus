@@ -1,8 +1,6 @@
 package com.iusofts.agentplus.engine.config;
 
 import com.iusofts.agentplus.engine.WorkflowEngine;
-import com.iusofts.agentplus.engine.knowledge.ChromaKnowledgeRetriever;
-import com.iusofts.agentplus.engine.knowledge.ChromaProperties;
 import com.iusofts.agentplus.engine.knowledge.KnowledgeRetriever;
 import com.iusofts.agentplus.engine.knowledge.NoopKnowledgeRetriever;
 import com.iusofts.agentplus.engine.llm.ChatModelProvider;
@@ -11,7 +9,6 @@ import com.iusofts.agentplus.engine.llm.DoubaoProperties;
 import com.iusofts.agentplus.engine.llm.QwenProperties;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,10 +18,13 @@ import org.springframework.context.annotation.Configuration;
  *
  * <p>业务模块只需配置千问/豆包 API Key，即可获得就绪的 {@link WorkflowEngine}。</p>
  *
+ * <p>知识库检索默认走 {@link NoopKnowledgeRetriever}（返回空）。业务模块(agent-plus-service)
+ * 接入向量库后会提供 {@code @Primary} 的 {@link KnowledgeRetriever} 覆盖之。</p>
+ *
  * @author Ivan
  */
 @Configuration(proxyBeanMethods = false)
-@EnableConfigurationProperties({QwenProperties.class, DoubaoProperties.class, ChromaProperties.class})
+@EnableConfigurationProperties({QwenProperties.class, DoubaoProperties.class})
 public class WorkflowEngineAutoConfiguration {
 
     @Bean
@@ -35,14 +35,6 @@ public class WorkflowEngineAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    @ConditionalOnProperty(prefix = "chroma", name = "enabled", havingValue = "true")
-    public KnowledgeRetriever knowledgeRetriever(ChromaProperties chromaProperties) {
-        return new ChromaKnowledgeRetriever(chromaProperties);
-    }
-
-    @Bean
-    @ConditionalOnMissingBean
-    @ConditionalOnProperty(prefix = "chroma", name = "enabled", havingValue = "false", matchIfMissing = true)
     public KnowledgeRetriever noopKnowledgeRetriever() {
         return new NoopKnowledgeRetriever();
     }

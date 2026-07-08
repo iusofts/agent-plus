@@ -85,7 +85,11 @@
         <!-- AI / LangChain4j -->
         <langchain4j.version>1.17.1</langchain4j.version>
         <langchain4j-community.version>1.13.0-beta23</langchain4j-community.version>
+        <!-- Redis 向量库集成(社区版,单独版本) -->
+        <langchain4j-community-redis.version>1.17.2-beta27</langchain4j-community-redis.version>
         <langgraph4j.version>1.8.20</langgraph4j.version>
+        <!-- 文档解析 -->
+        <tika.version>2.9.2</tika.version>
     </properties>
 
     <dependencyManagement>
@@ -341,6 +345,25 @@
                 <groupId>dev.langchain4j</groupId>
                 <artifactId>langchain4j-community-dashscope</artifactId>
                 <version>${langchain4j-community.version}</version>
+            </dependency>
+
+            <!-- LangChain4j 社区版：Redis 向量库(RedisEmbeddingStore) -->
+            <dependency>
+                <groupId>dev.langchain4j</groupId>
+                <artifactId>langchain4j-community-redis</artifactId>
+                <version>${langchain4j-community-redis.version}</version>
+            </dependency>
+
+            <!-- ================= 文档解析 (Apache Tika) ================= -->
+            <dependency>
+                <groupId>org.apache.tika</groupId>
+                <artifactId>tika-core</artifactId>
+                <version>${tika.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.tika</groupId>
+                <artifactId>tika-parsers-standard-package</artifactId>
+                <version>${tika.version}</version>
             </dependency>
 
             <!-- ================= LangGraph4j ================= -->

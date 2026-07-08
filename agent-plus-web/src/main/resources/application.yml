@@ -83,11 +83,20 @@ doubao:
   base-url: https://ark.cn-beijing.volces.com/api/v3
   model:
 
-# Chroma 向量库配置
-chroma:
-  enabled: false
-  url: http://localhost:8000
-  collection-prefix: kb_
+# 知识库(向量库/分块/异步管线)配置。向量库复用 spring.data.redis 连接。
+knowledge:
+  # 向量维度,需与 embedding 模型输出一致(千问 text-embedding-v3 = 1024)
+  dimension: 1024
+  # RedisEmbeddingStore 索引名前缀,实际索引名 = prefix + collectionName
+  index-prefix: "kb:"
+  # 文档处理线程池
+  ingest:
+    core-pool-size: 2
+    max-pool-size: 4
+    queue-capacity: 200
+    keep-alive-seconds: 60
+  # 单个文档处理最长时长(秒),超过则视为处理中超时,定时任务重新入队
+  process-timeout-seconds: 600
 
 ---
 
