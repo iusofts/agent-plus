@@ -1,14 +1,14 @@
-package com.iusofts.agentplus.knowledge;
+package com.iusofts.agentplus.llm.dto;
 
 import lombok.Data;
 
 /**
- * 嵌入模型配置 DTO（隔离数据库实体）。
+ * LLM 模型配置 DTO（隔离数据库实体）。
  *
  * @author Ivan
  */
 @Data
-public class EmbeddingModelDTO {
+public class LlmModelDTO {
 
     /**
      * 模型 ID。

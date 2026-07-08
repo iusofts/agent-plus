@@ -1,5 +1,7 @@
 package com.iusofts.agentplus.llm;
 
+import com.iusofts.agentplus.llm.dto.LlmModelDTO;
+
 /**
  * LLM 模型配置查询接口（抽象，不感知数据库）。
  *

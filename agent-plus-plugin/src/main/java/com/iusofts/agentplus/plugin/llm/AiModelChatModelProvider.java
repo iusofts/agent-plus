@@ -2,7 +2,7 @@ package com.iusofts.agentplus.plugin.llm;
 
 import com.iusofts.agentplus.aiflow.vo.workflow.data.llm.LLMNodeData;
 import com.iusofts.agentplus.engine.llm.ChatModelProvider;
-import com.iusofts.agentplus.llm.LlmModelDTO;
+import com.iusofts.agentplus.llm.dto.LlmModelDTO;
 import com.iusofts.agentplus.llm.LlmModelQueryProvider;
 import dev.langchain4j.model.chat.ChatModel;
 import org.springframework.context.annotation.Primary;

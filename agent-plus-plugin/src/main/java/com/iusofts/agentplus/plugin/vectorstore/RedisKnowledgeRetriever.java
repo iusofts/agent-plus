@@ -1,7 +1,7 @@
 package com.iusofts.agentplus.plugin.vectorstore;
 
 import com.iusofts.agentplus.engine.knowledge.KnowledgeRetriever;
-import com.iusofts.agentplus.knowledge.KnowledgeBaseDTO;
+import com.iusofts.agentplus.knowledge.dto.KnowledgeBaseDTO;
 import com.iusofts.agentplus.knowledge.KnowledgeBaseQueryProvider;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;

@@ -1,6 +1,6 @@
 package com.iusofts.agentplus.plugin.llm;
 
-import com.iusofts.agentplus.llm.LlmModelDTO;
+import com.iusofts.agentplus.llm.dto.LlmModelDTO;
 import dev.langchain4j.community.model.dashscope.QwenChatModel;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.openai.OpenAiChatModel;

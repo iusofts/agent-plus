@@ -1,5 +1,8 @@
 package com.iusofts.agentplus.llm;
 
+import com.iusofts.agentplus.llm.dto.ChatMessage;
+import com.iusofts.agentplus.llm.dto.ChatResponse;
+
 import java.util.List;
 
 /**

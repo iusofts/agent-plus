@@ -2,7 +2,7 @@ package com.iusofts.agentplus.library.provider;
 
 import com.iusofts.agentplus.library.entity.AiModel;
 import com.iusofts.agentplus.library.mapper.AiModelMapper;
-import com.iusofts.agentplus.llm.LlmModelDTO;
+import com.iusofts.agentplus.llm.dto.LlmModelDTO;
 import com.iusofts.agentplus.llm.LlmModelQueryProvider;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;

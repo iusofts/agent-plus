@@ -1,9 +1,9 @@
 package com.iusofts.agentplus.plugin.llm;
 
 import com.iusofts.agentplus.llm.AiChatService;
-import com.iusofts.agentplus.llm.ChatMessage;
-import com.iusofts.agentplus.llm.ChatResponse;
-import com.iusofts.agentplus.llm.LlmModelDTO;
+import com.iusofts.agentplus.llm.dto.ChatMessage;
+import com.iusofts.agentplus.llm.dto.ChatResponse;
+import com.iusofts.agentplus.llm.dto.LlmModelDTO;
 import com.iusofts.agentplus.llm.LlmModelQueryProvider;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.SystemMessage;

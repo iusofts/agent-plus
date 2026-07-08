@@ -2,7 +2,7 @@ package com.iusofts.agentplus.library.provider;
 
 import com.iusofts.agentplus.library.entity.AiKnowledgeBase;
 import com.iusofts.agentplus.library.mapper.AiKnowledgeBaseMapper;
-import com.iusofts.agentplus.knowledge.KnowledgeBaseDTO;
+import com.iusofts.agentplus.knowledge.dto.KnowledgeBaseDTO;
 import com.iusofts.agentplus.knowledge.KnowledgeBaseQueryProvider;
 import org.springframework.stereotype.Component;
 

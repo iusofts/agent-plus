@@ -1,6 +1,6 @@
 package com.iusofts.agentplus.plugin.vectorstore;
 
-import com.iusofts.agentplus.knowledge.EmbeddingModelDTO;
+import com.iusofts.agentplus.knowledge.dto.EmbeddingModelDTO;
 import com.iusofts.agentplus.knowledge.EmbeddingModelQueryProvider;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;

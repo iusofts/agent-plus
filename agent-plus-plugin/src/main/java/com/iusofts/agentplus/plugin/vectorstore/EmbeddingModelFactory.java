@@ -1,6 +1,6 @@
 package com.iusofts.agentplus.plugin.vectorstore;
 
-import com.iusofts.agentplus.knowledge.EmbeddingModelDTO;
+import com.iusofts.agentplus.knowledge.dto.EmbeddingModelDTO;
 import dev.langchain4j.community.model.dashscope.QwenEmbeddingModel;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.openai.OpenAiEmbeddingModel;

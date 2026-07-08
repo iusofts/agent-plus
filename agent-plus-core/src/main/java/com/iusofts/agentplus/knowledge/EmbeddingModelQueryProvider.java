@@ -1,5 +1,7 @@
 package com.iusofts.agentplus.knowledge;
 
+import com.iusofts.agentplus.knowledge.dto.EmbeddingModelDTO;
+
 /**
  * 嵌入模型配置查询接口（抽象，不感知数据库）。
  *

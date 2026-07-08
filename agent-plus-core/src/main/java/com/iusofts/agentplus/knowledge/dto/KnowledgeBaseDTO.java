@@ -1,4 +1,4 @@
-package com.iusofts.agentplus.knowledge;
+package com.iusofts.agentplus.knowledge.dto;
 
 import lombok.Data;
 

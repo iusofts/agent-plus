@@ -2,7 +2,7 @@ package com.iusofts.agentplus.library.provider;
 
 import com.iusofts.agentplus.library.entity.AiModel;
 import com.iusofts.agentplus.library.mapper.AiModelMapper;
-import com.iusofts.agentplus.knowledge.EmbeddingModelDTO;
+import com.iusofts.agentplus.knowledge.dto.EmbeddingModelDTO;
 import com.iusofts.agentplus.knowledge.EmbeddingModelQueryProvider;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
