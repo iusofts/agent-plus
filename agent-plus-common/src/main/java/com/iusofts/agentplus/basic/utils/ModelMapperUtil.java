@@ -1,7 +1,7 @@
 package com.iusofts.agentplus.basic.utils;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.iusofts.agentplus.basic.page.PageResult;
+import com.iusofts.agentplus.basic.web.vo.page.PageResult;
 import org.apache.commons.collections4.CollectionUtils;
 import org.modelmapper.ModelMapper;
 import org.modelmapper.convention.MatchingStrategies;

@@ -3,7 +3,7 @@ package com.iusofts.agentplus.system.service;
 import com.baomidou.dynamic.datasource.annotation.DS;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.iusofts.agentplus.basic.page.PageResult;
+import com.iusofts.agentplus.basic.web.vo.page.PageResult;
 import com.iusofts.agentplus.system.dao.SysDictDataMapper;
 import com.iusofts.agentplus.system.dto.SysDictDataDto;
 import com.iusofts.agentplus.system.entity.SysDictData;

@@ -2,11 +2,11 @@ package com.iusofts.agentplus.scheduled;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
-import com.iusofts.agentplus.ai.entity.AiKnowledgeDocument;
-import com.iusofts.agentplus.ai.knowledge.KnowledgeIngestExecutor;
-import com.iusofts.agentplus.ai.knowledge.KnowledgeIngestionService;
+import com.iusofts.agentplus.library.entity.AiKnowledgeDocument;
+import com.iusofts.agentplus.library.knowledge.KnowledgeIngestExecutor;
+import com.iusofts.agentplus.library.knowledge.KnowledgeIngestionService;
 import com.iusofts.agentplus.plugin.vectorstore.KnowledgeProperties;
-import com.iusofts.agentplus.ai.mapper.AiKnowledgeDocumentMapper;
+import com.iusofts.agentplus.library.mapper.AiKnowledgeDocumentMapper;
 import com.iusofts.agentplus.basic.redis.RedisLock;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;

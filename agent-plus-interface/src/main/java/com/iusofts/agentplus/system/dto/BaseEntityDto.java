@@ -2,7 +2,7 @@ package com.iusofts.agentplus.system.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.iusofts.agentplus.basic.page.PageQuery;
+import com.iusofts.agentplus.basic.web.vo.page.PageQuery;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;

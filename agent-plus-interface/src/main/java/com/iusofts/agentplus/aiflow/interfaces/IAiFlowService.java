@@ -1,7 +1,7 @@
 package com.iusofts.agentplus.aiflow.interfaces;
 
 import com.iusofts.agentplus.aiflow.vo.*;
-import com.iusofts.agentplus.basic.page.PageResult;
+import com.iusofts.agentplus.basic.web.vo.page.PageResult;
 import com.iusofts.agentplus.common.vo.IdReqVo;
 
 import java.util.List;

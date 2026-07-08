@@ -1,6 +1,6 @@
 package com.iusofts.agentplus.web.common.domain;
 
-import com.iusofts.agentplus.basic.ip.IpUtils;
+import com.iusofts.agentplus.basic.web.ip.IpUtils;
 import com.iusofts.agentplus.basic.num.Arith;
 import com.iusofts.agentplus.web.common.domain.server.*;
 import oshi.SystemInfo;

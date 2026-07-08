@@ -1,6 +1,6 @@
 package com.iusofts.agentplus.web.common.controller;
 
-import com.iusofts.agentplus.basic.annotation.BLoginUser;
+import com.iusofts.agentplus.basic.web.annotation.BLoginUser;
 import com.iusofts.agentplus.basic.exception.SystemBusinessException;
 import com.iusofts.agentplus.basic.freemaker.TemplateManage;
 import com.iusofts.agentplus.basic.validation.ApValidated;

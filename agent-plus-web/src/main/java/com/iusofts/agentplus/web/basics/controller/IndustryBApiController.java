@@ -1,7 +1,7 @@
 package com.iusofts.agentplus.web.basics.controller;
 
-import com.iusofts.agentplus.basic.annotation.BLoginUser;
-import com.iusofts.agentplus.basic.page.PageResult;
+import com.iusofts.agentplus.basic.web.annotation.BLoginUser;
+import com.iusofts.agentplus.basic.web.vo.page.PageResult;
 import com.iusofts.agentplus.basics.interfaces.IIndustryService;
 import com.iusofts.agentplus.basics.vo.IndustryAddReqVo;
 import com.iusofts.agentplus.basics.vo.IndustryChangeStatusVo;

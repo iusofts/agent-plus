@@ -1,6 +1,6 @@
 package com.iusofts.agentplus.web.common.controller;
 
-import com.iusofts.agentplus.basic.response.BasicResponse;
+import com.iusofts.agentplus.basic.web.response.BasicResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.boot.web.servlet.error.ErrorController;
 import org.springframework.web.bind.annotation.RequestMapping;

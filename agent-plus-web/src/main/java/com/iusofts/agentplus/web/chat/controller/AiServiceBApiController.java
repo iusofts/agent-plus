@@ -1,0 +1,43 @@
+package com.iusofts.agentplus.web.chat.controller;
+
+import com.alibaba.dashscope.common.Role;
+import com.iusofts.agentplus.chat.interfaces.IAiServiceInterface;
+import com.iusofts.agentplus.chat.vo.AiMessageVo;
+import com.iusofts.agentplus.chat.vo.AiServiceChatReqVo;
+import com.iusofts.agentplus.chat.vo.AiServiceChatReqVo.Message;
+import com.iusofts.agentplus.chat.vo.AiServiceChatTestReqVo;
+import com.iusofts.agentplus.basic.web.annotation.BLoginUser;
+import com.iusofts.agentplus.basic.validation.ApValidated;
+import com.iusofts.agentplus.system.vo.BLoginUserVo;
+import com.iusofts.agentplus.web.common.controller.BApiController;
+import io.swagger.v3.oas.annotations.Operation;
+import jakarta.annotation.Resource;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Arrays;
+
+@RequestMapping("/bapi/aiService")
+@RestController
+public class AiServiceBApiController extends BApiController {
+
+    @Resource
+    private IAiServiceInterface aiService;
+
+    @Operation(description = "发送聊天消息")
+    @PostMapping("/chat")
+    public AiMessageVo chat(@ApValidated @RequestBody AiServiceChatTestReqVo reqVo, @BLoginUser BLoginUserVo loginUserVo) {
+        AiServiceChatReqVo chatReqVo = new AiServiceChatReqVo();
+        chatReqVo.setConversationId(reqVo.getConversationId());
+        chatReqVo.setMessages(Arrays.asList(new Message(Role.USER.getValue(), reqVo.getContent())));
+        chatReqVo.setAgentId(reqVo.getAgentId());
+        chatReqVo.setBusinessType(0);
+        chatReqVo.setBusinessID("");
+        chatReqVo.setOrgId(0);
+        chatReqVo.setOperatorId(loginUserVo.getUser().getUserId());
+        return aiService.chat(chatReqVo);
+    }
+
+}

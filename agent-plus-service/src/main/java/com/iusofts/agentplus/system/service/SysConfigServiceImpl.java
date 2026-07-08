@@ -6,7 +6,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.iusofts.agentplus.basic.constants.CacheConstants;
 import com.iusofts.agentplus.basic.constants.UserConstants;
 import com.iusofts.agentplus.basic.exception.SystemBusinessException;
-import com.iusofts.agentplus.basic.page.PageResult;
+import com.iusofts.agentplus.basic.web.vo.page.PageResult;
 import com.iusofts.agentplus.basic.text.Convert;
 import com.iusofts.agentplus.basic.utils.StringUtils;
 import com.iusofts.agentplus.system.dao.SysConfigMapper;

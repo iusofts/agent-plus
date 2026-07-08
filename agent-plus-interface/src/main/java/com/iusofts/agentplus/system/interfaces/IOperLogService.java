@@ -1,6 +1,6 @@
 package com.iusofts.agentplus.system.interfaces;
 
-import com.iusofts.agentplus.basic.page.PageResult;
+import com.iusofts.agentplus.basic.web.vo.page.PageResult;
 import com.iusofts.agentplus.system.dto.OperLogAddParam;
 import com.iusofts.agentplus.system.dto.OperLogDto;
 import com.iusofts.agentplus.system.dto.OperateLogQueryParam;

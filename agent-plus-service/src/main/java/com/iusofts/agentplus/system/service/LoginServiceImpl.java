@@ -8,8 +8,8 @@ package com.iusofts.agentplus.system.service;
 
 import com.baomidou.dynamic.datasource.annotation.DS;
 import com.iusofts.agentplus.basic.exception.SystemBusinessException;
-import com.iusofts.agentplus.basic.image.EasyCaptchaImgCodeUtil;
-import com.iusofts.agentplus.basic.image.ImgIdentifyingCodeVO;
+import com.iusofts.agentplus.basic.web.captcha.EasyCaptchaImgCodeUtil;
+import com.iusofts.agentplus.basic.web.captcha.ImgIdentifyingCodeVO;
 import com.iusofts.agentplus.basic.utils.JsonUtils;
 import com.iusofts.agentplus.basic.security.MD5Util;
 import com.iusofts.agentplus.system.dao.SysRoleMenuMapper;

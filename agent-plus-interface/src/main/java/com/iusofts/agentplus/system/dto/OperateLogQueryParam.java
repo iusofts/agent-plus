@@ -1,6 +1,6 @@
 package com.iusofts.agentplus.system.dto;
 
-import com.iusofts.agentplus.basic.page.PageQuery;
+import com.iusofts.agentplus.basic.web.vo.page.PageQuery;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
