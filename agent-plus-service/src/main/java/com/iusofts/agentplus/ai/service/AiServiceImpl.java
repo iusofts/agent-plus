@@ -1,11 +1,5 @@
 package com.iusofts.agentplus.ai.service;
 
-import com.alibaba.dashscope.aigc.generation.Generation;
-import com.alibaba.dashscope.aigc.generation.GenerationParam;
-import com.alibaba.dashscope.aigc.generation.GenerationResult;
-import com.alibaba.dashscope.aigc.generation.GenerationUsage;
-import com.alibaba.dashscope.common.Message;
-import com.alibaba.dashscope.common.Role;
 import com.iusofts.agentplus.ai.interfaces.IAiServiceInterface;
 import com.iusofts.agentplus.ai.entity.AiAgent;
 import com.iusofts.agentplus.ai.entity.AiCallLog;
@@ -21,10 +15,13 @@ import com.iusofts.agentplus.basic.utils.ModelMapperUtil;
 import com.iusofts.agentplus.basic.utils.StringUtils;
 import com.iusofts.agentplus.id.service.IdService;
 import com.iusofts.agentplus.id.service.IdService.UidTypeEnum;
+import com.iusofts.agentplus.llm.AiChatService;
+import com.iusofts.agentplus.llm.ChatMessage;
+import com.iusofts.agentplus.llm.ChatResponse;
+import com.iusofts.agentplus.llm.LlmModelQueryProvider;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -33,6 +30,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
+ * AI 服务实现。
  *
  * @author Ivan Shen
  */
@@ -40,27 +38,21 @@ import java.util.List;
 @Service
 public class AiServiceImpl implements IAiServiceInterface {
 
-    @Value("${dashscope.api-key}")
-    private String apiKey;
-
-    @Value("${dashscope.model}")
-    private String model;
-
-    // 官方SDK核心对象
-    private final Generation gen = new Generation();
-
     @Resource
     private IdService idService;
     @Resource
     private AiConversationServiceImpl aiConversationService;
     @Resource
     private AiMessageServiceImpl aiMessageService;
-
     @Resource
     private AiAgentMapper aiAgentMapper;
-    
     @Resource
     private AiCallLogMapper aiCallLogMapper;
+
+    @Resource
+    private AiChatService aiChatService;
+    @Resource
+    private LlmModelQueryProvider modelQueryProvider;
 
     @Override
     public AiMessageVo chat(AiServiceChatReqVo reqVo) {
@@ -92,7 +84,6 @@ public class AiServiceImpl implements IAiServiceInterface {
             conversation.setBusinessId(reqVo.getBusinessID());
             conversation.setAgentId(reqVo.getAgentId());
             conversation.setAgentType(aiAgent.getType());
-            conversation.setModel(model);
             conversation.setCurrentRounds(0);
             conversation.setOrgId(reqVo.getOrgId());
             conversation.setCreateBy(reqVo.getOperatorId());
@@ -100,7 +91,7 @@ public class AiServiceImpl implements IAiServiceInterface {
 
             if (reqVo.isDefaultPrompt() && StringUtils.isNotBlank(aiAgent.getSystemPrompt())) {
                 AiMessageVo messageVo = new AiMessageVo();
-                messageVo.setRole(Role.SYSTEM.getValue());
+                messageVo.setRole("system");
                 messageVo.setContent(aiAgent.getSystemPrompt());
                 messageVoList.add(messageVo);
             }
@@ -119,7 +110,7 @@ public class AiServiceImpl implements IAiServiceInterface {
         boolean needAi = true;
         if (conversation.getCurrentRounds() >= aiAgent.getMaxRounds()) {
             resultMessage = new AiMessageVo();
-            resultMessage.setRole(Role.ASSISTANT.getValue());
+            resultMessage.setRole("assistant");
             resultMessage.setContent(aiAgent.getTransferHuman());
             resultMessage.setNeedTransferHuman(true);
             resultMessage.setConversationId(conversation.getId());
@@ -130,31 +121,25 @@ public class AiServiceImpl implements IAiServiceInterface {
         if (needAi) {
             try {
                 // 构建对话上下文
-                List<Message> msgList = new ArrayList<>();
+                List<ChatMessage> msgList = new ArrayList<>();
 
                 // 预制内容
                 for (AiMessageVo msg : messageVoList) {
-                    msgList.add(Message.builder().role(msg.getRole()).content(msg.getContent()).build());
+                    msgList.add(ChatMessage.builder().role(msg.getRole()).content(msg.getContent()).build());
                 }
 
-                // 调用官方SDK → 1行搞定！
-                GenerationParam param = GenerationParam.builder()
-                        .apiKey(apiKey)
-                        .model(model)
-                        .messages(msgList)
-                        .resultFormat("message")
-                        .build();
+                // 获取默认模型
+                Long modelId = modelQueryProvider.getDefaultModelId();
 
-                GenerationResult result = gen.call(param);
-                String aiReply = result.getOutput().getChoices().get(0).getMessage().getContent();
-                GenerationUsage usage = result.getUsage();
+                // 调用 AiChatService
+                ChatResponse response = aiChatService.chat(msgList, modelId, null);
 
                 resultMessage = new AiMessageVo();
-                resultMessage.setRole(Role.ASSISTANT.getValue());
-                resultMessage.setContent(aiReply);
-                resultMessage.setInputTokens(usage.getInputTokens());
-                resultMessage.setOutputTokens(usage.getOutputTokens());
-                resultMessage.setTotalTokens(usage.getTotalTokens());
+                resultMessage.setRole("assistant");
+                resultMessage.setContent(response.getContent());
+                resultMessage.setInputTokens(response.getInputTokens());
+                resultMessage.setOutputTokens(response.getOutputTokens());
+                resultMessage.setTotalTokens(response.getTotalTokens());
                 resultMessage.setConversationId(conversation.getId());
                 messageVoList.add(resultMessage);
 
@@ -165,7 +150,7 @@ public class AiServiceImpl implements IAiServiceInterface {
 
         // 保存上下文
         List<AiMessageVo> newMessageVoList = messageVoList.stream().filter(item -> item.getId() == null).toList();
-        
+
         List<AiMessage> newMessageList = new ArrayList<>();
         for (AiMessageVo item : newMessageVoList) {
             AiMessage aiMessage = ModelMapperUtil.strictMap(item, AiMessage.class);
@@ -179,7 +164,7 @@ public class AiServiceImpl implements IAiServiceInterface {
             aiMessage.setOrgId(reqVo.getOrgId());
             newMessageList.add(aiMessage);
         }
-        
+
         if(CollectionUtils.isNotEmpty(newMessageList)){
             aiMessageService.saveBatch(newMessageList);
         }
@@ -194,9 +179,9 @@ public class AiServiceImpl implements IAiServiceInterface {
 
     @Override
     public AiMessageVo call(AiServiceCallReqVo reqVo) {
-        
+
         log.debug("ai call param:{}", JsonUtils.obj2json(reqVo));
-        
+
         AiMessageVo resultMessage = null;
         List<AiMessageVo> messageVoList = new ArrayList<>();
         if (CollectionUtils.isNotEmpty(reqVo.getMessages())) {
@@ -210,51 +195,47 @@ public class AiServiceImpl implements IAiServiceInterface {
 
         try {
             // 构建对话上下文
-            List<Message> msgList = new ArrayList<>();
+            List<ChatMessage> msgList = new ArrayList<>();
 
             // 预制内容
             for (AiMessageVo msg : messageVoList) {
-                msgList.add(Message.builder().role(msg.getRole()).content(msg.getContent()).build());
+                msgList.add(ChatMessage.builder().role(msg.getRole()).content(msg.getContent()).build());
             }
 
-            // 调用官方SDK → 1行搞定！
-            GenerationParam param = GenerationParam.builder()
-                    .apiKey(apiKey)
-                    .model(model)
-                    .messages(msgList)
-                    .resultFormat("message")
-                    .build();
-
             long callTimeStart = System.currentTimeMillis();
-            GenerationResult result = gen.call(param);
-            String aiReply = result.getOutput().getChoices().get(0).getMessage().getContent();
-            GenerationUsage usage = result.getUsage();
+
+            // 获取默认模型
+            Long modelId = modelQueryProvider.getDefaultModelId();
+
+            // 调用 AiChatService
+            ChatResponse response = aiChatService.chat(msgList, modelId, null);
+
             long callTimeEnd = System.currentTimeMillis();
 
             resultMessage = new AiMessageVo();
-            resultMessage.setRole(Role.ASSISTANT.getValue());
-            resultMessage.setContent(aiReply);
-            resultMessage.setInputTokens(usage.getInputTokens());
-            resultMessage.setOutputTokens(usage.getOutputTokens());
-            resultMessage.setTotalTokens(usage.getTotalTokens());
+            resultMessage.setRole("assistant");
+            resultMessage.setContent(response.getContent());
+            resultMessage.setInputTokens(response.getInputTokens());
+            resultMessage.setOutputTokens(response.getOutputTokens());
+            resultMessage.setTotalTokens(response.getTotalTokens());
             messageVoList.add(resultMessage);
-            
+
             // 保存调用日志
             AiCallLog callLog = new AiCallLog();
             callLog.setBusinessType(reqVo.getBusinessType());
             callLog.setBusinessId(reqVo.getBusinessID());
             callLog.setAgentId(reqVo.getAgentId());
             callLog.setAgentType(reqVo.getAgentType());
-            callLog.setInputTokens(usage.getInputTokens());
-            callLog.setOutputTokens(usage.getOutputTokens());
-            callLog.setTotalTokens(usage.getTotalTokens());
+            callLog.setInputTokens(response.getInputTokens());
+            callLog.setOutputTokens(response.getOutputTokens());
+            callLog.setTotalTokens(response.getTotalTokens());
             callLog.setDuration((int) (callTimeEnd-callTimeStart));
             callLog.setTimeSign(LocalDate.now());
             callLog.setCreateBy(reqVo.getOperatorId());
             callLog.setCreateTime(LocalDateTime.now());
             callLog.setOrgId(reqVo.getOrgId());
             aiCallLogMapper.insert(callLog);
-            
+
         } catch (Exception e) {
             log.error("AI服务异常", e);
         }
