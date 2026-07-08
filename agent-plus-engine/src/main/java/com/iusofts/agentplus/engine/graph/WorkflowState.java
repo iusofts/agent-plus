@@ -25,10 +25,10 @@ public class WorkflowState extends AgentState {
 
     public ExecutionContext ctx() {
         Object value = data().get(CTX_KEY);
-        if (value instanceof ExecutionContextTracker) {
-            ExecutionContext ctx = ((ExecutionContextTracker) value).get();
+        if (value instanceof ExecutionContextTracker tracker) {
+            ExecutionContext ctx = tracker.get();
             if (ctx == null) {
-                throw new IllegalStateException("无法找到 runId=" + ((ExecutionContextTracker) value) + " 对应的 ExecutionContext");
+                throw new IllegalStateException("无法找到 tracker 对应的 ExecutionContext，可能已被提前清理");
             }
             return ctx;
         } else if (value instanceof ExecutionContext) {

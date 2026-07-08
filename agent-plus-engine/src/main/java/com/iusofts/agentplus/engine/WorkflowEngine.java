@@ -81,7 +81,7 @@ public class WorkflowEngine {
             throw new WorkflowExecutionException("工作流执行失败: " + e.getMessage(), e);
         } finally {
             // 执行完毕清理 tracker，防止内存泄漏
-            ExecutionContextTracker.remove(runId);
+            ExecutionContextTracker.removeRun(runId);
         }
 
         fillSkipped(compiled.nodeIds(), ctx);

@@ -121,8 +121,9 @@ public class BatchNodeExecutor implements NodeExecutor {
             LOGGER.warn("batch iteration failed batchId={} index={} err={}", batchId, index, e.getMessage(), e);
             return null;
         } finally {
-            // 清理该 scope 的 tracker
-            ExecutionContextTracker.remove(scoped.getRunId() + "#" + scoped.getScopeKey());
+            // 精确清理该 scope 的 tracker（不能用前缀，否则并行时会误删 index 互为前缀的其他轮次）
+            ExecutionContextTracker.removeKey(
+                    ExecutionContextTracker.keyOf(scoped.getRunId(), scoped.getScopeKey()));
         }
 
         Map<String, Map<String, Object>> collected = new LinkedHashMap<>();
