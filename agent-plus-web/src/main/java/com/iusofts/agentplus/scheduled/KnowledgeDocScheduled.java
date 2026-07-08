@@ -5,7 +5,7 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.iusofts.agentplus.ai.entity.AiKnowledgeDocument;
 import com.iusofts.agentplus.ai.knowledge.KnowledgeIngestExecutor;
 import com.iusofts.agentplus.ai.knowledge.KnowledgeIngestionService;
-import com.iusofts.agentplus.ai.knowledge.KnowledgeProperties;
+import com.iusofts.agentplus.plugin.vectorstore.KnowledgeProperties;
 import com.iusofts.agentplus.ai.mapper.AiKnowledgeDocumentMapper;
 import com.iusofts.agentplus.basic.redis.RedisLock;
 import jakarta.annotation.Resource;

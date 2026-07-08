@@ -3,6 +3,7 @@ package com.iusofts.agentplus.ai.knowledge;
 import com.iusofts.agentplus.ai.entity.AiKnowledgeBase;
 import com.iusofts.agentplus.ai.mapper.AiKnowledgeBaseMapper;
 import com.iusofts.agentplus.engine.knowledge.KnowledgeRetriever;
+import com.iusofts.agentplus.plugin.vectorstore.RedisVectorStoreManager;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
