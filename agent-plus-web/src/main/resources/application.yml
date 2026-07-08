@@ -73,8 +73,21 @@ storage:
 
 # 阿里云通义千问官方SDK配置
 dashscope:
-  api-key: XXX
+  api-key: ${DASHSCOPE_API_KEY:}
+  base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
   model: qwen-plus
+
+# 豆包（火山引擎）配置
+doubao:
+  api-key: ${DOUBAO_API_KEY:}
+  base-url: https://ark.cn-beijing.volces.com/api/v3
+  model:
+
+# Chroma 向量库配置
+chroma:
+  enabled: false
+  url: http://localhost:8000
+  collection-prefix: kb_
 
 ---
 

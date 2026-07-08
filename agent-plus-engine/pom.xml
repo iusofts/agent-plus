@@ -18,6 +18,18 @@
             <artifactId>agent-plus-core</artifactId>
         </dependency>
 
+        <!-- 通用工具 -->
+        <dependency>
+            <groupId>com.iusofts</groupId>
+            <artifactId>agent-plus-common</artifactId>
+        </dependency>
+
+        <!-- OkHttp for HTTP calls -->
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+        </dependency>
+
         <!-- LangChain4j 核心 -->
         <dependency>
             <groupId>dev.langchain4j</groupId>
@@ -27,16 +39,30 @@
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-core</artifactId>
         </dependency>
-        <!-- OpenAI 兼容渠道(可对接 DashScope / vLLM / 自建 OpenAI 网关) -->
+
+        <!-- LangChain4j OpenAI (支持千问和豆包的 OpenAI 兼容 API) -->
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-open-ai</artifactId>
+        </dependency>
+
+        <!-- LangChain4j Chroma (向量数据库) -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-chroma</artifactId>
         </dependency>
 
         <!-- LangGraph4j: 工作流 DAG / 状态图执行 -->
         <dependency>
             <groupId>org.bsc.langgraph4j</groupId>
             <artifactId>langgraph4j-core</artifactId>
+        </dependency>
+
+        <!-- Spring Boot 配置处理器 (用于生成配置元数据) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-configuration-processor</artifactId>
+            <optional>true</optional>
         </dependency>
     </dependencies>
 </project>
