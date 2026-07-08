@@ -29,6 +29,11 @@
             <groupId>com.iusofts</groupId>
             <artifactId>agent-plus-engine</artifactId>
         </dependency>
+        <!-- 插件模块：LLM/向量库/文档处理等三方集成 -->
+        <dependency>
+            <groupId>com.iusofts</groupId>
+            <artifactId>agent-plus-plugin</artifactId>
+        </dependency>
         <!-- 千问(DashScope)专用 ChatModel，用于按 ai_model 表路由 -->
         <dependency>
             <groupId>dev.langchain4j</groupId>

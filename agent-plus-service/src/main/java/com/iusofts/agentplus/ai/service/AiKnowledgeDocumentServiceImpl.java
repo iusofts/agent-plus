@@ -10,7 +10,7 @@ import com.iusofts.agentplus.ai.entity.AiKnowledgeChunk;
 import com.iusofts.agentplus.ai.entity.AiKnowledgeDocument;
 import com.iusofts.agentplus.ai.interfaces.IAiKnowledgeDocumentService;
 import com.iusofts.agentplus.ai.knowledge.KnowledgeIngestExecutor;
-import com.iusofts.agentplus.ai.knowledge.RedisVectorStoreManager;
+import com.iusofts.agentplus.plugin.vectorstore.RedisVectorStoreManager;
 import com.iusofts.agentplus.ai.mapper.AiKnowledgeBaseMapper;
 import com.iusofts.agentplus.ai.mapper.AiKnowledgeChunkMapper;
 import com.iusofts.agentplus.ai.mapper.AiKnowledgeDocumentMapper;
