@@ -14,11 +14,8 @@ import com.iusofts.agentplus.id.service.IdService.UidTypeEnum;
 import com.iusofts.agentplus.plugin.document.DocumentContentExtractor;
 import com.iusofts.agentplus.plugin.document.TextChunker;
 import com.iusofts.agentplus.plugin.vectorstore.KnowledgeProperties;
+import com.iusofts.agentplus.plugin.vectorstore.KnowledgeStoreService;
 import com.iusofts.agentplus.plugin.vectorstore.RedisVectorStoreManager;
-import dev.langchain4j.data.embedding.Embedding;
-import dev.langchain4j.data.segment.TextSegment;
-import dev.langchain4j.model.embedding.EmbeddingModel;
-import dev.langchain4j.model.output.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -54,8 +51,6 @@ public class KnowledgeIngestionService {
     private static final String LOCK_PREFIX = "knowledge:ingest:doc:";
     /** 锁持有时长(秒),覆盖单文档处理耗时。 */
     private static final long LOCK_EXPIRE_SECONDS = 900;
-    /** 单批向量化的分块数,控制单次 embedding 请求规模。 */
-    private static final int EMBED_BATCH_SIZE = 20;
     /** error_message 字段最大长度保护。 */
     private static final int ERROR_MSG_MAX = 1000;
 
@@ -75,9 +70,6 @@ public class KnowledgeIngestionService {
     private RedisLock redisLock;
 
     @Resource
-    private EmbeddingModelProvider embeddingModelProvider;
-
-    @Resource
     private RedisVectorStoreManager vectorStoreManager;
 
     @Resource
@@ -85,6 +77,9 @@ public class KnowledgeIngestionService {
 
     @Resource
     private TextChunker textChunker;
+
+    @Resource
+    private KnowledgeStoreService knowledgeStoreService;
 
     /**
      * 处理单个文档(幂等、带分布式锁)。供异步线程池与定时补偿共同调用。
@@ -146,68 +141,54 @@ public class KnowledgeIngestionService {
             clearExistingChunks(kb, doc);
 
             // 4. 向量化并写入(向量库 + DB 分块表)
-            EmbeddingModel embeddingModel = embeddingModelProvider.provide(kb.getEmbeddingModelId());
-            int stored = embedAndStore(kb, doc, chunkTexts, embeddingModel);
+            List<AiKnowledgeChunk> chunkRows = buildChunkRows(kb, doc, chunkTexts);
+            List<String> chunkTextsForStore = chunkRows.stream().map(AiKnowledgeChunk::getContent).toList();
+            List<String> vectorIds = chunkRows.stream().map(AiKnowledgeChunk::getVectorId).toList();
 
-            // 5. 标记完成
-            finishDocument(documentId, stored);
-            log.info("文档处理完成: documentId={}, chunkCount={}", documentId, stored);
+            // 调用 store service 向量化并存储向量
+            knowledgeStoreService.batchEmbedAndStore(
+                    kb.getCollectionName(),
+                    vectorIds,
+                    chunkTextsForStore,
+                    kb.getEmbeddingModelId()
+            );
+
+            // 5. 保存分块到数据库
+            saveChunkRows(chunkRows);
+
+            // 6. 标记完成
+            finishDocument(documentId, chunkTexts.size());
+            log.info("文档处理完成: documentId={}, chunkCount={}", documentId, chunkTexts.size());
         } catch (Exception e) {
             log.error("文档处理失败: documentId={}", documentId, e);
             markFailed(doc, e.getMessage());
         }
     }
 
-    /**
-     * 分批向量化并写入向量库与分块表。
-     *
-     * @return 实际写入的分块数
-     */
-    private int embedAndStore(AiKnowledgeBase kb, AiKnowledgeDocument doc,
-                              List<String> chunkTexts, EmbeddingModel embeddingModel) {
-        String collection = kb.getCollectionName();
-        int total = chunkTexts.size();
+    private List<AiKnowledgeChunk> buildChunkRows(AiKnowledgeBase kb, AiKnowledgeDocument doc, List<String> chunkTexts) {
+        List<AiKnowledgeChunk> result = new ArrayList<>();
         int sortOrder = 0;
-
-        for (int from = 0; from < total; from += EMBED_BATCH_SIZE) {
-            int to = Math.min(from + EMBED_BATCH_SIZE, total);
-            List<String> batch = chunkTexts.subList(from, to);
-
-            List<TextSegment> segments = new ArrayList<>(batch.size());
-            List<String> vectorIds = new ArrayList<>(batch.size());
-            List<AiKnowledgeChunk> chunkRows = new ArrayList<>(batch.size());
-
-            for (String content : batch) {
-                String vectorId = idService.generateUid(UidTypeEnum.CHAT).toString() + "-" + sortOrder;
-                TextSegment segment = TextSegment.from(content);
-                segments.add(segment);
-                vectorIds.add(vectorId);
-
-                AiKnowledgeChunk chunk = new AiKnowledgeChunk();
-                chunk.setId(idService.generateUid(UidTypeEnum.CHAT).longValue());
-                chunk.setKnowledgeBaseId(kb.getId());
-                chunk.setDocumentId(doc.getId());
-                chunk.setVectorId(vectorId);
-                chunk.setContent(content);
-                chunk.setSortOrder(sortOrder);
-                chunk.setCreateBy(doc.getCreateBy());
-                chunk.setOrgId(doc.getOrgId());
-                chunkRows.add(chunk);
-                sortOrder++;
-            }
-
-            // 向量化
-            Response<List<Embedding>> response = embeddingModel.embedAll(segments);
-            List<Embedding> embeddings = response.content();
-
-            // 写向量库
-            vectorStoreManager.addAll(collection, vectorIds, embeddings, segments);
-            // 写分块表
-            for (AiKnowledgeChunk row : chunkRows) {
-                chunkMapper.insert(row);
-            }
+        for (String content : chunkTexts) {
+            String vectorId = idService.generateUid(UidTypeEnum.CHAT).toString() + "-" + sortOrder;
+            AiKnowledgeChunk chunk = new AiKnowledgeChunk();
+            chunk.setId(idService.generateUid(UidTypeEnum.CHAT).longValue());
+            chunk.setKnowledgeBaseId(kb.getId());
+            chunk.setDocumentId(doc.getId());
+            chunk.setVectorId(vectorId);
+            chunk.setContent(content);
+            chunk.setSortOrder(sortOrder);
+            chunk.setCreateBy(doc.getCreateBy());
+            chunk.setOrgId(doc.getOrgId());
+            result.add(chunk);
+            sortOrder++;
         }
-        return total;
+        return result;
+    }
+
+    private void saveChunkRows(List<AiKnowledgeChunk> chunkRows) {
+        for (AiKnowledgeChunk chunk : chunkRows) {
+            chunkMapper.insert(chunk);
+        }
     }
 
     /**
