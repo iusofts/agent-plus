@@ -14,8 +14,6 @@ CREATE TABLE `ai_llm_call_log` (
   `call_source` varchar(50) NOT NULL COMMENT '调用来源(AGENT/CHAT/FLOW/API)',
   `source_id` bigint(20) NULL DEFAULT NULL COMMENT '来源ID(智能体ID/会话ID/流程ID)',
   `source_node_id` varchar(100) NULL DEFAULT NULL COMMENT '来源节点ID(工作流节点ID)',
-  `business_type` int(11) NULL DEFAULT 0 COMMENT '业务类型',
-  `business_id` bigint(20) NULL DEFAULT 0 COMMENT '业务ID',
   `model_id` bigint(20) NULL DEFAULT NULL COMMENT '模型ID',
   `model_name` varchar(100) NULL DEFAULT NULL COMMENT '模型名称',
   `model_provider` varchar(50) NULL DEFAULT NULL COMMENT '模型提供商(QWEN/DOUBAO/OPENAI/CUSTOM)',

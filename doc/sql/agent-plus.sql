@@ -60,8 +60,6 @@ DROP TABLE IF EXISTS `ai_conversation`;
 CREATE TABLE `ai_conversation` (
   `id` bigint(20) NOT NULL COMMENT '会话id',
   `title` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT '新对话' COMMENT '会话标题',
-  `business_type` int(11) NOT NULL DEFAULT 0 COMMENT '业务类型 0:测试 1:默认应用  2:抖音私信',
-  `business_id` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT '' COMMENT '业务id',
   `agent_id` bigint(20) NOT NULL COMMENT '智能体id',
   `model_id` bigint(20) NULL DEFAULT NULL COMMENT '使用模型ID',
   `current_rounds` int(11) NOT NULL DEFAULT 1 COMMENT '当前轮次',
@@ -74,7 +72,6 @@ CREATE TABLE `ai_conversation` (
   `delete_flag` tinyint(1) NOT NULL DEFAULT 0 COMMENT '删除标记(0:正常 1:已删除)',
   `org_id` int(11) NOT NULL DEFAULT 0 COMMENT '所属组织ID',
   PRIMARY KEY (`id`) USING BTREE,
-  INDEX `idx_business_id`(`business_id`) USING BTREE,
   INDEX `idx_ai_conversation_org_id`(`org_id`) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = 'ai对话会话' ROW_FORMAT = Dynamic;
 

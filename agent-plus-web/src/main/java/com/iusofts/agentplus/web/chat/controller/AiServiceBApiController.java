@@ -19,6 +19,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Arrays;
 
+import static com.iusofts.agentplus.common.constants.SysConstant.SYSCODE;
+
 @RequestMapping("/bapi/aiService")
 @RestController
 public class AiServiceBApiController extends BApiController {
@@ -33,9 +35,7 @@ public class AiServiceBApiController extends BApiController {
         chatReqVo.setConversationId(reqVo.getConversationId());
         chatReqVo.setMessages(Arrays.asList(new Message(Role.USER.getValue(), reqVo.getContent())));
         chatReqVo.setAgentId(reqVo.getAgentId());
-        chatReqVo.setBusinessType(0);
-        chatReqVo.setBusinessID("");
-        chatReqVo.setOrgId(0);
+        chatReqVo.setOrgId(SYSCODE);
         chatReqVo.setOperatorId(loginUserVo.getUser().getUserId());
         return aiService.chat(chatReqVo);
     }

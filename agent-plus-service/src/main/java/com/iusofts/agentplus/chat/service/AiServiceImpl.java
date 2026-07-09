@@ -87,12 +87,11 @@ public class AiServiceImpl implements IAiServiceInterface {
                 title = firstMessage.substring(0, Math.min(firstMessage.length(), 15));
             }
             conversation.setTitle(title);
-            conversation.setBusinessType(reqVo.getBusinessType());
             conversation.setOrgId(reqVo.getOrgId());
             conversation.setCreateBy(reqVo.getOperatorId());
             aiConversationService.save(conversation);
 
-            if (reqVo.isDefaultPrompt() && StringUtils.isNotBlank(aiAgent.getSystemPrompt())) {
+            if (StringUtils.isNotBlank(aiAgent.getSystemPrompt())) {
                 AiMessageVo messageVo = new AiMessageVo();
                 messageVo.setRole("system");
                 messageVo.setContent(aiAgent.getSystemPrompt());

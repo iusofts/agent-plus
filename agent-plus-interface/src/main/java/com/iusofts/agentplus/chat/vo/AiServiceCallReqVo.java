@@ -16,12 +16,6 @@ public class AiServiceCallReqVo {
     @Schema(description = "发送的消息")
     private List<Message> messages;
 
-    @Schema(description = "业务类型")
-    private Integer businessType;
-
-    @Schema(description = "业务ID")
-    private Long businessID;
-
     @Schema(description = "智能体ID")
     private Long agentId;
 

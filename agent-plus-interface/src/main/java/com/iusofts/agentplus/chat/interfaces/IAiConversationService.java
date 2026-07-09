@@ -2,7 +2,7 @@ package com.iusofts.agentplus.chat.interfaces;
 
 import com.iusofts.agentplus.chat.vo.conversation.AiConversationAddReqVo;
 import com.iusofts.agentplus.chat.vo.conversation.AiConversationQueryPageReqVo;
-import com.iusofts.agentplus.chat.vo.conversation.AiConversationTestInfoVo;
+import com.iusofts.agentplus.chat.vo.conversation.AiConversationInfoVo;
 import com.iusofts.agentplus.chat.vo.conversation.AiConversationVo;
 import com.iusofts.agentplus.basic.web.vo.page.PageResult;
 import com.iusofts.agentplus.common.vo.IdReqVo;
@@ -29,8 +29,6 @@ public interface IAiConversationService {
 
     void updateTitle(Long id, String title, Integer orgId, Long operatorId);
 
-    AiConversationTestInfoVo getInfo(IdReqVo reqVo);
-
-    AiConversationVo findByBusinessId(Integer businessType, String businessId, Integer orgId);
+    AiConversationInfoVo getInfo(IdReqVo reqVo);
 
 }

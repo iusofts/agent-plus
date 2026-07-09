@@ -22,17 +22,8 @@ public class AiConversationVo {
     @Schema(description = "会话标题")
     private String title;
 
-    @Schema(description = "业务类型 0.测试 1.默认应用  ")
-    private Integer businessType;
-
-    @Schema(description = "业务id")
-    private String businessId;
-
     @Schema(description = "智能体id")
     private Long agentId;
-
-    @Schema(description = "智能体类型 1.问候型 2.销售型 3.鉴别型")
-    private Integer agentType;
 
     @Schema(description = "使用模型")
     private String model;

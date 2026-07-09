@@ -27,15 +27,6 @@ public class AiServiceChatReqVo {
     @Schema(description = "智能体ID")
     private Long agentId;
 
-    @Schema(description = "业务类型")
-    private Integer businessType;
-
-    @Schema(description = "业务ID")
-    private String businessID;
-
-    @Schema(description = "默认智能体提示词 false时需要自己从messages中传入")
-    private boolean defaultPrompt = true;
-
     @Schema(description = "组织ID")
     private Integer orgId;
 

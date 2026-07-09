@@ -1,7 +1,7 @@
 package com.iusofts.agentplus.web.chat.controller;
 
 import com.iusofts.agentplus.chat.interfaces.IAiConversationService;
-import com.iusofts.agentplus.chat.vo.conversation.AiConversationTestInfoVo;
+import com.iusofts.agentplus.chat.vo.conversation.AiConversationInfoVo;
 import com.iusofts.agentplus.chat.vo.conversation.AiConversationQueryPageReqVo;
 import com.iusofts.agentplus.chat.vo.conversation.AiConversationUpdateTitleReqVo;
 import com.iusofts.agentplus.chat.vo.conversation.AiConversationVo;
@@ -59,7 +59,7 @@ public class AiConversationController extends BApiController {
 
     @Operation(description = "查询会话详情")
     @PostMapping("/getInfo")
-    public AiConversationTestInfoVo getInfo(@RequestBody IdReqVo reqVo) {
+    public AiConversationInfoVo getInfo(@RequestBody IdReqVo reqVo) {
         reqVo.setOrgId(0);
         return aiConversationService.getInfo(reqVo);
     }

@@ -8,7 +8,7 @@ import java.util.List;
 
 @Data
 @Schema(description = "ai对话会话信息vo")
-public class AiConversationTestInfoVo {
+public class AiConversationInfoVo {
 
     @Schema(description = "会话id")
     private Long id;

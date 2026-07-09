@@ -8,11 +8,10 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.iusofts.agentplus.chat.interfaces.IAiConversationService;
 import com.iusofts.agentplus.chat.entity.AiConversation;
-import com.iusofts.agentplus.chat.enums.AiBusinessType;
 import com.iusofts.agentplus.chat.mapper.AiConversationMapper;
 import com.iusofts.agentplus.chat.vo.conversation.AiConversationAddReqVo;
 import com.iusofts.agentplus.chat.vo.conversation.AiConversationQueryPageReqVo;
-import com.iusofts.agentplus.chat.vo.conversation.AiConversationTestInfoVo;
+import com.iusofts.agentplus.chat.vo.conversation.AiConversationInfoVo;
 import com.iusofts.agentplus.chat.vo.conversation.AiConversationVo;
 import com.iusofts.agentplus.chat.vo.AiMessageVo;
 import com.iusofts.agentplus.basic.exception.SystemBusinessException;
@@ -57,7 +56,6 @@ public class AiConversationServiceImpl extends ServiceImpl<AiConversationMapper,
     public PageResult<AiConversationVo> queryPage(AiConversationQueryPageReqVo reqVo) {
         PageResult<AiConversationVo> pageResult = new PageResult<>();
         LambdaQueryWrapper<AiConversation> wrapper = Wrappers.lambdaQuery();
-        wrapper.eq(AiConversation::getBusinessType, AiBusinessType.TEST.getCode());
         if (reqVo.getOrgId() != null) {
             wrapper.eq(AiConversation::getOrgId, reqVo.getOrgId());
         }
@@ -105,7 +103,7 @@ public class AiConversationServiceImpl extends ServiceImpl<AiConversationMapper,
     }
 
     @Override
-    public AiConversationTestInfoVo getInfo(IdReqVo reqVo) {
+    public AiConversationInfoVo getInfo(IdReqVo reqVo) {
         // 首先检查会话是否存在
         AiConversation conversation = super.getById(reqVo.getId());
         if (conversation == null) {
@@ -117,7 +115,7 @@ public class AiConversationServiceImpl extends ServiceImpl<AiConversationMapper,
         }
 
         // 将实体转换为VO
-        AiConversationTestInfoVo infoVo = ModelMapperUtil.strictMap(conversation, AiConversationTestInfoVo.class);
+        AiConversationInfoVo infoVo = ModelMapperUtil.strictMap(conversation, AiConversationInfoVo.class);
 
         // 查询相关的消息记录
         List<AiMessageVo> messageVoList = aiMessageService.getList(reqVo.getId());
@@ -128,7 +126,7 @@ public class AiConversationServiceImpl extends ServiceImpl<AiConversationMapper,
         infoVo.setMessages(messageVoList);
 
         // 计算使用量统计 - 聚合所有消息的token使用量
-        AiConversationTestInfoVo.Usage usage = new AiConversationTestInfoVo.Usage();
+        AiConversationInfoVo.Usage usage = new AiConversationInfoVo.Usage();
         int totalInputTokens = messageVoList.stream()
             .mapToInt(msg -> msg.getInputTokens() != null ? msg.getInputTokens() : 0)
             .sum();
@@ -145,20 +143,6 @@ public class AiConversationServiceImpl extends ServiceImpl<AiConversationMapper,
         infoVo.setUsage(usage);
 
         return infoVo;
-    }
-
-    @Override
-    public AiConversationVo findByBusinessId(Integer businessType, String businessId, Integer orgId) {
-        LambdaQueryWrapper<AiConversation> wrapper = Wrappers.lambdaQuery();
-        wrapper.eq(AiConversation::getBusinessType, businessType);
-        wrapper.eq(AiConversation::getBusinessId, businessId);
-        wrapper.eq(AiConversation::getOrgId, orgId);
-        wrapper.orderByDesc(AiConversation::getId);
-        AiConversation conversation = super.getOne(wrapper, false);
-        if (conversation != null) {
-            return ModelMapperUtil.strictMap(conversation, AiConversationVo.class);
-        }
-        return null;
     }
 
     private void checkDataPermission(Long id, Integer orgId) {
