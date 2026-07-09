@@ -28,6 +28,7 @@ import com.iusofts.agentplus.common.vo.IdReqVo;
 import com.iusofts.agentplus.id.service.IdService;
 import com.iusofts.agentplus.id.service.IdService.UidTypeEnum;
 import jakarta.annotation.Resource;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,6 +45,7 @@ import java.util.List;
  * @author Ivan
  * @since 2026-07-09
  */
+@Slf4j
 @Service
 public class AiKnowledgeChunkServiceImpl extends ServiceImpl<AiKnowledgeChunkMapper, AiKnowledgeChunk>
         implements IAiKnowledgeChunkService {
@@ -201,6 +203,12 @@ public class AiKnowledgeChunkServiceImpl extends ServiceImpl<AiKnowledgeChunkMap
 
         if (target == KnowledgeIngestionService.CHUNK_STATUS_ENABLED) {
             // 启用:用 DB 中保存的内容重建向量
+            if (StringUtils.isBlank(chunk.getVectorId())) {
+                throw new SystemBusinessException("分块缺少向量ID,无法重建向量");
+            }
+            if (StringUtils.isBlank(chunk.getContent())) {
+                throw new SystemBusinessException("分块内容为空,无法重建向量");
+            }
             try {
                 knowledgeStoreService.batchEmbedAndStore(
                         kb.getCollectionName(),
@@ -209,6 +217,7 @@ public class AiKnowledgeChunkServiceImpl extends ServiceImpl<AiKnowledgeChunkMap
                         kb.getEmbeddingModelId()
                 );
             } catch (Exception e) {
+                log.error("重建向量数据失败", e);
                 throw new SystemBusinessException("重建向量数据失败:" + e.getMessage());
             }
         } else {
