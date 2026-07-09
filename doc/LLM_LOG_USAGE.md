@@ -31,7 +31,6 @@ String traceId = LlmLogRecorder.generateTraceId();
 AiLlmCallLog log = LlmLogRecorder.llmCall()
     .traceId(traceId)
     .fromAgent(agentId)              // 或者 .fromChat(), .fromFlow(), .fromApi()
-    .business(businessType, businessId)
     .model(modelDTO)
     .config(config)
     .inputMessages(messages)
