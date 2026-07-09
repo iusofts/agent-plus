@@ -2,11 +2,9 @@ package com.iusofts.agentplus.chat.service;
 
 import com.iusofts.agentplus.chat.interfaces.IAiServiceInterface;
 import com.iusofts.agentplus.chat.entity.AiAgent;
-import com.iusofts.agentplus.chat.entity.AiCallLog;
 import com.iusofts.agentplus.chat.entity.AiConversation;
 import com.iusofts.agentplus.chat.entity.AiMessage;
 import com.iusofts.agentplus.chat.mapper.AiAgentMapper;
-import com.iusofts.agentplus.chat.mapper.AiCallLogMapper;
 import com.iusofts.agentplus.chat.vo.AiMessageVo;
 import com.iusofts.agentplus.chat.vo.AiServiceCallReqVo;
 import com.iusofts.agentplus.chat.vo.AiServiceChatReqVo;
@@ -48,8 +46,6 @@ public class AiServiceImpl implements IAiServiceInterface {
     private AiMessageServiceImpl aiMessageService;
     @Resource
     private AiAgentMapper aiAgentMapper;
-    @Resource
-    private AiCallLogMapper aiCallLogMapper;
 
     @Resource
     private AiChatService aiChatService;
@@ -231,21 +227,6 @@ public class AiServiceImpl implements IAiServiceInterface {
             resultMessage.setOutputTokens(response.getOutputTokens());
             resultMessage.setTotalTokens(response.getTotalTokens());
             messageVoList.add(resultMessage);
-
-            // 保存调用日志
-            AiCallLog callLog = new AiCallLog();
-            callLog.setBusinessType(reqVo.getBusinessType());
-            callLog.setBusinessId(reqVo.getBusinessID());
-            callLog.setAgentId(reqVo.getAgentId());
-            callLog.setInputTokens(response.getInputTokens());
-            callLog.setOutputTokens(response.getOutputTokens());
-            callLog.setTotalTokens(response.getTotalTokens());
-            callLog.setDuration((int) (callTimeEnd-callTimeStart));
-            callLog.setTimeSign(LocalDate.now());
-            callLog.setCreateBy(reqVo.getOperatorId());
-            callLog.setCreateTime(LocalDateTime.now());
-            callLog.setOrgId(reqVo.getOrgId());
-            aiCallLogMapper.insert(callLog);
 
         } catch (Exception e) {
             log.error("AI服务异常", e);
