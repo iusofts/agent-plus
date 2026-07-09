@@ -78,8 +78,6 @@ public interface LlmLogRecorder {
 
         LlmCallRecorder fromApi();
 
-        LlmCallRecorder business(Integer businessType, Long businessId);
-
         LlmCallRecorder model(LlmModelDTO modelDTO);
 
         LlmCallRecorder config(LlmModelConfigDTO config);

@@ -105,13 +105,6 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
         }
 
         @Override
-        public LlmCallRecorder business(Integer businessType, Long businessId) {
-            entity.setBusinessType(businessType);
-            entity.setBusinessId(businessId);
-            return this;
-        }
-
-        @Override
         public LlmCallRecorder model(LlmModelDTO modelDTO) {
             if (modelDTO != null) {
                 entity.setModelId(modelDTO.getId());

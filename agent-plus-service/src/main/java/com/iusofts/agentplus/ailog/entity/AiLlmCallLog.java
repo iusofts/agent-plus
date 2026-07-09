@@ -47,12 +47,6 @@ public class AiLlmCallLog implements Serializable {
     @Schema(description = "来源节点ID(工作流节点ID)")
     private String sourceNodeId;
 
-    @Schema(description = "业务类型")
-    private Integer businessType;
-
-    @Schema(description = "业务ID")
-    private Long businessId;
-
     @Schema(description = "模型ID")
     private Long modelId;
 

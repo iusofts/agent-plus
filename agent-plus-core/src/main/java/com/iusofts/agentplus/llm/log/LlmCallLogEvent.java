@@ -41,16 +41,6 @@ public class LlmCallLogEvent {
     private String sourceNodeId;
 
     /**
-     * 业务类型。
-     */
-    private Integer businessType;
-
-    /**
-     * 业务 ID。
-     */
-    private Long businessId;
-
-    /**
      * 模型 ID。
      */
     private Long modelId;
