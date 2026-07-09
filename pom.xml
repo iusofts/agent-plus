@@ -87,6 +87,10 @@
         <langchain4j-community.version>1.13.0-beta23</langchain4j-community.version>
         <!-- Redis 向量库集成(社区版,单独版本) -->
         <langchain4j-community-redis.version>1.17.2-beta27</langchain4j-community-redis.version>
+        <!-- 覆盖 Spring Boot BOM 管理的 Jedis 版本(默认6.0.0)。
+             langchain4j-community-redis 编译于 Jedis 7.2.1,其 UnifiedJedis.pipelined()
+             返回 AbstractPipeline,6.0.0 无此签名会抛 NoSuchMethodError -->
+        <jedis.version>7.2.1</jedis.version>
         <langgraph4j.version>1.8.20</langgraph4j.version>
         <!-- 文档解析 -->
         <tika.version>2.9.2</tika.version>
