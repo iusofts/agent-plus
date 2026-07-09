@@ -23,6 +23,9 @@ public class AiAgentEditReqVo {
     @Schema(description = "智能体名称")
     private String name;
 
+    @Schema(description = "功能介绍")
+    private String description;
+
     @Schema(description = "设定描述")
     private String systemPrompt;
 
