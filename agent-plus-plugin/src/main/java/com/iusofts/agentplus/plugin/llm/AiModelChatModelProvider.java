@@ -2,6 +2,7 @@ package com.iusofts.agentplus.plugin.llm;
 
 import com.iusofts.agentplus.aiflow.vo.workflow.data.llm.LLMNodeData;
 import com.iusofts.agentplus.engine.llm.ChatModelProvider;
+import com.iusofts.agentplus.llm.dto.LlmModelConfigDTO;
 import com.iusofts.agentplus.llm.dto.LlmModelDTO;
 import com.iusofts.agentplus.llm.LlmModelQueryProvider;
 import dev.langchain4j.model.chat.ChatModel;
@@ -45,7 +46,9 @@ public class AiModelChatModelProvider implements ChatModelProvider {
 
         return cache.computeIfAbsent(cacheKey, k -> {
             LlmModelDTO modelDTO = modelQueryProvider.getModel(modelId);
-            return LlmModelFactory.createChatModel(modelDTO, temperature, null);
+            LlmModelConfigDTO config = new LlmModelConfigDTO();
+            config.setTemperature(temperature);
+            return LlmModelFactory.createChatModel(modelDTO, config);
         });
     }
 }

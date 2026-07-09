@@ -19,6 +19,7 @@ import com.iusofts.agentplus.id.service.IdService.UidTypeEnum;
 import com.iusofts.agentplus.llm.AiChatService;
 import com.iusofts.agentplus.llm.dto.ChatMessage;
 import com.iusofts.agentplus.llm.dto.ChatResponse;
+import com.iusofts.agentplus.llm.dto.LlmModelConfigDTO;
 import com.iusofts.agentplus.engine.knowledge.KnowledgeRetriever;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -131,11 +132,10 @@ public class AiServiceImpl implements IAiServiceInterface {
             }
 
             // 智能体生成参数
-            Double temperature = aiAgent.getTemperature() == null ? null : aiAgent.getTemperature().doubleValue();
-            Integer maxTokens = aiAgent.getMaxReplyLength();
+            LlmModelConfigDTO config = buildModelConfig(aiAgent);
 
             // 调用 AiChatService
-            ChatResponse response = aiChatService.chat(msgList, modelId, temperature, maxTokens);
+            ChatResponse response = aiChatService.chat(msgList, modelId, config);
 
             resultMessage = new AiMessageVo();
             resultMessage.setRole("assistant");
@@ -207,14 +207,12 @@ public class AiServiceImpl implements IAiServiceInterface {
 
             // 获取模型ID
             Long modelId = null;
-            Double temperature = null;
-            Integer maxTokens = null;
+            LlmModelConfigDTO config = null;
             if (reqVo.getAgentId() != null) {
                 AiAgent aiAgent = aiAgentMapper.selectById(reqVo.getAgentId());
                 if (aiAgent != null) {
                     modelId = aiAgent.getModelId();
-                    temperature = aiAgent.getTemperature() == null ? null : aiAgent.getTemperature().doubleValue();
-                    maxTokens = aiAgent.getMaxReplyLength();
+                    config = buildModelConfig(aiAgent);
                 }
             }
             if (modelId == null) {
@@ -222,7 +220,7 @@ public class AiServiceImpl implements IAiServiceInterface {
             }
 
             // 调用 AiChatService
-            ChatResponse response = aiChatService.chat(msgList, modelId, temperature, maxTokens);
+            ChatResponse response = aiChatService.chat(msgList, modelId, config);
 
             long callTimeEnd = System.currentTimeMillis();
 
@@ -254,6 +252,18 @@ public class AiServiceImpl implements IAiServiceInterface {
         }
 
         return resultMessage;
+    }
+
+    /**
+     * 从智能体配置组装 LLM 生成参数。
+     */
+    private LlmModelConfigDTO buildModelConfig(AiAgent aiAgent) {
+        LlmModelConfigDTO config = new LlmModelConfigDTO();
+        if (aiAgent != null) {
+            config.setTemperature(aiAgent.getTemperature() == null ? null : aiAgent.getTemperature().doubleValue());
+            config.setMaxTokens(aiAgent.getMaxReplyLength());
+        }
+        return config;
     }
 
     /**

@@ -4,6 +4,7 @@ import com.iusofts.agentplus.llm.AiChatService;
 import com.iusofts.agentplus.llm.LlmModelCacheEvictor;
 import com.iusofts.agentplus.llm.dto.ChatMessage;
 import com.iusofts.agentplus.llm.dto.ChatResponse;
+import com.iusofts.agentplus.llm.dto.LlmModelConfigDTO;
 import com.iusofts.agentplus.llm.dto.LlmModelDTO;
 import com.iusofts.agentplus.llm.LlmModelQueryProvider;
 import dev.langchain4j.data.message.AiMessage;
@@ -31,7 +32,7 @@ public class Langchain4jAiChatService implements AiChatService, LlmModelCacheEvi
     private final LlmModelQueryProvider modelQueryProvider;
 
     /**
-     * 缓存 key = modelId + "@" + temperature + "@" + maxTokens，避免每次调用重建 ChatModel。
+     * 缓存 key = modelId + 生成参数，避免每次调用重建 ChatModel。
      */
     private final ConcurrentMap<String, ChatModel> cache = new ConcurrentHashMap<>();
 
@@ -50,11 +51,11 @@ public class Langchain4jAiChatService implements AiChatService, LlmModelCacheEvi
     }
 
     @Override
-    public ChatResponse chat(List<ChatMessage> messages, Long modelId, Double temperature, Integer maxTokens) {
-        String cacheKey = modelId + "@" + temperature + "@" + maxTokens;
+    public ChatResponse chat(List<ChatMessage> messages, Long modelId, LlmModelConfigDTO config) {
+        String cacheKey = buildCacheKey(modelId, config);
         ChatModel chatModel = cache.computeIfAbsent(cacheKey, k -> {
             LlmModelDTO modelDTO = modelQueryProvider.getModel(modelId);
-            return LlmModelFactory.createChatModel(modelDTO, temperature, maxTokens);
+            return LlmModelFactory.createChatModel(modelDTO, config);
         });
 
         // 转换消息格式
@@ -96,5 +97,15 @@ public class Langchain4jAiChatService implements AiChatService, LlmModelCacheEvi
                 .outputTokens(null)
                 .totalTokens(null)
                 .build();
+    }
+
+    /**
+     * 生成缓存 key：modelId 叠加生成参数，参数不同则使用不同 ChatModel 实例。
+     */
+    private String buildCacheKey(Long modelId, LlmModelConfigDTO config) {
+        if (config == null) {
+            return modelId + "@default";
+        }
+        return modelId + "@" + config.getTemperature() + "@" + config.getMaxTokens();
     }
 }

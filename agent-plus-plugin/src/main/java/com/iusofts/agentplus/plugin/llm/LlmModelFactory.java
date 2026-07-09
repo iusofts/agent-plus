@@ -1,5 +1,6 @@
 package com.iusofts.agentplus.plugin.llm;
 
+import com.iusofts.agentplus.llm.dto.LlmModelConfigDTO;
 import com.iusofts.agentplus.llm.dto.LlmModelDTO;
 import dev.langchain4j.community.model.dashscope.QwenChatModel;
 import dev.langchain4j.model.chat.ChatModel;
@@ -20,23 +21,25 @@ public class LlmModelFactory {
     /**
      * 构建 ChatModel 实例。
      *
-     * @param modelDTO 模型配置 DTO
-     * @param temperature 温度参数（可为 null）
-     * @param maxTokens 最大回复 token 数（可为 null）
+     * <p>生成参数（temperature/maxTokens 等）统一从 {@link LlmModelConfigDTO} 读取，
+     * 新增参数只需扩展该 DTO，无需改动本方法签名。</p>
+     *
+     * @param modelDTO 模型连接配置 DTO
+     * @param config   生成参数配置（可为 null）
      * @return ChatModel 实例
      */
-    public static ChatModel createChatModel(LlmModelDTO modelDTO, Double temperature, Integer maxTokens) {
+    public static ChatModel createChatModel(LlmModelDTO modelDTO, LlmModelConfigDTO config) {
         String provider = modelDTO.getProvider() == null ? "" : modelDTO.getProvider().trim().toLowerCase();
 
         if (PROVIDER_QWEN.equals(provider)) {
-            return buildQwen(modelDTO, temperature, maxTokens);
+            return buildQwen(modelDTO, config);
         }
 
         // doubao/openai/其他：走 OpenAI 兼容接口
-        return buildOpenAiCompatible(modelDTO, temperature, maxTokens);
+        return buildOpenAiCompatible(modelDTO, config);
     }
 
-    private static ChatModel buildQwen(LlmModelDTO modelDTO, Double temperature, Integer maxTokens) {
+    private static ChatModel buildQwen(LlmModelDTO modelDTO, LlmModelConfigDTO config) {
         QwenChatModel.QwenChatModelBuilder builder = QwenChatModel.builder()
                 .apiKey(modelDTO.getApiKey())
                 .modelName(modelDTO.getModelName());
@@ -45,18 +48,19 @@ public class LlmModelFactory {
             builder.baseUrl(modelDTO.getBaseUrl());
         }
 
-        if (temperature != null) {
-            builder.temperature(temperature.floatValue());
-        }
-
-        if (maxTokens != null) {
-            builder.maxTokens(maxTokens);
+        if (config != null) {
+            if (config.getTemperature() != null) {
+                builder.temperature(config.getTemperature().floatValue());
+            }
+            if (config.getMaxTokens() != null) {
+                builder.maxTokens(config.getMaxTokens());
+            }
         }
 
         return builder.build();
     }
 
-    private static ChatModel buildOpenAiCompatible(LlmModelDTO modelDTO, Double temperature, Integer maxTokens) {
+    private static ChatModel buildOpenAiCompatible(LlmModelDTO modelDTO, LlmModelConfigDTO config) {
         OpenAiChatModel.OpenAiChatModelBuilder builder = OpenAiChatModel.builder()
                 .apiKey(modelDTO.getApiKey())
                 .modelName(modelDTO.getModelName());
@@ -65,12 +69,13 @@ public class LlmModelFactory {
             builder.baseUrl(modelDTO.getBaseUrl());
         }
 
-        if (temperature != null) {
-            builder.temperature(temperature);
-        }
-
-        if (maxTokens != null) {
-            builder.maxTokens(maxTokens);
+        if (config != null) {
+            if (config.getTemperature() != null) {
+                builder.temperature(config.getTemperature());
+            }
+            if (config.getMaxTokens() != null) {
+                builder.maxTokens(config.getMaxTokens());
+            }
         }
 
         return builder.build();
