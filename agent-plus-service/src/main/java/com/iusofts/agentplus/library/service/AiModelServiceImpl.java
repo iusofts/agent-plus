@@ -20,6 +20,7 @@ import com.iusofts.agentplus.basic.utils.StringUtils;
 import com.iusofts.agentplus.common.vo.IdReqVo;
 import com.iusofts.agentplus.id.service.IdService;
 import com.iusofts.agentplus.id.service.IdService.UidTypeEnum;
+import com.iusofts.agentplus.llm.LlmModelCacheEvictor;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 
@@ -38,6 +39,9 @@ public class AiModelServiceImpl extends ServiceImpl<AiModelMapper, AiModel> impl
 
     @Resource
     private IdService idService;
+
+    @Resource
+    private LlmModelCacheEvictor llmModelCacheEvictor;
 
     @Override
     public void add(AiModelAddReqVo reqVo) {
@@ -58,6 +62,8 @@ public class AiModelServiceImpl extends ServiceImpl<AiModelMapper, AiModel> impl
         }
         aiModel.setUpdateBy(reqVo.getOperatorId());
         super.updateById(aiModel);
+        // 模型配置变更后清理缓存，使下次调用重建 ChatModel
+        llmModelCacheEvictor.evict(reqVo.getId());
     }
 
     @Override
@@ -119,6 +125,8 @@ public class AiModelServiceImpl extends ServiceImpl<AiModelMapper, AiModel> impl
             throw new SystemBusinessException("模型不存在");
         }
         super.removeById(reqVo.getId());
+        // 模型删除后清理缓存
+        llmModelCacheEvictor.evict(reqVo.getId());
     }
 
     @Override

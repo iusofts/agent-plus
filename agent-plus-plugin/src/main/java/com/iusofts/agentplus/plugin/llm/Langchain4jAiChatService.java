@@ -1,6 +1,7 @@
 package com.iusofts.agentplus.plugin.llm;
 
 import com.iusofts.agentplus.llm.AiChatService;
+import com.iusofts.agentplus.llm.LlmModelCacheEvictor;
 import com.iusofts.agentplus.llm.dto.ChatMessage;
 import com.iusofts.agentplus.llm.dto.ChatResponse;
 import com.iusofts.agentplus.llm.dto.LlmModelDTO;
@@ -25,7 +26,7 @@ import java.util.concurrent.ConcurrentMap;
  * @author Ivan
  */
 @Service
-public class Langchain4jAiChatService implements AiChatService {
+public class Langchain4jAiChatService implements AiChatService, LlmModelCacheEvictor {
 
     private final LlmModelQueryProvider modelQueryProvider;
 
@@ -36,6 +37,16 @@ public class Langchain4jAiChatService implements AiChatService {
 
     public Langchain4jAiChatService(LlmModelQueryProvider modelQueryProvider) {
         this.modelQueryProvider = modelQueryProvider;
+    }
+
+    @Override
+    public void evict(Long modelId) {
+        if (modelId == null) {
+            return;
+        }
+        // 同一 modelId 可能存在多个不同 temperature 的缓存条目，全部清理
+        String prefix = modelId + "@";
+        cache.keySet().removeIf(key -> key.startsWith(prefix));
     }
 
     @Override
