@@ -45,6 +45,12 @@ public class KnowledgeIngestionService {
     public static final int STATUS_PROCESSING = 1;
     public static final int STATUS_COMPLETED = 2;
     public static final int STATUS_FAILED = 3;
+    public static final int STATUS_DISABLED = 4;
+    public static final int STATUS_ARCHIVED = 5;
+
+    /** 分块状态。 */
+    public static final int CHUNK_STATUS_DISABLED = 0;
+    public static final int CHUNK_STATUS_ENABLED = 1;
 
     /** 处理锁 key 前缀。 */
     private static final String LOCK_PREFIX = "knowledge:ingest:doc:";
@@ -176,6 +182,7 @@ public class KnowledgeIngestionService {
             chunk.setVectorId(vectorId);
             chunk.setContent(content);
             chunk.setSortOrder(sortOrder);
+            chunk.setStatus(CHUNK_STATUS_ENABLED);
             chunk.setCreateBy(doc.getCreateBy());
             chunk.setOrgId(doc.getOrgId());
             result.add(chunk);

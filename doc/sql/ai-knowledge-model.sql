@@ -80,7 +80,7 @@ CREATE TABLE `ai_knowledge_document` (
   `doc_type` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'text' COMMENT '文档类型 txt/pdf/docx/md/url',
   `doc_url` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '文档URL/路径',
   `summary` varchar(2000) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '文档内容摘要',
-  `status` tinyint(4) NOT NULL DEFAULT 0 COMMENT '文档状态 0:待处理 1:处理中 2:已完成 3:失败',
+  `status` tinyint(4) NOT NULL DEFAULT 0 COMMENT '文档状态 0:待处理 1:处理中 2:可用 3:失败 4:已禁用 5:已归档',
   `error_message` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '处理失败原因',
   `chunk_count` int(11) NOT NULL DEFAULT 0 COMMENT '分块数量',
   `create_by` bigint(20) NOT NULL DEFAULT 0 COMMENT '创建人ID',
@@ -111,6 +111,7 @@ CREATE TABLE `ai_knowledge_chunk` (
   `vector_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '向量库中的ID',
   `content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '分块内容',
   `sort_order` int(11) NOT NULL DEFAULT 0 COMMENT '分块序号',
+  `status` tinyint(4) NOT NULL DEFAULT 1 COMMENT '分块状态 0:停用 1:启用',
   `metadata` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '元数据JSON',
   `create_by` bigint(20) NOT NULL DEFAULT 0 COMMENT '创建人ID',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '记录创建时间',
@@ -127,9 +128,9 @@ CREATE TABLE `ai_knowledge_chunk` (
 -- ----------------------------
 -- Records of ai_knowledge_chunk
 -- ----------------------------
-INSERT INTO `ai_knowledge_chunk` (`id`, `knowledge_base_id`, `document_id`, `vector_id`, `content`, `sort_order`, `metadata`, `create_by`, `create_time`, `update_by`, `update_time`, `delete_flag`, `org_id`) VALUES
-(1, 1, 1, NULL, '这是一个测试文档的内容。这是第一段。这是第二段。这是第三段。这是第四段。', 0, NULL, 0, NOW(), 0, NULL, 0, 1),
-(2, 1, 1, NULL, '这是第四段。这是第五段。这是第六段。这是第七段。这是第八段。这是第九段。这是第十段。', 1, NULL, 0, NOW(), 0, NULL, 0, 1);
+INSERT INTO `ai_knowledge_chunk` (`id`, `knowledge_base_id`, `document_id`, `vector_id`, `content`, `sort_order`, `status`, `metadata`, `create_by`, `create_time`, `update_by`, `update_time`, `delete_flag`, `org_id`) VALUES
+(1, 1, 1, NULL, '这是一个测试文档的内容。这是第一段。这是第二段。这是第三段。这是第四段。', 0, 1, NULL, 0, NOW(), 0, NULL, 0, 1),
+(2, 1, 1, NULL, '这是第四段。这是第五段。这是第六段。这是第七段。这是第八段。这是第九段。这是第十段。', 1, 1, NULL, 0, NOW(), 0, NULL, 0, 1);
 
 -- ----------------------------
 -- Update id_generator for new types

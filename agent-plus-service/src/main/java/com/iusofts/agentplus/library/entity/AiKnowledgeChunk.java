@@ -48,6 +48,9 @@ public class AiKnowledgeChunk implements Serializable {
     @Schema(description = "分块序号")
     private Integer sortOrder;
 
+    @Schema(description = "分块状态 0:停用 1:启用")
+    private Integer status;
+
     @Schema(description = "元数据JSON")
     private String metadata;
 

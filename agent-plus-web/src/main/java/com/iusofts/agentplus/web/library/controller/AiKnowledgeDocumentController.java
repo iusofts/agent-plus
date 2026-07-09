@@ -4,6 +4,7 @@ import com.iusofts.agentplus.library.interfaces.IAiKnowledgeDocumentService;
 import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeDocumentAddReqVo;
 import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeDocumentBatchAddReqVo;
 import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeDocumentQueryPageReqVo;
+import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeDocumentStatusReqVo;
 import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeDocumentVo;
 import com.iusofts.agentplus.basic.web.annotation.BLoginUser;
 import com.iusofts.agentplus.basic.web.annotation.OperationLogExclude;
@@ -70,6 +71,14 @@ public class AiKnowledgeDocumentController extends BApiController {
     public void remove(@RequestBody IdReqVo reqVo) {
         reqVo.setOrgId(SYSCODE);
         aiKnowledgeDocumentService.remove(reqVo);
+    }
+
+    @Operation(description = "变更文档状态(可用/已禁用/已归档,联动分块与向量)")
+    @PostMapping("/changeStatus")
+    public void changeStatus(@Valid @RequestBody AiKnowledgeDocumentStatusReqVo reqVo, @BLoginUser BLoginUserVo loginUserVo) {
+        reqVo.setOrgId(SYSCODE);
+        reqVo.setOperatorId(loginUserVo.getUser().getUserId());
+        aiKnowledgeDocumentService.changeStatus(reqVo);
     }
 
     @Operation(description = "根据ID查询")

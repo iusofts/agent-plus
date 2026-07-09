@@ -10,6 +10,8 @@ import com.iusofts.agentplus.library.entity.AiKnowledgeChunk;
 import com.iusofts.agentplus.library.entity.AiKnowledgeDocument;
 import com.iusofts.agentplus.library.interfaces.IAiKnowledgeDocumentService;
 import com.iusofts.agentplus.library.knowledge.KnowledgeIngestExecutor;
+import com.iusofts.agentplus.library.knowledge.KnowledgeIngestionService;
+import com.iusofts.agentplus.plugin.vectorstore.KnowledgeStoreService;
 import com.iusofts.agentplus.plugin.vectorstore.RedisVectorStoreManager;
 import com.iusofts.agentplus.library.mapper.AiKnowledgeBaseMapper;
 import com.iusofts.agentplus.library.mapper.AiKnowledgeChunkMapper;
@@ -17,6 +19,7 @@ import com.iusofts.agentplus.library.mapper.AiKnowledgeDocumentMapper;
 import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeDocumentAddReqVo;
 import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeDocumentBatchAddReqVo;
 import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeDocumentQueryPageReqVo;
+import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeDocumentStatusReqVo;
 import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeDocumentVo;
 import com.iusofts.agentplus.basic.exception.SystemBusinessException;
 import com.iusofts.agentplus.basic.web.vo.page.PageResult;
@@ -66,6 +69,9 @@ public class AiKnowledgeDocumentServiceImpl extends ServiceImpl<AiKnowledgeDocum
 
     @Resource
     private RedisVectorStoreManager vectorStoreManager;
+
+    @Resource
+    private KnowledgeStoreService knowledgeStoreService;
 
     @Override
     public Long add(AiKnowledgeDocumentAddReqVo reqVo) {
@@ -173,6 +179,116 @@ public class AiKnowledgeDocumentServiceImpl extends ServiceImpl<AiKnowledgeDocum
             throw new SystemBusinessException("操作权限获取失败！");
         }
         return ModelMapperUtil.strictMap(doc, AiKnowledgeDocumentVo.class);
+    }
+
+    /**
+     * 文档状态变更。仅支持「可用」与「已禁用/已归档」之间切换:
+     * <ul>
+     *   <li>可用 -> 已禁用/已归档:停用文档下所有分块并删除其向量,RAG 检索不再命中;</li>
+     *   <li>已禁用/已归档 -> 可用:重新启用所有分块并用 DB 保存的内容重建向量。</li>
+     * </ul>
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void changeStatus(AiKnowledgeDocumentStatusReqVo reqVo) {
+        int target = reqVo.getStatus() == null ? -1 : reqVo.getStatus();
+        if (target != KnowledgeIngestionService.STATUS_COMPLETED
+                && target != KnowledgeIngestionService.STATUS_DISABLED
+                && target != KnowledgeIngestionService.STATUS_ARCHIVED) {
+            throw new SystemBusinessException("目标状态只能是可用、已禁用或已归档");
+        }
+        AiKnowledgeDocument doc = super.getById(reqVo.getId());
+        if (doc == null) {
+            throw new SystemBusinessException("文档不存在");
+        }
+        if (reqVo.getOrgId() != null && !reqVo.getOrgId().equals(doc.getOrgId())) {
+            throw new SystemBusinessException("操作权限获取失败！");
+        }
+        int current = doc.getStatus() == null ? -1 : doc.getStatus();
+        // 只有已就绪的文档(可用/已禁用/已归档)才允许手动切换
+        if (current != KnowledgeIngestionService.STATUS_COMPLETED
+                && current != KnowledgeIngestionService.STATUS_DISABLED
+                && current != KnowledgeIngestionService.STATUS_ARCHIVED) {
+            throw new SystemBusinessException("当前文档状态不支持该操作");
+        }
+        if (current == target) {
+            return;
+        }
+
+        AiKnowledgeBase kb = aiKnowledgeBaseMapper.selectById(doc.getKnowledgeBaseId());
+        if (kb == null) {
+            throw new SystemBusinessException("知识库不存在");
+        }
+
+        List<AiKnowledgeChunk> chunks = aiKnowledgeChunkMapper.selectList(
+                Wrappers.<AiKnowledgeChunk>lambdaQuery().eq(AiKnowledgeChunk::getDocumentId, doc.getId()));
+
+        boolean enable = target == KnowledgeIngestionService.STATUS_COMPLETED;
+        if (enable) {
+            enableChunks(kb, chunks);
+        } else {
+            disableChunks(kb, chunks);
+        }
+
+        AiKnowledgeDocument update = new AiKnowledgeDocument();
+        update.setId(doc.getId());
+        update.setStatus(target);
+        update.setUpdateBy(reqVo.getOperatorId());
+        super.updateById(update);
+    }
+
+    /**
+     * 启用文档下所有分块:置 status=1,并用 DB 保存的内容重建向量。
+     */
+    private void enableChunks(AiKnowledgeBase kb, List<AiKnowledgeChunk> chunks) {
+        if (chunks.isEmpty()) {
+            return;
+        }
+        List<String> vectorIds = new ArrayList<>();
+        List<String> contents = new ArrayList<>();
+        for (AiKnowledgeChunk c : chunks) {
+            if (StringUtils.isNotBlank(c.getVectorId())) {
+                vectorIds.add(c.getVectorId());
+                contents.add(c.getContent());
+            }
+        }
+        if (!vectorIds.isEmpty()) {
+            try {
+                knowledgeStoreService.batchEmbedAndStore(
+                        kb.getCollectionName(), vectorIds, contents, kb.getEmbeddingModelId());
+            } catch (Exception e) {
+                throw new SystemBusinessException("重建向量数据失败:" + e.getMessage());
+            }
+        }
+        updateChunkStatus(chunks, KnowledgeIngestionService.CHUNK_STATUS_ENABLED);
+    }
+
+    /**
+     * 停用文档下所有分块:置 status=0,并从向量库删除其向量。
+     */
+    private void disableChunks(AiKnowledgeBase kb, List<AiKnowledgeChunk> chunks) {
+        if (chunks.isEmpty()) {
+            return;
+        }
+        List<String> vectorIds = chunks.stream()
+                .map(AiKnowledgeChunk::getVectorId)
+                .filter(StringUtils::isNotBlank)
+                .toList();
+        try {
+            vectorStoreManager.removeAll(kb.getCollectionName(), vectorIds);
+        } catch (Exception e) {
+            throw new SystemBusinessException("删除向量数据失败:" + e.getMessage());
+        }
+        updateChunkStatus(chunks, KnowledgeIngestionService.CHUNK_STATUS_DISABLED);
+    }
+
+    private void updateChunkStatus(List<AiKnowledgeChunk> chunks, int status) {
+        for (AiKnowledgeChunk c : chunks) {
+            AiKnowledgeChunk update = new AiKnowledgeChunk();
+            update.setId(c.getId());
+            update.setStatus(status);
+            aiKnowledgeChunkMapper.updateById(update);
+        }
     }
 
     /**

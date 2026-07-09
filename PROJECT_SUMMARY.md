@@ -40,6 +40,11 @@
 - `ChromaKnowledgeRetriever.java` - Chroma 检索器
 - 支持嵌入模型：text-embedding-v3（千问）
 
+#### Web 接口
+- 知识库文档:`/bapi/aiKnowledgeDocument`(增删改查 + 状态变更)
+- 文档分块:`/bapi/aiKnowledgeChunk`(手动新增/编辑/启停/删除 + 分页查询)
+- 完整清单见 [`doc/知识库分块接口清单.md`](doc/知识库分块接口清单.md)
+
 ---
 
 ### 3. 工作流引擎优化
