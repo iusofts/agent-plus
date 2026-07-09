@@ -34,9 +34,6 @@ public class AiConversationVo {
     @Schema(description = "最后聊天时间")
     private LocalDateTime lastChatTime;
     
-    @Schema(description = "测试数据")
-    private String testData;
-
     @Schema(description = "记录创建时间")
     private LocalDateTime createTime;
 

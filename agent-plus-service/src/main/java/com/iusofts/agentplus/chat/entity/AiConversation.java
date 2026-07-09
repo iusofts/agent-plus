@@ -48,9 +48,6 @@ public class AiConversation implements Serializable {
     @Schema(description = "最后聊天时间")
     private LocalDateTime lastChatTime;
 
-    @Schema(description = "测试数据")
-    private String testData;
-
     @Schema(description = "创建人ID")
     private Long createBy;
 

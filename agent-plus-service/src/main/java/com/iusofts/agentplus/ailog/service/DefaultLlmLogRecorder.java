@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import jakarta.annotation.Resource;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -195,6 +196,7 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
                 entity.setEndTime(endTime);
                 entity.setDuration((int) java.time.Duration.between(startTime, endTime).toMillis());
                 entity.setCreateTime(LocalDateTime.now());
+                entity.setTimeSign(LocalDate.now());
                 service.saveLog(entity);
             } catch (Exception e) {
                 log.warn("记录 LLM 调用日志失败", e);
@@ -329,6 +331,7 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
                 entity.setEndTime(endTime);
                 entity.setDuration((int) java.time.Duration.between(startTime, endTime).toMillis());
                 entity.setCreateTime(LocalDateTime.now());
+                entity.setTimeSign(LocalDate.now());
                 service.saveLog(entity);
             } catch (Exception e) {
                 log.warn("记录知识库检索日志失败", e);
@@ -432,6 +435,7 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
                 entity.setEndTime(endTime);
                 entity.setDuration((int) java.time.Duration.between(startTime, endTime).toMillis());
                 entity.setCreateTime(LocalDateTime.now());
+                entity.setTimeSign(LocalDate.now());
                 service.saveLog(entity);
             } catch (Exception e) {
                 log.warn("记录文档处理日志失败", e);

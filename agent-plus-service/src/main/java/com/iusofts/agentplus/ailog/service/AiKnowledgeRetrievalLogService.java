@@ -14,6 +14,6 @@ import org.springframework.stereotype.Service;
 public class AiKnowledgeRetrievalLogService extends ServiceImpl<AiKnowledgeRetrievalLogMapper, AiKnowledgeRetrievalLog> {
 
     public void saveLog(AiKnowledgeRetrievalLog log) {
-        getBaseMapper().insert(log);
+        super.save(log);
     }
 }

@@ -14,6 +14,6 @@ import org.springframework.stereotype.Service;
 public class AiKnowledgeDocLogService extends ServiceImpl<AiKnowledgeDocLogMapper, AiKnowledgeDocLog> {
 
     public void saveLog(AiKnowledgeDocLog log) {
-        getBaseMapper().insert(log);
+        super.save(log);
     }
 }

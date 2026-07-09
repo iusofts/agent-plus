@@ -81,12 +81,14 @@ public class AiServiceImpl implements IAiServiceInterface {
             conversation = new AiConversation();
             Integer uid = idService.generateUid(UidTypeEnum.CHAT);
             conversation.setId(uid.longValue());
+            conversation.setAgentId(reqVo.getAgentId());
             String title = "新对话";
             if (CollectionUtils.isNotEmpty(reqVo.getMessages()) && StringUtils.isNotBlank(reqVo.getMessages().get(0).getContent())) {
                 String firstMessage = reqVo.getMessages().get(0).getContent();
                 title = firstMessage.substring(0, Math.min(firstMessage.length(), 15));
             }
             conversation.setTitle(title);
+            conversation.setCurrentRounds(0);
             conversation.setOrgId(reqVo.getOrgId());
             conversation.setCreateBy(reqVo.getOperatorId());
             aiConversationService.save(conversation);

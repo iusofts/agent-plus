@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import static com.iusofts.agentplus.basic.enums.OperationLogExcludeTypeEnums.RES;
+import static com.iusofts.agentplus.common.constants.SysConstant.SYSCODE;
 
 /**
  * <p>
@@ -39,28 +40,28 @@ public class AiConversationController extends BApiController {
     @OperationLogExclude(type = RES)
     @PostMapping("/queryPage")
     public PageResult<AiConversationVo> queryPage(@RequestBody AiConversationQueryPageReqVo reqVo) {
-        reqVo.setOrgId(0);
+        reqVo.setOrgId(SYSCODE);
         return aiConversationService.queryPage(reqVo);
     }
 
     @Operation(description = "删除ai对话会话")
     @PostMapping("/remove")
     public void remove(@RequestBody IdReqVo reqVo) {
-        reqVo.setOrgId(0);
+        reqVo.setOrgId(SYSCODE);
         aiConversationService.remove(reqVo);
     }
 
     @Operation(description = "更新对话会话标题")
     @PostMapping("/updateTitle")
     public void updateTitle(@RequestBody AiConversationUpdateTitleReqVo reqVo) {
-        reqVo.setOrgId(0);
+        reqVo.setOrgId(SYSCODE);
         aiConversationService.updateTitle(reqVo.getId(), reqVo.getTitle(), reqVo.getOrgId(), reqVo.getOperatorId());
     }
 
     @Operation(description = "查询会话详情")
     @PostMapping("/getInfo")
     public AiConversationInfoVo getInfo(@RequestBody IdReqVo reqVo) {
-        reqVo.setOrgId(0);
+        reqVo.setOrgId(SYSCODE);
         return aiConversationService.getInfo(reqVo);
     }
 

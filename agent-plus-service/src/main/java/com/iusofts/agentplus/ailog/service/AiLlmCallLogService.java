@@ -14,6 +14,6 @@ import org.springframework.stereotype.Service;
 public class AiLlmCallLogService extends ServiceImpl<AiLlmCallLogMapper, AiLlmCallLog> {
 
     public void saveLog(AiLlmCallLog log) {
-        getBaseMapper().insert(log);
+        super.save(log);
     }
 }
