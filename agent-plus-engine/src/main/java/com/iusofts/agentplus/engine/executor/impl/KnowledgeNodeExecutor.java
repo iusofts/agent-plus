@@ -9,10 +9,13 @@ import com.iusofts.agentplus.engine.context.NodeOutput;
 import com.iusofts.agentplus.engine.executor.NodeExecutor;
 import com.iusofts.agentplus.engine.knowledge.KnowledgeRetriever;
 import com.iusofts.agentplus.engine.util.ParamResolver;
+import com.iusofts.agentplus.knowledge.dto.KnowledgeChunk;
+import com.iusofts.agentplus.knowledge.dto.KnowledgeRetrieveResult;
 
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 知识库检索节点执行器。
@@ -46,7 +49,12 @@ public class KnowledgeNodeExecutor implements NodeExecutor {
                 .orElse("");
 
         int topK = data.getTopK() == null ? 3 : data.getTopK();
-        List<String> chunks = retriever.retrieve(data.getKnowledgeId(), query, topK);
+        KnowledgeRetrieveResult result = retriever.retrieve(data.getKnowledgeId(), query, topK);
+
+        // 提取字符串列表保持向后兼容
+        List<String> chunkTexts = result.getChunks() != null
+                ? result.getChunks().stream().map(KnowledgeChunk::getContent).collect(Collectors.toList())
+                : List.of();
 
         Map<String, Object> outputs = new LinkedHashMap<>();
         String outName = "documents";
@@ -56,7 +64,9 @@ public class KnowledgeNodeExecutor implements NodeExecutor {
                 outName = p.getName();
             }
         }
-        outputs.put(outName, chunks);
+        outputs.put(outName, chunkTexts);
+        // 同时输出完整结果对象
+        outputs.put("retrieveResult", result);
         return new NodeOutput(node.getId(), outputs);
     }
 }

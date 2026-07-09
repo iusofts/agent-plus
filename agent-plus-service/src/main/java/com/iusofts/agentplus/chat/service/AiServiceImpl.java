@@ -22,6 +22,8 @@ import com.iusofts.agentplus.llm.dto.LlmModelConfigDTO;
 import com.iusofts.agentplus.llm.LlmModelQueryProvider;
 import com.iusofts.agentplus.llm.log.LlmLogRecorder;
 import com.iusofts.agentplus.engine.knowledge.KnowledgeRetriever;
+import com.iusofts.agentplus.knowledge.dto.KnowledgeChunk;
+import com.iusofts.agentplus.knowledge.dto.KnowledgeRetrieveResult;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
@@ -30,6 +32,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * AI 服务实现。
@@ -306,7 +309,10 @@ public class AiServiceImpl implements IAiServiceInterface {
             AiKnowledgeBase kb = knowledgeBaseMapper.selectById(kbId);
             String kbName = kb != null ? kb.getName() : null;
 
-            List<String> retrievedChunks = knowledgeRetriever.retrieve(kbId, query, topK);
+            KnowledgeRetrieveResult result = knowledgeRetriever.retrieve(kbId, query, topK);
+            List<String> retrievedChunks = result.getChunks() != null
+                    ? result.getChunks().stream().map(KnowledgeChunk::getContent).collect(Collectors.toList())
+                    : List.of();
             chunks.addAll(retrievedChunks);
 
             llmLogRecorder.recordKnowledgeRetrieval()

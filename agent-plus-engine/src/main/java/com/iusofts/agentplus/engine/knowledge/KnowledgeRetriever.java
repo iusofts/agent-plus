@@ -1,6 +1,6 @@
 package com.iusofts.agentplus.engine.knowledge;
 
-import java.util.List;
+import com.iusofts.agentplus.knowledge.dto.KnowledgeRetrieveResult;
 
 /**
  * 知识库检索扩展点。
@@ -18,7 +18,7 @@ public interface KnowledgeRetriever {
      * @param knowledgeId 知识库 id
      * @param query       检索问句
      * @param topK        召回数量
-     * @return 文档片段列表,顺序即相关度倒序;找不到返回空列表
+     * @return 检索结果
      */
-    List<String> retrieve(Long knowledgeId, String query, int topK);
+    KnowledgeRetrieveResult retrieve(Long knowledgeId, String query, int topK);
 }

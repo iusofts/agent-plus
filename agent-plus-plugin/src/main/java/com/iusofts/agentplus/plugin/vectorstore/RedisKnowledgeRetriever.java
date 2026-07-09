@@ -2,6 +2,8 @@ package com.iusofts.agentplus.plugin.vectorstore;
 
 import com.iusofts.agentplus.engine.knowledge.KnowledgeRetriever;
 import com.iusofts.agentplus.knowledge.dto.KnowledgeBaseDTO;
+import com.iusofts.agentplus.knowledge.dto.KnowledgeChunk;
+import com.iusofts.agentplus.knowledge.dto.KnowledgeRetrieveResult;
 import com.iusofts.agentplus.knowledge.KnowledgeBaseQueryProvider;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
@@ -13,7 +15,9 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 基于 Redis 向量库的知识库检索实现（无 DB 依赖，依赖抽象）。
@@ -40,16 +44,30 @@ public class RedisKnowledgeRetriever implements KnowledgeRetriever {
     }
 
     @Override
-    public List<String> retrieve(Long knowledgeId, String query, int topK) {
+    public KnowledgeRetrieveResult retrieve(Long knowledgeId, String query, int topK) {
+        KnowledgeRetrieveResult result = new KnowledgeRetrieveResult();
+        result.setQuery(query);
+        result.setRewriteQuery(query);
+
         if (knowledgeId == null || !StringUtils.hasText(query)) {
-            return List.of();
+            result.setSuccess(true);
+            result.setChunks(List.of());
+            result.setContextText("");
+            result.setTotalHit(0);
+            result.setHasResult(false);
+            return result;
         }
 
         try {
             KnowledgeBaseDTO kb = knowledgeBaseQueryProvider.getKnowledgeBase(knowledgeId);
             if (kb == null) {
                 log.warn("知识库不存在: knowledgeId={}", knowledgeId);
-                return List.of();
+                result.setSuccess(true);
+                result.setChunks(List.of());
+                result.setContextText("");
+                result.setTotalHit(0);
+                result.setHasResult(false);
+                return result;
             }
 
             EmbeddingModel embeddingModel = embeddingModelProvider.provide(kb.getEmbeddingModelId());
@@ -59,12 +77,34 @@ public class RedisKnowledgeRetriever implements KnowledgeRetriever {
             List<EmbeddingMatch<TextSegment>> matches =
                     vectorStoreManager.search(kb.getCollectionName(), queryEmbedding, limit);
 
-            return matches.stream()
-                    .map(m -> m.embedded().text())
-                    .toList();
+            List<KnowledgeChunk> chunks = new ArrayList<>();
+            for (int i = 0; i < matches.size(); i++) {
+                EmbeddingMatch<TextSegment> match = matches.get(i);
+                KnowledgeChunk chunk = new KnowledgeChunk();
+                chunk.setChunkId(match.embeddingId());
+                chunk.setContent(match.embedded().text());
+                chunk.setScore(match.score());
+                chunks.add(chunk);
+            }
+
+            String contextText = chunks.stream()
+                    .map(KnowledgeChunk::getContent)
+                    .collect(Collectors.joining("\n\n"));
+
+            result.setSuccess(true);
+            result.setChunks(chunks);
+            result.setContextText(contextText);
+            result.setTotalHit(chunks.size());
+            result.setHasResult(!chunks.isEmpty());
         } catch (Exception e) {
             log.error("知识库检索失败: knowledgeId={}, query={}", knowledgeId, query, e);
-            return List.of();
+            result.setSuccess(false);
+            result.setErrorMessage(e.getMessage());
+            result.setChunks(List.of());
+            result.setContextText("");
+            result.setTotalHit(0);
+            result.setHasResult(false);
         }
+        return result;
     }
 }
