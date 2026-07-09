@@ -1,7 +1,7 @@
-package com.iusofts.agentplus.chat.mapper;
+package com.iusofts.agentplus.ailog.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.iusofts.agentplus.chat.entity.AiKnowledgeDocLog;
+import com.iusofts.agentplus.ailog.entity.AiKnowledgeDocLog;
 
 /**
  * AI知识库文档处理日志 Mapper 接口

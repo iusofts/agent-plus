@@ -1,8 +1,10 @@
-package com.iusofts.agentplus.chat.entity;
+package com.iusofts.agentplus.ailog.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.Setter;
@@ -11,9 +13,10 @@ import lombok.ToString;
 import java.io.Serializable;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
- * AI知识库文档处理日志
+ * AI知识库检索日志
  *
  * @author Ivan
  * @since 2026-07-09
@@ -21,9 +24,9 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @ToString
-@TableName("ai_knowledge_doc_log")
-@Schema(name = "AiKnowledgeDocLog", description = "AI知识库文档处理日志")
-public class AiKnowledgeDocLog implements Serializable {
+@TableName(value = "ai_knowledge_retrieval_log", autoResultMap = true)
+@Schema(name = "AiKnowledgeRetrievalLog", description = "AI知识库检索日志")
+public class AiKnowledgeRetrievalLog implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
@@ -31,29 +34,39 @@ public class AiKnowledgeDocLog implements Serializable {
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;
 
+    @Schema(description = "链路追踪ID")
+    private String traceId;
+
+    @Schema(description = "调用来源(AGENT/CHAT/FLOW/API)")
+    private String callSource;
+
+    @Schema(description = "来源ID(智能体ID/会话ID/流程ID)")
+    private Long sourceId;
+
     @Schema(description = "知识库ID")
     private Long knowledgeBaseId;
 
     @Schema(description = "知识库名称")
     private String knowledgeBaseName;
 
-    @Schema(description = "文档ID")
-    private Long docId;
+    @Schema(description = "检索查询内容")
+    private String query;
 
-    @Schema(description = "文档名称")
-    private String docName;
+    @Schema(description = "查询字符数")
+    private Integer queryCharCount;
 
-    @Schema(description = "操作类型(ADD/UPDATE/DELETE)")
-    private String operationType;
+    @Schema(description = "查询向量化消耗token")
+    private Integer queryEmbeddingTokens;
 
-    @Schema(description = "分块数量")
-    private Integer chunkCount;
+    @Schema(description = "召回条数")
+    private Integer topK;
 
-    @Schema(description = "总字符数")
-    private Integer totalCharCount;
+    @Schema(description = "召回文档块列表(JSON)")
+    @TableField(value = "retrieved_chunks", typeHandler = JacksonTypeHandler.class)
+    private List<ChunkEntry> retrievedChunks;
 
-    @Schema(description = "embedding总消耗token")
-    private Integer totalEmbeddingTokens;
+    @Schema(description = "实际召回数量")
+    private Integer retrievedCount;
 
     @Schema(description = "调用状态(0:失败 1:成功)")
     private Integer callStatus;
@@ -81,4 +94,12 @@ public class AiKnowledgeDocLog implements Serializable {
 
     @Schema(description = "所属组织ID")
     private Integer orgId;
+
+    @Getter
+    @Setter
+    public static class ChunkEntry implements Serializable {
+        private Long chunkId;
+        private String content;
+        private Double similarity;
+    }
 }

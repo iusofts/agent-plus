@@ -8,8 +8,9 @@ import com.iusofts.agentplus.chat.mapper.AiAgentMapper;
 import com.iusofts.agentplus.chat.vo.AiMessageVo;
 import com.iusofts.agentplus.chat.vo.AiServiceCallReqVo;
 import com.iusofts.agentplus.chat.vo.AiServiceChatReqVo;
+import com.iusofts.agentplus.library.entity.AiKnowledgeBase;
+import com.iusofts.agentplus.library.mapper.AiKnowledgeBaseMapper;
 import com.iusofts.agentplus.basic.exception.SystemBusinessException;
-import com.iusofts.agentplus.basic.utils.JsonUtils;
 import com.iusofts.agentplus.basic.utils.ModelMapperUtil;
 import com.iusofts.agentplus.basic.utils.StringUtils;
 import com.iusofts.agentplus.id.service.IdService;
@@ -18,13 +19,14 @@ import com.iusofts.agentplus.llm.AiChatService;
 import com.iusofts.agentplus.llm.dto.ChatMessage;
 import com.iusofts.agentplus.llm.dto.ChatResponse;
 import com.iusofts.agentplus.llm.dto.LlmModelConfigDTO;
+import com.iusofts.agentplus.llm.LlmModelQueryProvider;
+import com.iusofts.agentplus.llm.log.LlmLogRecorder;
 import com.iusofts.agentplus.engine.knowledge.KnowledgeRetriever;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -46,12 +48,17 @@ public class AiServiceImpl implements IAiServiceInterface {
     private AiMessageServiceImpl aiMessageService;
     @Resource
     private AiAgentMapper aiAgentMapper;
+    @Resource
+    private AiKnowledgeBaseMapper knowledgeBaseMapper;
 
     @Resource
     private AiChatService aiChatService;
-
     @Resource
     private KnowledgeRetriever knowledgeRetriever;
+    @Resource
+    private LlmModelQueryProvider llmModelQueryProvider;
+    @Resource
+    private LlmLogRecorder llmLogRecorder;
 
     /** 知识库召回默认条数 */
     private static final int DEFAULT_RETRIEVAL_TOP_K = 3;
@@ -63,7 +70,6 @@ public class AiServiceImpl implements IAiServiceInterface {
         AiAgent aiAgent = aiAgentMapper.selectById(reqVo.getAgentId());
         List<AiMessageVo> messageVoList = new ArrayList<>();
         if (reqVo.getConversationId() != null) {
-            // 如果会话ID不为空 加载历史对话
             conversation = aiConversationService.getById(reqVo.getConversationId());
             if (reqVo.getAgentId() != null) {
                 conversation.setAgentId(reqVo.getAgentId());
@@ -72,7 +78,6 @@ public class AiServiceImpl implements IAiServiceInterface {
             }
             messageVoList.addAll(aiMessageService.getList(reqVo.getConversationId()));
         } else {
-            // 会话ID为空 创建新对话
             conversation = new AiConversation();
             Integer uid = idService.generateUid(UidTypeEnum.CHAT);
             conversation.setId(uid.longValue());
@@ -83,10 +88,6 @@ public class AiServiceImpl implements IAiServiceInterface {
             }
             conversation.setTitle(title);
             conversation.setBusinessType(reqVo.getBusinessType());
-            conversation.setBusinessId(reqVo.getBusinessID());
-            conversation.setAgentId(reqVo.getAgentId());
-            conversation.setModelId(aiAgent.getModelId());
-            conversation.setCurrentRounds(0);
             conversation.setOrgId(reqVo.getOrgId());
             conversation.setCreateBy(reqVo.getOperatorId());
             aiConversationService.save(conversation);
@@ -97,7 +98,6 @@ public class AiServiceImpl implements IAiServiceInterface {
                 messageVo.setContent(aiAgent.getSystemPrompt());
                 messageVoList.add(messageVo);
             }
-
         }
 
         if (CollectionUtils.isNotEmpty(reqVo.getMessages())) {
@@ -109,29 +109,38 @@ public class AiServiceImpl implements IAiServiceInterface {
             });
         }
 
+        String traceId = LlmLogRecorder.generateTraceId();
+        String userQuestion = latestUserQuestion(messageVoList);
+
         try {
-            // 获取模型ID
             Long modelId = aiAgent.getModelId();
             if (modelId == null) {
                 throw new SystemBusinessException("智能体未配置模型");
             }
 
-            // 按智能体配置的上下文轮数裁剪历史，构建对话上下文
             List<ChatMessage> msgList = buildContext(messageVoList, aiAgent);
 
-            // 知识库检索(RAG)：以最新用户问题召回片段，作为上下文注入
-            String knowledgeContext = retrieveKnowledge(aiAgent, latestUserQuestion(messageVoList));
+            String knowledgeContext = retrieveKnowledge(aiAgent, userQuestion, traceId, reqVo.getOperatorId(), reqVo.getOrgId());
             if (StringUtils.isNotBlank(knowledgeContext)) {
-                // 插入到系统提示之后、历史对话之前
                 int insertIdx = msgList.isEmpty() || !"system".equalsIgnoreCase(msgList.get(0).getRole()) ? 0 : 1;
                 msgList.add(insertIdx, ChatMessage.builder().role("system").content(knowledgeContext).build());
             }
 
-            // 智能体生成参数
             LlmModelConfigDTO config = buildModelConfig(aiAgent);
 
-            // 调用 AiChatService
             ChatResponse response = aiChatService.chat(msgList, modelId, config);
+
+            llmLogRecorder.recordLlmCall()
+                .traceId(traceId)
+                .fromChat(conversation.getId())
+                .business(reqVo.getBusinessType(), null)
+                .model(llmModelQueryProvider.getModel(modelId))
+                .config(config)
+                .inputMessages(msgList)
+                .output(response.getContent(), response.getInputTokens(), response.getOutputTokens())
+                .success()
+                .operator(reqVo.getOperatorId(), reqVo.getOrgId())
+                .record();
 
             resultMessage = new AiMessageVo();
             resultMessage.setRole("assistant");
@@ -146,9 +155,7 @@ public class AiServiceImpl implements IAiServiceInterface {
             log.error("AI服务异常", e);
         }
 
-        // 保存上下文
         List<AiMessageVo> newMessageVoList = messageVoList.stream().filter(item -> item.getId() == null).toList();
-
         List<AiMessage> newMessageList = new ArrayList<>();
         for (AiMessageVo item : newMessageVoList) {
             AiMessage aiMessage = ModelMapperUtil.strictMap(item, AiMessage.class);
@@ -162,11 +169,10 @@ public class AiServiceImpl implements IAiServiceInterface {
             newMessageList.add(aiMessage);
         }
 
-        if(CollectionUtils.isNotEmpty(newMessageList)){
+        if (CollectionUtils.isNotEmpty(newMessageList)) {
             aiMessageService.saveBatch(newMessageList);
         }
 
-        // 轮次+1
         conversation.setCurrentRounds(conversation.getCurrentRounds() + 1);
         conversation.setUpdateTime(LocalDateTime.now());
         conversation.setLastChatTime(LocalDateTime.now());
@@ -176,8 +182,7 @@ public class AiServiceImpl implements IAiServiceInterface {
 
     @Override
     public AiMessageVo call(AiServiceCallReqVo reqVo) {
-
-        log.debug("ai call param:{}", JsonUtils.obj2json(reqVo));
+        log.debug("ai call param: {}", reqVo);
 
         AiMessageVo resultMessage = null;
         List<AiMessageVo> messageVoList = new ArrayList<>();
@@ -190,22 +195,18 @@ public class AiServiceImpl implements IAiServiceInterface {
             });
         }
 
-        try {
-            // 构建对话上下文
-            List<ChatMessage> msgList = new ArrayList<>();
+        String traceId = LlmLogRecorder.generateTraceId();
+        AiAgent aiAgent = reqVo.getAgentId() != null ? aiAgentMapper.selectById(reqVo.getAgentId()) : null;
 
-            // 预制内容
+        try {
+            List<ChatMessage> msgList = new ArrayList<>();
             for (AiMessageVo msg : messageVoList) {
                 msgList.add(ChatMessage.builder().role(msg.getRole()).content(msg.getContent()).build());
             }
 
-            long callTimeStart = System.currentTimeMillis();
-
-            // 获取模型ID
             Long modelId = null;
             LlmModelConfigDTO config = null;
             if (reqVo.getAgentId() != null) {
-                AiAgent aiAgent = aiAgentMapper.selectById(reqVo.getAgentId());
                 if (aiAgent != null) {
                     modelId = aiAgent.getModelId();
                     config = buildModelConfig(aiAgent);
@@ -215,10 +216,19 @@ public class AiServiceImpl implements IAiServiceInterface {
                 throw new SystemBusinessException("智能体未配置模型");
             }
 
-            // 调用 AiChatService
             ChatResponse response = aiChatService.chat(msgList, modelId, config);
 
-            long callTimeEnd = System.currentTimeMillis();
+            llmLogRecorder.recordLlmCall()
+                .traceId(traceId)
+                .fromAgent(reqVo.getAgentId())
+                .business(reqVo.getBusinessType(), null)
+                .model(llmModelQueryProvider.getModel(modelId))
+                .config(config)
+                .inputMessages(msgList)
+                .output(response.getContent(), response.getInputTokens(), response.getOutputTokens())
+                .success()
+                .operator(reqVo.getOperatorId(), reqVo.getOrgId())
+                .record();
 
             resultMessage = new AiMessageVo();
             resultMessage.setRole("assistant");
@@ -235,24 +245,15 @@ public class AiServiceImpl implements IAiServiceInterface {
         return resultMessage;
     }
 
-    /**
-     * 从智能体配置组装 LLM 生成参数。
-     */
     private LlmModelConfigDTO buildModelConfig(AiAgent aiAgent) {
         LlmModelConfigDTO config = new LlmModelConfigDTO();
         if (aiAgent != null) {
-            config.setTemperature(aiAgent.getTemperature() == null ? null : aiAgent.getTemperature().doubleValue());
+            config.setTemperature(aiAgent.getTemperature() != null ? aiAgent.getTemperature().doubleValue() : null);
             config.setMaxTokens(aiAgent.getMaxReplyLength());
         }
         return config;
     }
 
-    /**
-     * 构建发送给模型的上下文消息。
-     *
-     * <p>system 消息始终保留；user/assistant 历史按智能体配置的上下文轮数保留最近 N 轮
-     * (1 轮 = 一问一答, 即最近 N*2 条对话消息)。</p>
-     */
     private List<ChatMessage> buildContext(List<AiMessageVo> messageVoList, AiAgent aiAgent) {
         List<AiMessageVo> systemMsgs = new ArrayList<>();
         List<AiMessageVo> dialogMsgs = new ArrayList<>();
@@ -282,9 +283,6 @@ public class AiServiceImpl implements IAiServiceInterface {
         return msgList;
     }
 
-    /**
-     * 取最近一条 user 消息内容，作为知识库检索问句。
-     */
     private String latestUserQuestion(List<AiMessageVo> messageVoList) {
         for (int i = messageVoList.size() - 1; i >= 0; i--) {
             AiMessageVo msg = messageVoList.get(i);
@@ -295,29 +293,33 @@ public class AiServiceImpl implements IAiServiceInterface {
         return null;
     }
 
-    /**
-     * 对智能体绑定的知识库逐个召回片段, 拼成一段可注入对话的上下文文本。
-     *
-     * @return 拼接后的知识库上下文; 无绑定/无召回时返回 null
-     */
-    private String retrieveKnowledge(AiAgent aiAgent, String query) {
-        if (aiAgent == null || StringUtils.isBlank(query)
-                || CollectionUtils.isEmpty(aiAgent.getKnowledgeBaseIds())) {
+    private String retrieveKnowledge(AiAgent aiAgent, String query, String traceId, Long operatorId, Integer orgId) {
+        if (aiAgent == null || StringUtils.isBlank(query) || CollectionUtils.isEmpty(aiAgent.getKnowledgeBaseIds())) {
             return null;
         }
-        int topK = aiAgent.getRetrievalTopK() == null || aiAgent.getRetrievalTopK() <= 0
-                ? DEFAULT_RETRIEVAL_TOP_K : aiAgent.getRetrievalTopK();
+        int topK = aiAgent.getRetrievalTopK() == null || aiAgent.getRetrievalTopK() <= 0 ? DEFAULT_RETRIEVAL_TOP_K : aiAgent.getRetrievalTopK();
 
         List<String> chunks = new ArrayList<>();
         for (Long kbId : aiAgent.getKnowledgeBaseIds()) {
             if (kbId == null) {
                 continue;
             }
-            try {
-                chunks.addAll(knowledgeRetriever.retrieve(kbId, query, topK));
-            } catch (Exception e) {
-                log.error("知识库检索失败: knowledgeBaseId={}", kbId, e);
-            }
+            AiKnowledgeBase kb = knowledgeBaseMapper.selectById(kbId);
+            String kbName = kb != null ? kb.getName() : null;
+
+            List<String> retrievedChunks = knowledgeRetriever.retrieve(kbId, query, topK);
+            chunks.addAll(retrievedChunks);
+
+            llmLogRecorder.recordKnowledgeRetrieval()
+                .traceId(traceId)
+                .fromAgent(aiAgent.getId())
+                .knowledgeBase(kbId, kbName)
+                .query(query)
+                .topK(topK)
+                .retrievedChunks(retrievedChunks, null)
+                .success()
+                .operator(operatorId, orgId)
+                .record();
         }
         if (chunks.isEmpty()) {
             return null;
@@ -329,5 +331,4 @@ public class AiServiceImpl implements IAiServiceInterface {
         }
         return sb.toString();
     }
-
 }
