@@ -18,7 +18,8 @@ public interface AiChatService {
      * @param messages   消息列表
      * @param modelId    模型 ID
      * @param temperature 温度 (可选)
+     * @param maxTokens  最大回复 token 数 (可选)
      * @return AI 响应
      */
-    ChatResponse chat(List<ChatMessage> messages, Long modelId, Double temperature);
+    ChatResponse chat(List<ChatMessage> messages, Long modelId, Double temperature, Integer maxTokens);
 }

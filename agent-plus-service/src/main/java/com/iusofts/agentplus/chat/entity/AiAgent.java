@@ -1,9 +1,11 @@
 package com.iusofts.agentplus.chat.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.Setter;
@@ -12,6 +14,7 @@ import lombok.ToString;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * <p>
@@ -24,7 +27,7 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @ToString
-@TableName("ai_agent")
+@TableName(value = "ai_agent", autoResultMap = true)
 @Schema(name = "AiAgent", description = "ai智能体")
 public class AiAgent implements Serializable {
 
@@ -47,16 +50,19 @@ public class AiAgent implements Serializable {
     private Long modelId;
 
     @Schema(description = "绑定工作流ID列表(JSON数组存储)")
-    private String workflowIds;
+    @TableField(typeHandler = JacksonTypeHandler.class)
+    private List<Long> workflowIds;
 
     @Schema(description = "开场白文案")
     private String openingStatement;
 
     @Schema(description = "开场白预置问题(JSON数组存储)")
-    private String openingQuestions;
+    @TableField(typeHandler = JacksonTypeHandler.class)
+    private List<String> openingQuestions;
 
     @Schema(description = "绑定知识库ID列表(JSON数组存储)")
-    private String knowledgeBaseIds;
+    @TableField(typeHandler = JacksonTypeHandler.class)
+    private List<Long> knowledgeBaseIds;
 
     @Schema(description = "生成随机性(temperature)")
     private BigDecimal temperature;
@@ -69,6 +75,9 @@ public class AiAgent implements Serializable {
 
     @Schema(description = "最大推理回答长度")
     private Integer maxInferenceLength;
+
+    @Schema(description = "知识库召回条数")
+    private Integer retrievalTopK;
 
     @Schema(description = "是否启用用户问题建议 0:否 1:是")
     private Integer enableQuestionSuggestion;

@@ -45,7 +45,7 @@ public class AiModelChatModelProvider implements ChatModelProvider {
 
         return cache.computeIfAbsent(cacheKey, k -> {
             LlmModelDTO modelDTO = modelQueryProvider.getModel(modelId);
-            return LlmModelFactory.createChatModel(modelDTO, temperature);
+            return LlmModelFactory.createChatModel(modelDTO, temperature, null);
         });
     }
 }

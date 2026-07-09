@@ -31,6 +31,7 @@ CREATE TABLE `ai_agent`  (
   `opening_statement` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL COMMENT '开场白文案',
   `opening_questions` json NULL COMMENT '开场白预置问题(JSON数组存储)',
   `knowledge_base_ids` json NULL COMMENT '绑定知识库ID列表(JSON数组存储)',
+  `retrieval_top_k` int(11) NULL DEFAULT 3 COMMENT '知识库召回条数',
   `temperature` decimal(3,2) NOT NULL DEFAULT 0.70 COMMENT '生成随机性(temperature)',
   `context_rounds` int(11) NOT NULL DEFAULT 5 COMMENT '携带上下文轮数',
   `max_reply_length` int(11) NULL DEFAULT 2000 COMMENT '最大回复长度',

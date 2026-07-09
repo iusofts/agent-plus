@@ -31,7 +31,7 @@ public class Langchain4jAiChatService implements AiChatService, LlmModelCacheEvi
     private final LlmModelQueryProvider modelQueryProvider;
 
     /**
-     * 缓存 key = modelId + "@" + temperature，避免每次调用重建 ChatModel。
+     * 缓存 key = modelId + "@" + temperature + "@" + maxTokens，避免每次调用重建 ChatModel。
      */
     private final ConcurrentMap<String, ChatModel> cache = new ConcurrentHashMap<>();
 
@@ -50,11 +50,11 @@ public class Langchain4jAiChatService implements AiChatService, LlmModelCacheEvi
     }
 
     @Override
-    public ChatResponse chat(List<ChatMessage> messages, Long modelId, Double temperature) {
-        String cacheKey = modelId + "@" + temperature;
+    public ChatResponse chat(List<ChatMessage> messages, Long modelId, Double temperature, Integer maxTokens) {
+        String cacheKey = modelId + "@" + temperature + "@" + maxTokens;
         ChatModel chatModel = cache.computeIfAbsent(cacheKey, k -> {
             LlmModelDTO modelDTO = modelQueryProvider.getModel(modelId);
-            return LlmModelFactory.createChatModel(modelDTO, temperature);
+            return LlmModelFactory.createChatModel(modelDTO, temperature, maxTokens);
         });
 
         // 转换消息格式

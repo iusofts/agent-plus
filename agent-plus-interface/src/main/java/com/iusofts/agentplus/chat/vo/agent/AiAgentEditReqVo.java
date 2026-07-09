@@ -56,6 +56,9 @@ public class AiAgentEditReqVo {
     @Schema(description = "最大推理回答长度")
     private Integer maxInferenceLength;
 
+    @Schema(description = "知识库召回条数")
+    private Integer retrievalTopK;
+
     @Schema(description = "是否启用用户问题建议 0:否 1:是")
     private Integer enableQuestionSuggestion;
 

@@ -22,20 +22,21 @@ public class LlmModelFactory {
      *
      * @param modelDTO 模型配置 DTO
      * @param temperature 温度参数（可为 null）
+     * @param maxTokens 最大回复 token 数（可为 null）
      * @return ChatModel 实例
      */
-    public static ChatModel createChatModel(LlmModelDTO modelDTO, Double temperature) {
+    public static ChatModel createChatModel(LlmModelDTO modelDTO, Double temperature, Integer maxTokens) {
         String provider = modelDTO.getProvider() == null ? "" : modelDTO.getProvider().trim().toLowerCase();
 
         if (PROVIDER_QWEN.equals(provider)) {
-            return buildQwen(modelDTO, temperature);
+            return buildQwen(modelDTO, temperature, maxTokens);
         }
 
         // doubao/openai/其他：走 OpenAI 兼容接口
-        return buildOpenAiCompatible(modelDTO, temperature);
+        return buildOpenAiCompatible(modelDTO, temperature, maxTokens);
     }
 
-    private static ChatModel buildQwen(LlmModelDTO modelDTO, Double temperature) {
+    private static ChatModel buildQwen(LlmModelDTO modelDTO, Double temperature, Integer maxTokens) {
         QwenChatModel.QwenChatModelBuilder builder = QwenChatModel.builder()
                 .apiKey(modelDTO.getApiKey())
                 .modelName(modelDTO.getModelName());
@@ -48,10 +49,14 @@ public class LlmModelFactory {
             builder.temperature(temperature.floatValue());
         }
 
+        if (maxTokens != null) {
+            builder.maxTokens(maxTokens);
+        }
+
         return builder.build();
     }
 
-    private static ChatModel buildOpenAiCompatible(LlmModelDTO modelDTO, Double temperature) {
+    private static ChatModel buildOpenAiCompatible(LlmModelDTO modelDTO, Double temperature, Integer maxTokens) {
         OpenAiChatModel.OpenAiChatModelBuilder builder = OpenAiChatModel.builder()
                 .apiKey(modelDTO.getApiKey())
                 .modelName(modelDTO.getModelName());
@@ -62,6 +67,10 @@ public class LlmModelFactory {
 
         if (temperature != null) {
             builder.temperature(temperature);
+        }
+
+        if (maxTokens != null) {
+            builder.maxTokens(maxTokens);
         }
 
         return builder.build();
