@@ -13,12 +13,12 @@ public class KnowledgeChunk {
     /**
      * 切片唯一ID
      */
-    private String chunkId;
+    private Long chunkId;
 
     /**
      * 归属文档ID
      */
-    private String documentId;
+    private Long documentId;
 
     /**
      * 文档标题

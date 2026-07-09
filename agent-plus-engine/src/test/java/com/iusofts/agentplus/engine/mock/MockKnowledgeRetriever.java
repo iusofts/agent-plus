@@ -49,7 +49,7 @@ public class MockKnowledgeRetriever implements KnowledgeRetriever {
         List<KnowledgeChunk> chunks = new ArrayList<>();
         for (int i = 0; i < chunkContents.size(); i++) {
             KnowledgeChunk chunk = new KnowledgeChunk();
-            chunk.setChunkId("mock-chunk-" + i);
+            chunk.setChunkId((long) i);
             chunk.setContent(chunkContents.get(i));
             chunk.setScore(1.0 - (i * 0.1));
             chunks.add(chunk);

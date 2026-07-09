@@ -22,7 +22,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.annotation.Resource;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -136,8 +138,9 @@ public class KnowledgeIngestionService {
             List<AiKnowledgeChunk> chunkRows = buildChunkRows(kb, doc, chunkTexts);
             List<String> chunkTextsForStore = chunkRows.stream().map(AiKnowledgeChunk::getContent).toList();
             List<String> vectorIds = chunkRows.stream().map(AiKnowledgeChunk::getVectorId).toList();
+            List<Map<String, Object>> chunkMetadatas = buildChunkMetadatas(chunkRows, doc);
 
-            knowledgeStoreService.batchEmbedAndStore(kb.getCollectionName(), vectorIds, chunkTextsForStore, kb.getEmbeddingModelId());
+            knowledgeStoreService.batchEmbedAndStore(kb.getCollectionName(), vectorIds, chunkTextsForStore, chunkMetadatas, kb.getEmbeddingModelId());
 
             saveChunkRows(chunkRows);
 
@@ -188,6 +191,19 @@ public class KnowledgeIngestionService {
             chunk.setOrgId(doc.getOrgId());
             result.add(chunk);
             sortOrder++;
+        }
+        return result;
+    }
+
+    private List<Map<String, Object>> buildChunkMetadatas(List<AiKnowledgeChunk> chunkRows, AiKnowledgeDocument doc) {
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (AiKnowledgeChunk chunkRow : chunkRows) {
+            Map<String, Object> metadata = new HashMap<>();
+            metadata.put("chunkId", chunkRow.getId());
+            metadata.put("documentId", doc.getId());
+            metadata.put("title", doc.getName());
+            metadata.put("sourceUrl", doc.getDocUrl());
+            result.add(metadata);
         }
         return result;
     }

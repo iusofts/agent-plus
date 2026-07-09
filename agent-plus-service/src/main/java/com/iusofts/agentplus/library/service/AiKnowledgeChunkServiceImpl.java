@@ -33,6 +33,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * <p>
@@ -108,8 +109,9 @@ public class AiKnowledgeChunkServiceImpl extends ServiceImpl<AiKnowledgeChunkMap
         int sortOrder = nextSortOrder(doc.getId());
         String vectorId = idService.generateUid(UidTypeEnum.CHAT).toString() + "-" + sortOrder;
 
+        Long chunkId = idService.generateUid(UidTypeEnum.CHAT).longValue();
         AiKnowledgeChunk chunk = new AiKnowledgeChunk();
-        chunk.setId(idService.generateUid(UidTypeEnum.CHAT).longValue());
+        chunk.setId(chunkId);
         chunk.setKnowledgeBaseId(kb.getId());
         chunk.setDocumentId(doc.getId());
         chunk.setVectorId(vectorId);
@@ -121,10 +123,12 @@ public class AiKnowledgeChunkServiceImpl extends ServiceImpl<AiKnowledgeChunkMap
 
         // 先向量化写入向量库,再落库
         try {
+            List<Map<String, Object>> metadatas = List.of(buildChunkMetadata(chunkId, doc));
             knowledgeStoreService.batchEmbedAndStore(
                     kb.getCollectionName(),
                     List.of(vectorId),
                     List.of(reqVo.getContent()),
+                    metadatas,
                     kb.getEmbeddingModelId()
             );
         } catch (Exception e) {
@@ -145,16 +149,19 @@ public class AiKnowledgeChunkServiceImpl extends ServiceImpl<AiKnowledgeChunkMap
     public void edit(AiKnowledgeChunkEditReqVo reqVo) {
         AiKnowledgeChunk chunk = requireChunk(reqVo.getId(), reqVo.getOrgId());
         AiKnowledgeBase kb = aiKnowledgeBaseMapper.selectById(chunk.getKnowledgeBaseId());
+        AiKnowledgeDocument doc = aiKnowledgeDocumentMapper.selectById(chunk.getDocumentId());
         if (kb == null) {
             throw new SystemBusinessException("知识库不存在");
         }
 
         // 以相同 vectorId 重新向量化并覆盖向量库中的向量
         try {
+            List<Map<String, Object>> metadatas = List.of(buildChunkMetadata(chunk.getId(), doc));
             knowledgeStoreService.batchEmbedAndStore(
                     kb.getCollectionName(),
                     List.of(chunk.getVectorId()),
                     List.of(reqVo.getContent()),
+                    metadatas,
                     kb.getEmbeddingModelId()
             );
         } catch (Exception e) {
@@ -209,11 +216,14 @@ public class AiKnowledgeChunkServiceImpl extends ServiceImpl<AiKnowledgeChunkMap
             if (StringUtils.isBlank(chunk.getContent())) {
                 throw new SystemBusinessException("分块内容为空,无法重建向量");
             }
+            AiKnowledgeDocument doc = aiKnowledgeDocumentMapper.selectById(chunk.getDocumentId());
             try {
+                List<Map<String, Object>> metadatas = List.of(buildChunkMetadata(chunk.getId(), doc));
                 knowledgeStoreService.batchEmbedAndStore(
                         kb.getCollectionName(),
                         List.of(chunk.getVectorId()),
                         List.of(chunk.getContent()),
+                        metadatas,
                         kb.getEmbeddingModelId()
                 );
             } catch (Exception e) {
@@ -287,6 +297,15 @@ public class AiKnowledgeChunkServiceImpl extends ServiceImpl<AiKnowledgeChunkMap
             throw new SystemBusinessException("操作权限获取失败！");
         }
         return chunk;
+    }
+
+    private Map<String, Object> buildChunkMetadata(Long chunkId, AiKnowledgeDocument doc) {
+        return Map.of(
+                "chunkId", chunkId,
+                "documentId", doc.getId(),
+                "title", doc.getName(),
+                "sourceUrl", doc.getDocUrl()
+        );
     }
 
 }

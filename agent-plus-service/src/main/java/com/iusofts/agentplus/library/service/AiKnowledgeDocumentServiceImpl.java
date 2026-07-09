@@ -36,6 +36,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * <p>
@@ -225,7 +226,7 @@ public class AiKnowledgeDocumentServiceImpl extends ServiceImpl<AiKnowledgeDocum
 
         boolean enable = target == KnowledgeIngestionService.STATUS_COMPLETED;
         if (enable) {
-            enableChunks(kb, chunks);
+            enableChunks(kb, doc, chunks);
         } else {
             disableChunks(kb, chunks);
         }
@@ -240,22 +241,29 @@ public class AiKnowledgeDocumentServiceImpl extends ServiceImpl<AiKnowledgeDocum
     /**
      * 启用文档下所有分块:置 status=1,并用 DB 保存的内容重建向量。
      */
-    private void enableChunks(AiKnowledgeBase kb, List<AiKnowledgeChunk> chunks) {
+    private void enableChunks(AiKnowledgeBase kb, AiKnowledgeDocument doc, List<AiKnowledgeChunk> chunks) {
         if (chunks.isEmpty()) {
             return;
         }
         List<String> vectorIds = new ArrayList<>();
         List<String> contents = new ArrayList<>();
+        List<Map<String, Object>> metadatas = new ArrayList<>();
         for (AiKnowledgeChunk c : chunks) {
             if (StringUtils.isNotBlank(c.getVectorId())) {
                 vectorIds.add(c.getVectorId());
                 contents.add(c.getContent());
+                metadatas.add(Map.of(
+                        "chunkId", c.getId(),
+                        "documentId", doc.getId(),
+                        "title", doc.getName(),
+                        "sourceUrl", doc.getDocUrl()
+                ));
             }
         }
         if (!vectorIds.isEmpty()) {
             try {
                 knowledgeStoreService.batchEmbedAndStore(
-                        kb.getCollectionName(), vectorIds, contents, kb.getEmbeddingModelId());
+                        kb.getCollectionName(), vectorIds, contents, metadatas, kb.getEmbeddingModelId());
             } catch (Exception e) {
                 throw new SystemBusinessException("重建向量数据失败:" + e.getMessage());
             }
