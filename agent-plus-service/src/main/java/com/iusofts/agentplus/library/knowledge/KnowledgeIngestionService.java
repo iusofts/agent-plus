@@ -14,6 +14,7 @@ import com.iusofts.agentplus.id.service.IdService.UidTypeEnum;
 import com.iusofts.agentplus.llm.log.LlmLogRecorder;
 import com.iusofts.agentplus.plugin.document.DocumentContentExtractor;
 import com.iusofts.agentplus.plugin.document.TextChunker;
+import com.iusofts.agentplus.plugin.vectorstore.KnowledgeMetadata;
 import com.iusofts.agentplus.plugin.vectorstore.KnowledgeStoreService;
 import com.iusofts.agentplus.plugin.vectorstore.RedisVectorStoreManager;
 import lombok.extern.slf4j.Slf4j;
@@ -22,7 +23,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.annotation.Resource;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -198,12 +198,8 @@ public class KnowledgeIngestionService {
     private List<Map<String, Object>> buildChunkMetadatas(List<AiKnowledgeChunk> chunkRows, AiKnowledgeDocument doc) {
         List<Map<String, Object>> result = new ArrayList<>();
         for (AiKnowledgeChunk chunkRow : chunkRows) {
-            Map<String, Object> metadata = new HashMap<>();
-            metadata.put("chunkId", chunkRow.getId());
-            metadata.put("documentId", doc.getId());
-            metadata.put("title", doc.getName());
-            metadata.put("sourceUrl", doc.getDocUrl());
-            result.add(metadata);
+            result.add(KnowledgeMetadata.build(
+                    chunkRow.getId(), doc.getId(), doc.getName(), doc.getDocUrl()));
         }
         return result;
     }
