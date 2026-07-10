@@ -140,7 +140,7 @@ public class KnowledgeIngestionService {
             List<String> vectorIds = chunkRows.stream().map(AiKnowledgeChunk::getVectorId).toList();
             List<Map<String, Object>> chunkMetadatas = buildChunkMetadatas(chunkRows, doc);
 
-            knowledgeStoreService.batchEmbedAndStore(kb.getCollectionName(), vectorIds, chunkTextsForStore, chunkMetadatas, kb.getEmbeddingModelId());
+            int embeddingTokens = knowledgeStoreService.batchEmbedAndStore(kb.getCollectionName(), vectorIds, chunkTextsForStore, chunkMetadatas, kb.getEmbeddingModelId());
 
             saveChunkRows(chunkRows);
 
@@ -151,7 +151,7 @@ public class KnowledgeIngestionService {
                 .document(doc.getId(), doc.getName())
                 .add()
                 .operator(doc.getCreateBy(), doc.getOrgId())
-                .chunks(chunkTexts.size(), totalCharCount, 0)
+                .chunks(chunkTexts.size(), totalCharCount, embeddingTokens)
                 .success()
                 .record();
 

@@ -12,6 +12,7 @@ import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.request.ChatRequest;
+import dev.langchain4j.model.output.TokenUsage;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -91,11 +92,21 @@ public class Langchain4jAiChatService implements AiChatService, LlmModelCacheEvi
     private ChatResponse toChatResponse(dev.langchain4j.model.chat.response.ChatResponse lc4jResponse) {
         String content = lc4jResponse.aiMessage().text();
 
+        Integer inputTokens = null;
+        Integer outputTokens = null;
+        Integer totalTokens = null;
+        TokenUsage tokenUsage = lc4jResponse.tokenUsage();
+        if (tokenUsage != null) {
+            inputTokens = tokenUsage.inputTokenCount();
+            outputTokens = tokenUsage.outputTokenCount();
+            totalTokens = tokenUsage.totalTokenCount();
+        }
+
         return ChatResponse.builder()
                 .content(content)
-                .inputTokens(null)
-                .outputTokens(null)
-                .totalTokens(null)
+                .inputTokens(inputTokens)
+                .outputTokens(outputTokens)
+                .totalTokens(totalTokens)
                 .build();
     }
 

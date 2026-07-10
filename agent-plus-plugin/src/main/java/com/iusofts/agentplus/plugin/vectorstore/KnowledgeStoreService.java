@@ -42,7 +42,7 @@ public class KnowledgeStoreService {
      * @param chunkTexts     分块文本列表
      * @param chunkMetadatas 分块元数据列表（与 chunkTexts 一一对应）
      * @param embeddingModelId 嵌入模型 ID
-     * @return 实际存储的分块数
+     * @return 向量化累计消耗的 token 数（部分模型不返回用量时为 0）
      */
     public int batchEmbedAndStore(
             String collectionName,
@@ -55,6 +55,7 @@ public class KnowledgeStoreService {
         EmbeddingModel embeddingModel = EmbeddingModelFactory.createEmbeddingModel(embeddingModelDTO);
 
         int total = chunkTexts.size();
+        int totalEmbeddingTokens = 0;
 
         for (int from = 0; from < total; from += EMBED_BATCH_SIZE) {
             int to = Math.min(from + EMBED_BATCH_SIZE, total);
@@ -71,9 +72,12 @@ public class KnowledgeStoreService {
 
             Response<List<Embedding>> response = embeddingModel.embedAll(segments);
             List<Embedding> embeddings = response.content();
+            if (response.tokenUsage() != null && response.tokenUsage().totalTokenCount() != null) {
+                totalEmbeddingTokens += response.tokenUsage().totalTokenCount();
+            }
             vectorStoreManager.addAll(collectionName, batchVectorIds, embeddings, segments);
         }
 
-        return total;
+        return totalEmbeddingTokens;
     }
 }
