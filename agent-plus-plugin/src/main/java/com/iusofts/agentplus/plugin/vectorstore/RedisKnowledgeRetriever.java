@@ -94,14 +94,8 @@ public class RedisKnowledgeRetriever implements KnowledgeRetriever {
                 // 从 metadata 中读取
                 Metadata metadata = segment.metadata();
                 if (metadata != null) {
-                    String chunkIdStr = metadata.getString("chunkId");
-                    if (chunkIdStr != null) {
-                        chunk.setChunkId(Long.parseLong(chunkIdStr));
-                    }
-                    String documentIdStr = metadata.getString("documentId");
-                    if (documentIdStr != null) {
-                        chunk.setDocumentId(Long.parseLong(documentIdStr));
-                    }
+                    chunk.setChunkId(metadata.getLong("chunkId"));
+                    chunk.setDocumentId(metadata.getLong("documentId"));
                     chunk.setTitle(metadata.getString("title"));
                     chunk.setSourceUrl(metadata.getString("sourceUrl"));
                 }

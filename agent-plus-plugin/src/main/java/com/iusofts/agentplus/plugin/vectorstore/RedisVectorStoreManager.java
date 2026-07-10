@@ -19,6 +19,7 @@ import redis.clients.jedis.UnifiedJedis;
 import jakarta.annotation.PreDestroy;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -53,6 +54,9 @@ public class RedisVectorStoreManager {
 
     /** 共享的 Jedis 连接,懒初始化。 */
     private volatile UnifiedJedis jedis;
+
+    /** 声明业务中所有会用到的元数据key */
+    Set<String> allMetaKeys = Set.of("chunkId", "documentId", "title", "sourceUrl");
 
     public RedisVectorStoreManager(KnowledgeProperties properties) {
         this.properties = properties;
@@ -97,6 +101,7 @@ public class RedisVectorStoreManager {
                 .indexName(indexName)
                 .prefix(indexName + ":")
                 .dimension(properties.getDimension())
+                .metadataKeys(allMetaKeys)
                 .build();
     }
 
