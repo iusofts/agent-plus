@@ -18,6 +18,7 @@ import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeChunkEditReqVo;
 import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeChunkQueryPageReqVo;
 import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeChunkStatusReqVo;
 import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeChunkVo;
+import com.iusofts.agentplus.plugin.vectorstore.KnowledgeMetadata;
 import com.iusofts.agentplus.plugin.vectorstore.KnowledgeStoreService;
 import com.iusofts.agentplus.plugin.vectorstore.RedisVectorStoreManager;
 import com.iusofts.agentplus.basic.exception.SystemBusinessException;
@@ -300,12 +301,7 @@ public class AiKnowledgeChunkServiceImpl extends ServiceImpl<AiKnowledgeChunkMap
     }
 
     private Map<String, Object> buildChunkMetadata(Long chunkId, AiKnowledgeDocument doc) {
-        return Map.of(
-                "chunkId", chunkId,
-                "documentId", doc.getId(),
-                "title", doc.getName(),
-                "sourceUrl", doc.getDocUrl()
-        );
+        return KnowledgeMetadata.build(chunkId, doc.getId(), doc.getName(), doc.getDocUrl());
     }
 
 }
