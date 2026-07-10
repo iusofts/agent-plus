@@ -40,6 +40,11 @@ public class KnowledgeRetrieveResult {
     private Integer totalHit;
 
     /**
+     * 本次检索 query 向量化消耗的 token 数
+     */
+    private Integer embeddingTokens;
+
+    /**
      * 是否存在有效检索结果 totalHit > 0
      */
     private Boolean hasResult;

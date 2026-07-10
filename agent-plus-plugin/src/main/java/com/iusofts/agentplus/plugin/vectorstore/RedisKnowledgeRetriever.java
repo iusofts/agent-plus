@@ -9,6 +9,7 @@ import dev.langchain4j.data.document.Metadata;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
+import dev.langchain4j.model.output.Response;
 import dev.langchain4j.store.embedding.EmbeddingMatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -74,7 +75,11 @@ public class RedisKnowledgeRetriever implements KnowledgeRetriever {
             }
 
             EmbeddingModel embeddingModel = embeddingModelProvider.provide(kb.getEmbeddingModelId());
-            Embedding queryEmbedding = embeddingModel.embed(query).content();
+            Response<Embedding> embeddingResponse = embeddingModel.embed(query);
+            Embedding queryEmbedding = embeddingResponse.content();
+            Integer embeddingTokens = embeddingResponse.tokenUsage() != null
+                    ? embeddingResponse.tokenUsage().totalTokenCount()
+                    : null;
 
             int limit = topK > 0 ? topK : 3;
             List<EmbeddingMatch<TextSegment>> matches =
@@ -114,6 +119,7 @@ public class RedisKnowledgeRetriever implements KnowledgeRetriever {
             result.setChunks(chunks);
             result.setContextText(contextText);
             result.setTotalHit(chunks.size());
+            result.setEmbeddingTokens(embeddingTokens);
             result.setHasResult(!chunks.isEmpty());
         } catch (Exception e) {
             log.error("知识库检索失败: knowledgeId={}, query={}", knowledgeId, query, e);

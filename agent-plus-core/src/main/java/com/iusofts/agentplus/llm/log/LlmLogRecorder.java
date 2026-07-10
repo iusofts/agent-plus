@@ -3,6 +3,7 @@ package com.iusofts.agentplus.llm.log;
 import com.iusofts.agentplus.llm.dto.ChatMessage;
 import com.iusofts.agentplus.llm.dto.LlmModelConfigDTO;
 import com.iusofts.agentplus.llm.dto.LlmModelDTO;
+import com.iusofts.agentplus.knowledge.dto.KnowledgeRetrieveResult;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -144,6 +145,11 @@ public interface LlmLogRecorder {
          * 手动设置召回结果。
          */
         KnowledgeRetrievalRecorder retrievedChunks(List<String> chunks, Integer embeddingTokens);
+
+        /**
+         * 直接使用检索结果记录召回详情（chunkId/相似度/向量化token）。
+         */
+        KnowledgeRetrievalRecorder retrievedResult(KnowledgeRetrieveResult result);
 
         /**
          * 标记为成功。

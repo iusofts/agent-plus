@@ -273,7 +273,7 @@ public class AiServiceImpl implements IAiServiceInterface {
                 .knowledgeBase(kbId, kbName)
                 .query(query)
                 .topK(topK)
-                .retrievedChunks(retrievedChunks, null)
+                .retrievedResult(result)
                 .success()
                 .operator(operatorId, orgId)
                 .record();

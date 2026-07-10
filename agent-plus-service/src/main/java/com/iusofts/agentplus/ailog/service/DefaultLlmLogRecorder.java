@@ -8,6 +8,8 @@ import com.iusofts.agentplus.ailog.entity.AiLlmCallLog.MessageEntry;
 import com.iusofts.agentplus.llm.dto.ChatMessage;
 import com.iusofts.agentplus.llm.dto.LlmModelConfigDTO;
 import com.iusofts.agentplus.llm.dto.LlmModelDTO;
+import com.iusofts.agentplus.knowledge.dto.KnowledgeChunk;
+import com.iusofts.agentplus.knowledge.dto.KnowledgeRetrieveResult;
 import com.iusofts.agentplus.llm.log.LlmLogRecorder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -302,13 +304,39 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
                 List<ChunkEntry> entries = new ArrayList<>();
                 for (String chunk : chunks) {
                     ChunkEntry entry = new ChunkEntry();
-                    entry.setContent(chunk != null && chunk.length() > 200 ? chunk.substring(0, 200) + "..." : chunk);
+                    entry.setContent(truncate(chunk));
                     entries.add(entry);
                 }
                 entity.setRetrievedChunks(entries);
             }
             entity.setQueryEmbeddingTokens(embeddingTokens);
             return this;
+        }
+
+        @Override
+        public KnowledgeRetrievalRecorder retrievedResult(KnowledgeRetrieveResult result) {
+            if (result == null) {
+                return this;
+            }
+            List<KnowledgeChunk> chunks = result.getChunks();
+            if (chunks != null) {
+                entity.setRetrievedCount(chunks.size());
+                List<ChunkEntry> entries = new ArrayList<>();
+                for (KnowledgeChunk chunk : chunks) {
+                    ChunkEntry entry = new ChunkEntry();
+                    entry.setChunkId(chunk.getChunkId());
+                    entry.setContent(truncate(chunk.getContent()));
+                    entry.setSimilarity(chunk.getScore());
+                    entries.add(entry);
+                }
+                entity.setRetrievedChunks(entries);
+            }
+            entity.setQueryEmbeddingTokens(result.getEmbeddingTokens());
+            return this;
+        }
+
+        private String truncate(String content) {
+            return content != null && content.length() > 200 ? content.substring(0, 200) + "..." : content;
         }
 
         @Override
