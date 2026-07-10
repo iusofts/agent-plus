@@ -30,7 +30,7 @@ import static com.iusofts.agentplus.common.constants.SysConstant.SYSCODE;
  */
 @Tag(name = "ai对话会话")
 @RestController
-@RequestMapping("/bapi/aiConversation")
+@RequestMapping("/bapi/ai/conversation")
 public class AiConversationController extends BApiController {
 
     @Resource

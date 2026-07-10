@@ -29,7 +29,7 @@ import static com.iusofts.agentplus.basic.enums.OperationLogExcludeTypeEnums.RES
  */
 @Tag(name = "运行节点明细")
 @RestController
-@RequestMapping("/bapi/aiFlowRuntimeNode")
+@RequestMapping("/bapi/ai/flowRuntimeNode")
 public class AiFlowRuntimeNodeController extends BApiController {
 
     @Resource

@@ -34,7 +34,7 @@ import static com.iusofts.agentplus.common.constants.SysConstant.SYSCODE;
  */
 @Tag(name = "AI知识库文档分块")
 @RestController
-@RequestMapping("/bapi/aiKnowledgeChunk")
+@RequestMapping("/bapi/ai/knowledgeChunk")
 public class AiKnowledgeChunkController extends BApiController {
 
     @Resource

@@ -28,7 +28,7 @@ import static com.iusofts.agentplus.basic.enums.OperationLogExcludeTypeEnums.RES
  */
 @Tag(name = "AI流程")
 @RestController
-@RequestMapping("/bapi/aiFlow")
+@RequestMapping("/bapi/ai/flow")
 public class AiFlowController extends BApiController {
 
     @Resource

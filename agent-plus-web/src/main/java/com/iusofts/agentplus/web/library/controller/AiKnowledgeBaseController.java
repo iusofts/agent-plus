@@ -34,7 +34,7 @@ import static com.iusofts.agentplus.common.constants.SysConstant.SYSCODE;
  */
 @Tag(name = "AI知识库")
 @RestController
-@RequestMapping("/bapi/aiKnowledgeBase")
+@RequestMapping("/bapi/ai/knowledgeBase")
 public class AiKnowledgeBaseController extends BApiController {
 
     @Resource

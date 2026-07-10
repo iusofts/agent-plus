@@ -27,7 +27,7 @@ import static com.iusofts.agentplus.common.constants.SysConstant.SYSCODE;
  */
 @Tag(name = "ai智能体")
 @RestController
-@RequestMapping("/bapi/aiAgent")
+@RequestMapping("/bapi/ai/agent")
 public class AiAgentController extends BApiController {
 
     @Resource

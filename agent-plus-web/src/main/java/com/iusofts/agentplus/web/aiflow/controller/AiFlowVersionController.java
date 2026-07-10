@@ -32,7 +32,7 @@ import static com.iusofts.agentplus.basic.enums.OperationLogExcludeTypeEnums.RES
  */
 @Tag(name = "AI流程版本")
 @RestController
-@RequestMapping("/bapi/aiFlowVersion")
+@RequestMapping("/bapi/ai/flowVersion")
 public class AiFlowVersionController extends BApiController {
 
     @Resource

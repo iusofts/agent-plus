@@ -36,7 +36,7 @@ import static com.iusofts.agentplus.common.constants.SysConstant.SYSCODE;
  */
 @Tag(name = "AI模型配置")
 @RestController
-@RequestMapping("/bapi/aiModel")
+@RequestMapping("/bapi/ai/model")
 public class AiModelController extends BApiController {
 
     @Resource

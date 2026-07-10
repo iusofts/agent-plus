@@ -1,12 +1,11 @@
 package com.iusofts.agentplus.chat.service;
 
-import com.iusofts.agentplus.chat.interfaces.IAiServiceInterface;
+import com.iusofts.agentplus.chat.interfaces.IAiChatServiceInterface;
 import com.iusofts.agentplus.chat.entity.AiAgent;
 import com.iusofts.agentplus.chat.entity.AiConversation;
 import com.iusofts.agentplus.chat.entity.AiMessage;
 import com.iusofts.agentplus.chat.mapper.AiAgentMapper;
 import com.iusofts.agentplus.chat.vo.AiMessageVo;
-import com.iusofts.agentplus.chat.vo.AiServiceCallReqVo;
 import com.iusofts.agentplus.chat.vo.AiServiceChatReqVo;
 import com.iusofts.agentplus.library.entity.AiKnowledgeBase;
 import com.iusofts.agentplus.library.mapper.AiKnowledgeBaseMapper;
@@ -41,7 +40,7 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @Service
-public class AiServiceImpl implements IAiServiceInterface {
+public class AiChatServiceImpl implements IAiChatServiceInterface {
 
     @Resource
     private IdService idService;
