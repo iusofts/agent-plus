@@ -283,6 +283,15 @@
                 <groupId>com.alibaba</groupId>
                 <artifactId>easyexcel</artifactId>
                 <version>${easyexcel.version}</version>
+                <exclusions>
+                    <!-- 旧版 poi-ooxml-schemas(4.1.2)与 Tika 依赖的 POI 5.x(poi-ooxml-lite)冲突,
+                         会导致 NoSuchFieldError: ...PropertiesDocument...Factory。POI 5.x 已把
+                         schema 并入 poi-ooxml-lite,不再需要该独立包。 -->
+                    <exclusion>
+                        <groupId>org.apache.poi</groupId>
+                        <artifactId>poi-ooxml-schemas</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
             <dependency>
                 <groupId>com.squareup.okhttp3</groupId>
