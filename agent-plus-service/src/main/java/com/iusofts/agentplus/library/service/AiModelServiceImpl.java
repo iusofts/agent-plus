@@ -46,7 +46,7 @@ public class AiModelServiceImpl extends ServiceImpl<AiModelMapper, AiModel> impl
     @Override
     public void add(AiModelAddReqVo reqVo) {
         AiModel aiModel = ModelMapperUtil.strictMap(reqVo, AiModel.class);
-        Integer uid = idService.generateUid(UidTypeEnum.CHAT);
+        Integer uid = idService.generateUid(UidTypeEnum.AI_MODEL);
         aiModel.setId(uid.longValue());
         aiModel.setCreateBy(reqVo.getOperatorId());
         super.save(aiModel);

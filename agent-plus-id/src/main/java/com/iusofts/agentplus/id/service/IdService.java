@@ -19,6 +19,10 @@ public interface IdService {
         
         CHAT(1, "Chat"),
         FLOW(2, "Flow"),
+        KNOWLEDGE_BASE(3, "KnowledgeBase"),
+        KNOWLEDGE_DOCUMENT(4, "KnowledgeDocument"),
+        KNOWLEDGE_CHUNK(5, "KnowledgeChunk"),
+        AI_MODEL(6, "AiModel"),
         ;
 
         /**

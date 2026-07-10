@@ -107,9 +107,9 @@ public class AiKnowledgeChunkServiceImpl extends ServiceImpl<AiKnowledgeChunkMap
         }
 
         int sortOrder = nextSortOrder(doc.getId());
-        String vectorId = idService.generateUid(UidTypeEnum.CHAT).toString() + "-" + sortOrder;
+        String vectorId = idService.generateUid(UidTypeEnum.KNOWLEDGE_CHUNK).toString() + "-" + sortOrder;
 
-        Long chunkId = idService.generateUid(UidTypeEnum.CHAT).longValue();
+        Long chunkId = idService.generateUid(UidTypeEnum.KNOWLEDGE_CHUNK).longValue();
         AiKnowledgeChunk chunk = new AiKnowledgeChunk();
         chunk.setId(chunkId);
         chunk.setKnowledgeBaseId(kb.getId());

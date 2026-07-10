@@ -134,8 +134,9 @@ INSERT INTO `ai_knowledge_chunk` (`id`, `knowledge_base_id`, `document_id`, `vec
 
 -- ----------------------------
 -- Update id_generator for new types
--- 注: 当前服务端代码统一复用 UidTypeEnum.CHAT(type=1) 生成ID,
---     以下 3~6 型为预留(如后续为知识库/模型单独分配ID段时启用)。
+-- 注: 服务端已为知识库/文档/分块/模型分配独立ID段,
+--     分别对应 UidTypeEnum.KNOWLEDGE_BASE(3)、KNOWLEDGE_DOCUMENT(4)、
+--     KNOWLEDGE_CHUNK(5)、AI_MODEL(6)。
 -- ----------------------------
 INSERT INTO `id_generator` (`type`, `uid`, `name`, `step_min`, `step_max`) VALUES
 (3, 2, 'knowledge_base', 1, 1),

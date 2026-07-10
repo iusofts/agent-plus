@@ -48,7 +48,7 @@ public class AiKnowledgeBaseServiceImpl extends ServiceImpl<AiKnowledgeBaseMappe
     @Override
     public Long add(AiKnowledgeBaseAddReqVo reqVo) {
         AiKnowledgeBase entity = ModelMapperUtil.strictMap(reqVo, AiKnowledgeBase.class);
-        Integer uid = idService.generateUid(UidTypeEnum.CHAT);
+        Integer uid = idService.generateUid(UidTypeEnum.KNOWLEDGE_BASE);
         Long id = uid.longValue();
         entity.setId(id);
         // 向量库集合名称按知识库ID约定生成,供后续向量化管线使用

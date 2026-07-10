@@ -78,7 +78,7 @@ public class AiKnowledgeDocumentServiceImpl extends ServiceImpl<AiKnowledgeDocum
     public Long add(AiKnowledgeDocumentAddReqVo reqVo) {
         AiKnowledgeBase kb = requireKnowledgeBase(reqVo.getKnowledgeBaseId(), reqVo.getOrgId());
         AiKnowledgeDocument doc = ModelMapperUtil.strictMap(reqVo, AiKnowledgeDocument.class);
-        doc.setId(idService.generateUid(UidTypeEnum.CHAT).longValue());
+        doc.setId(idService.generateUid(UidTypeEnum.KNOWLEDGE_DOCUMENT).longValue());
         doc.setStatus(STATUS_PENDING);
         doc.setChunkCount(0);
         doc.setOrgId(kb.getOrgId());
@@ -98,7 +98,7 @@ public class AiKnowledgeDocumentServiceImpl extends ServiceImpl<AiKnowledgeDocum
                 throw new SystemBusinessException("文档名称与URL不能为空");
             }
             AiKnowledgeDocument doc = new AiKnowledgeDocument();
-            doc.setId(idService.generateUid(UidTypeEnum.CHAT).longValue());
+            doc.setId(idService.generateUid(UidTypeEnum.KNOWLEDGE_DOCUMENT).longValue());
             doc.setKnowledgeBaseId(reqVo.getKnowledgeBaseId());
             doc.setName(item.getName());
             doc.setDocType(item.getDocType());

@@ -178,9 +178,9 @@ public class KnowledgeIngestionService {
         List<AiKnowledgeChunk> result = new ArrayList<>();
         int sortOrder = 0;
         for (String content : chunkTexts) {
-            String vectorId = idService.generateUid(UidTypeEnum.CHAT) + "-" + sortOrder;
+            String vectorId = idService.generateUid(UidTypeEnum.KNOWLEDGE_CHUNK) + "-" + sortOrder;
             AiKnowledgeChunk chunk = new AiKnowledgeChunk();
-            chunk.setId(idService.generateUid(UidTypeEnum.CHAT).longValue());
+            chunk.setId(idService.generateUid(UidTypeEnum.KNOWLEDGE_CHUNK).longValue());
             chunk.setKnowledgeBaseId(kb.getId());
             chunk.setDocumentId(doc.getId());
             chunk.setVectorId(vectorId);
