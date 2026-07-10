@@ -12,6 +12,4 @@ public interface IAiServiceInterface {
 
     AiMessageVo chat(AiServiceChatReqVo reqVo);
     
-    AiMessageVo call(AiServiceCallReqVo reqVo);
-    
 }

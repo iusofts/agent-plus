@@ -68,183 +68,124 @@ public class AiServiceImpl implements IAiServiceInterface {
 
     @Override
     public AiMessageVo chat(AiServiceChatReqVo reqVo) {
-        AiMessageVo resultMessage = null;
-        AiConversation conversation;
-        AiAgent aiAgent = aiAgentMapper.selectById(reqVo.getAgentId());
-        List<AiMessageVo> messageVoList = new ArrayList<>();
-        if (reqVo.getConversationId() != null) {
+        // 1. 确定智能体与会话
+        Long agentId = reqVo.getAgentId();
+        AiConversation conversation = null;
+        boolean newConversation = reqVo.getConversationId() == null;
+        if (!newConversation) {
             conversation = aiConversationService.getById(reqVo.getConversationId());
-            if (reqVo.getAgentId() != null) {
-                conversation.setAgentId(reqVo.getAgentId());
-            } else {
-                aiAgent = aiAgentMapper.selectById(conversation.getAgentId());
+            if (conversation == null) {
+                throw new SystemBusinessException("会话不存在");
             }
-            messageVoList.addAll(aiMessageService.getList(reqVo.getConversationId()));
-        } else {
+            if (agentId == null) {
+                agentId = conversation.getAgentId();
+            }
+        }
+
+        AiAgent aiAgent = agentId != null ? aiAgentMapper.selectById(agentId) : null;
+        if (aiAgent == null) {
+            throw new SystemBusinessException("智能体不存在");
+        }
+        Long modelId = aiAgent.getModelId();
+        if (modelId == null) {
+            throw new SystemBusinessException("智能体未配置模型");
+        }
+
+        // 2. 加载历史对话消息（仅 user/assistant）与本轮用户输入
+        List<AiMessageVo> dialog = new ArrayList<>();
+        if (!newConversation) {
+            dialog.addAll(aiMessageService.getList(reqVo.getConversationId()));
+        }
+        List<AiMessageVo> requestMsgs = new ArrayList<>();
+        if (StringUtils.isNotBlank(reqVo.getContent())) {
+            AiMessageVo userMsg = new AiMessageVo();
+            userMsg.setRole("user");
+            userMsg.setContent(reqVo.getContent());
+            requestMsgs.add(userMsg);
+        }
+        dialog.addAll(requestMsgs);
+
+        String traceId = LlmLogRecorder.generateTraceId();
+        String userQuestion = reqVo.getContent();
+
+        // 3. 构建发送给模型的消息：系统提示词与知识库合并为单条 system，动态生成不落库
+        String knowledgeContext = retrieveKnowledge(aiAgent, userQuestion, traceId, reqVo.getOperatorId(), reqVo.getOrgId());
+        String systemContent = buildSystemPrompt(aiAgent, knowledgeContext);
+
+        List<ChatMessage> msgList = new ArrayList<>();
+        if (StringUtils.isNotBlank(systemContent)) {
+            msgList.add(ChatMessage.builder().role("system").content(systemContent).build());
+        }
+        msgList.addAll(buildDialogContext(dialog, aiAgent));
+
+        LlmModelConfigDTO config = buildModelConfig(aiAgent);
+
+        // 4. 调用 LLM，失败直接抛出，不写入任何脏数据
+        ChatResponse response = aiChatService.chat(msgList, modelId, config);
+
+        llmLogRecorder.recordLlmCall()
+            .traceId(traceId)
+            .fromChat(conversation != null ? conversation.getId() : null)
+            .model(llmModelQueryProvider.getModel(modelId))
+            .config(config)
+            .inputMessages(msgList)
+            .output(response.getContent(), response.getInputTokens(), response.getOutputTokens())
+            .success()
+            .operator(reqVo.getOperatorId(), reqVo.getOrgId())
+            .record();
+
+        AiMessageVo resultMessage = new AiMessageVo();
+        resultMessage.setRole("assistant");
+        resultMessage.setContent(response.getContent());
+        resultMessage.setInputTokens(response.getInputTokens());
+        resultMessage.setOutputTokens(response.getOutputTokens());
+        resultMessage.setTotalTokens(response.getTotalTokens());
+
+        // 5. 调用成功后再落库：会话、新消息、轮次
+        if (newConversation) {
             conversation = new AiConversation();
-            Integer uid = idService.generateUid(UidTypeEnum.CHAT);
-            conversation.setId(uid.longValue());
-            conversation.setAgentId(reqVo.getAgentId());
-            String title = "新对话";
-            if (CollectionUtils.isNotEmpty(reqVo.getMessages()) && StringUtils.isNotBlank(reqVo.getMessages().get(0).getContent())) {
-                String firstMessage = reqVo.getMessages().get(0).getContent();
-                title = firstMessage.substring(0, Math.min(firstMessage.length(), 15));
-            }
-            conversation.setTitle(title);
+            conversation.setId(idService.generateUid(UidTypeEnum.CHAT).longValue());
+            conversation.setAgentId(agentId);
+            conversation.setTitle(buildTitle(reqVo.getContent()));
             conversation.setCurrentRounds(0);
             conversation.setOrgId(reqVo.getOrgId());
             conversation.setCreateBy(reqVo.getOperatorId());
-            aiConversationService.save(conversation);
-
-            if (StringUtils.isNotBlank(aiAgent.getSystemPrompt())) {
-                AiMessageVo messageVo = new AiMessageVo();
-                messageVo.setRole("system");
-                messageVo.setContent(aiAgent.getSystemPrompt());
-                messageVoList.add(messageVo);
-            }
+        } else {
+            conversation.setAgentId(agentId);
         }
+        resultMessage.setConversationId(conversation.getId());
 
-        if (CollectionUtils.isNotEmpty(reqVo.getMessages())) {
-            reqVo.getMessages().forEach(item -> {
-                AiMessageVo messageVo = new AiMessageVo();
-                messageVo.setRole(item.getRole());
-                messageVo.setContent(item.getContent());
-                messageVoList.add(messageVo);
-            });
-        }
-
-        String traceId = LlmLogRecorder.generateTraceId();
-        String userQuestion = latestUserQuestion(messageVoList);
-
-        try {
-            Long modelId = aiAgent.getModelId();
-            if (modelId == null) {
-                throw new SystemBusinessException("智能体未配置模型");
-            }
-
-            List<ChatMessage> msgList = buildContext(messageVoList, aiAgent);
-
-            String knowledgeContext = retrieveKnowledge(aiAgent, userQuestion, traceId, reqVo.getOperatorId(), reqVo.getOrgId());
-            if (StringUtils.isNotBlank(knowledgeContext)) {
-                int insertIdx = msgList.isEmpty() || !"system".equalsIgnoreCase(msgList.get(0).getRole()) ? 0 : 1;
-                msgList.add(insertIdx, ChatMessage.builder().role("system").content(knowledgeContext).build());
-            }
-
-            LlmModelConfigDTO config = buildModelConfig(aiAgent);
-
-            ChatResponse response = aiChatService.chat(msgList, modelId, config);
-
-            llmLogRecorder.recordLlmCall()
-                .traceId(traceId)
-                .fromChat(conversation.getId())
-                .model(llmModelQueryProvider.getModel(modelId))
-                .config(config)
-                .inputMessages(msgList)
-                .output(response.getContent(), response.getInputTokens(), response.getOutputTokens())
-                .success()
-                .operator(reqVo.getOperatorId(), reqVo.getOrgId())
-                .record();
-
-            resultMessage = new AiMessageVo();
-            resultMessage.setRole("assistant");
-            resultMessage.setContent(response.getContent());
-            resultMessage.setInputTokens(response.getInputTokens());
-            resultMessage.setOutputTokens(response.getOutputTokens());
-            resultMessage.setTotalTokens(response.getTotalTokens());
-            resultMessage.setConversationId(conversation.getId());
-            messageVoList.add(resultMessage);
-
-        } catch (Exception e) {
-            log.error("AI服务异常", e);
-        }
-
-        List<AiMessageVo> newMessageVoList = messageVoList.stream().filter(item -> item.getId() == null).toList();
+        List<AiMessageVo> newMessageVoList = new ArrayList<>(requestMsgs);
+        newMessageVoList.add(resultMessage);
         List<AiMessage> newMessageList = new ArrayList<>();
         for (AiMessageVo item : newMessageVoList) {
             AiMessage aiMessage = ModelMapperUtil.strictMap(item, AiMessage.class);
             aiMessage.setId(idService.generateUid(UidTypeEnum.CHAT).longValue());
             aiMessage.setConversationId(conversation.getId());
-            if (aiAgent != null) {
-                aiMessage.setAgentId(aiAgent.getId());
-            }
+            aiMessage.setAgentId(aiAgent.getId());
             aiMessage.setCreateBy(reqVo.getOperatorId());
             aiMessage.setOrgId(reqVo.getOrgId());
             newMessageList.add(aiMessage);
         }
+        aiMessageService.saveBatch(newMessageList);
 
-        if (CollectionUtils.isNotEmpty(newMessageList)) {
-            aiMessageService.saveBatch(newMessageList);
-        }
-
-        conversation.setCurrentRounds(conversation.getCurrentRounds() + 1);
+        int rounds = conversation.getCurrentRounds() == null ? 0 : conversation.getCurrentRounds();
+        conversation.setCurrentRounds(rounds + 1);
         conversation.setUpdateTime(LocalDateTime.now());
         conversation.setLastChatTime(LocalDateTime.now());
-        aiConversationService.updateById(conversation);
+        if (newConversation) {
+            aiConversationService.save(conversation);
+        } else {
+            aiConversationService.updateById(conversation);
+        }
         return resultMessage;
     }
 
-    @Override
-    public AiMessageVo call(AiServiceCallReqVo reqVo) {
-        log.debug("ai call param: {}", reqVo);
-
-        AiMessageVo resultMessage = null;
-        List<AiMessageVo> messageVoList = new ArrayList<>();
-        if (CollectionUtils.isNotEmpty(reqVo.getMessages())) {
-            reqVo.getMessages().forEach(item -> {
-                AiMessageVo messageVo = new AiMessageVo();
-                messageVo.setRole(item.getRole());
-                messageVo.setContent(item.getContent());
-                messageVoList.add(messageVo);
-            });
+    private String buildTitle(String content) {
+        if (StringUtils.isNotBlank(content)) {
+            return content.substring(0, Math.min(content.length(), 15));
         }
-
-        String traceId = LlmLogRecorder.generateTraceId();
-        AiAgent aiAgent = reqVo.getAgentId() != null ? aiAgentMapper.selectById(reqVo.getAgentId()) : null;
-
-        try {
-            List<ChatMessage> msgList = new ArrayList<>();
-            for (AiMessageVo msg : messageVoList) {
-                msgList.add(ChatMessage.builder().role(msg.getRole()).content(msg.getContent()).build());
-            }
-
-            Long modelId = null;
-            LlmModelConfigDTO config = null;
-            if (reqVo.getAgentId() != null) {
-                if (aiAgent != null) {
-                    modelId = aiAgent.getModelId();
-                    config = buildModelConfig(aiAgent);
-                }
-            }
-            if (modelId == null) {
-                throw new SystemBusinessException("智能体未配置模型");
-            }
-
-            ChatResponse response = aiChatService.chat(msgList, modelId, config);
-
-            llmLogRecorder.recordLlmCall()
-                .traceId(traceId)
-                .fromAgent(reqVo.getAgentId())
-                .model(llmModelQueryProvider.getModel(modelId))
-                .config(config)
-                .inputMessages(msgList)
-                .output(response.getContent(), response.getInputTokens(), response.getOutputTokens())
-                .success()
-                .operator(reqVo.getOperatorId(), reqVo.getOrgId())
-                .record();
-
-            resultMessage = new AiMessageVo();
-            resultMessage.setRole("assistant");
-            resultMessage.setContent(response.getContent());
-            resultMessage.setInputTokens(response.getInputTokens());
-            resultMessage.setOutputTokens(response.getOutputTokens());
-            resultMessage.setTotalTokens(response.getTotalTokens());
-            messageVoList.add(resultMessage);
-
-        } catch (Exception e) {
-            log.error("AI服务异常", e);
-        }
-
-        return resultMessage;
+        return "新对话";
     }
 
     private LlmModelConfigDTO buildModelConfig(AiAgent aiAgent) {
@@ -256,13 +197,32 @@ public class AiServiceImpl implements IAiServiceInterface {
         return config;
     }
 
-    private List<ChatMessage> buildContext(List<AiMessageVo> messageVoList, AiAgent aiAgent) {
-        List<AiMessageVo> systemMsgs = new ArrayList<>();
+    /**
+     * 合并系统提示词与知识库上下文为单条 system 内容。
+     * 知识库作为"参考资料"附加在人设提示词之后，避免多条 system 带来的兼容与语义问题。
+     */
+    private String buildSystemPrompt(AiAgent aiAgent, String knowledgeContext) {
+        StringBuilder sb = new StringBuilder();
+        if (aiAgent != null && StringUtils.isNotBlank(aiAgent.getSystemPrompt())) {
+            sb.append(aiAgent.getSystemPrompt().trim());
+        }
+        if (StringUtils.isNotBlank(knowledgeContext)) {
+            if (sb.length() > 0) {
+                sb.append("\n\n");
+            }
+            sb.append(knowledgeContext);
+        }
+        return sb.toString();
+    }
+
+    /**
+     * 构建对话上下文：仅保留 user/assistant 消息（过滤历史中残留的 system 脏数据），
+     * 按配置的上下文轮数裁剪，并保证裁剪后首条为 user。
+     */
+    private List<ChatMessage> buildDialogContext(List<AiMessageVo> messageVoList, AiAgent aiAgent) {
         List<AiMessageVo> dialogMsgs = new ArrayList<>();
         for (AiMessageVo msg : messageVoList) {
-            if ("system".equalsIgnoreCase(msg.getRole())) {
-                systemMsgs.add(msg);
-            } else {
+            if (!"system".equalsIgnoreCase(msg.getRole())) {
                 dialogMsgs.add(msg);
             }
         }
@@ -275,24 +235,16 @@ public class AiServiceImpl implements IAiServiceInterface {
             }
         }
 
-        List<ChatMessage> msgList = new ArrayList<>();
-        for (AiMessageVo msg : systemMsgs) {
-            msgList.add(ChatMessage.builder().role(msg.getRole()).content(msg.getContent()).build());
+        // 保证首条为 user，避免部分模型要求首条消息必须为 user 而报错
+        while (!dialogMsgs.isEmpty() && !"user".equalsIgnoreCase(dialogMsgs.get(0).getRole())) {
+            dialogMsgs.remove(0);
         }
+
+        List<ChatMessage> msgList = new ArrayList<>();
         for (AiMessageVo msg : dialogMsgs) {
             msgList.add(ChatMessage.builder().role(msg.getRole()).content(msg.getContent()).build());
         }
         return msgList;
-    }
-
-    private String latestUserQuestion(List<AiMessageVo> messageVoList) {
-        for (int i = messageVoList.size() - 1; i >= 0; i--) {
-            AiMessageVo msg = messageVoList.get(i);
-            if ("user".equalsIgnoreCase(msg.getRole()) && StringUtils.isNotBlank(msg.getContent())) {
-                return msg.getContent();
-            }
-        }
-        return null;
     }
 
     private String retrieveKnowledge(AiAgent aiAgent, String query, String traceId, Long operatorId, Integer orgId) {
