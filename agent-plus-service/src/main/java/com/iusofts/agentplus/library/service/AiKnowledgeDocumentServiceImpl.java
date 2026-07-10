@@ -11,6 +11,7 @@ import com.iusofts.agentplus.library.entity.AiKnowledgeDocument;
 import com.iusofts.agentplus.library.interfaces.IAiKnowledgeDocumentService;
 import com.iusofts.agentplus.library.knowledge.KnowledgeIngestExecutor;
 import com.iusofts.agentplus.library.knowledge.KnowledgeIngestionService;
+import com.iusofts.agentplus.plugin.vectorstore.KnowledgeMetadata;
 import com.iusofts.agentplus.plugin.vectorstore.KnowledgeStoreService;
 import com.iusofts.agentplus.plugin.vectorstore.RedisVectorStoreManager;
 import com.iusofts.agentplus.library.mapper.AiKnowledgeBaseMapper;
@@ -252,12 +253,7 @@ public class AiKnowledgeDocumentServiceImpl extends ServiceImpl<AiKnowledgeDocum
             if (StringUtils.isNotBlank(c.getVectorId())) {
                 vectorIds.add(c.getVectorId());
                 contents.add(c.getContent());
-                metadatas.add(Map.of(
-                        "chunkId", c.getId(),
-                        "documentId", doc.getId(),
-                        "title", doc.getName(),
-                        "sourceUrl", doc.getDocUrl()
-                ));
+                metadatas.add(KnowledgeMetadata.build(c.getId(), doc.getId(), doc.getName(), doc.getDocUrl()));
             }
         }
         if (!vectorIds.isEmpty()) {
