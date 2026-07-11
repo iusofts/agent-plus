@@ -323,4 +323,61 @@ public class AiKnowledgeDocumentServiceImpl extends ServiceImpl<AiKnowledgeDocum
         return kb;
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void rebuildVector(IdReqVo reqVo) {
+        AiKnowledgeDocument doc = super.getById(reqVo.getId());
+        if (doc == null) {
+            throw new SystemBusinessException("文档不存在");
+        }
+        if (reqVo.getOrgId() != null && !reqVo.getOrgId().equals(doc.getOrgId())) {
+            throw new SystemBusinessException("操作权限获取失败！");
+        }
+        int current = doc.getStatus() == null ? -1 : doc.getStatus();
+        // 只有已就绪的文档才允许重建向量
+        if (current != KnowledgeIngestionService.STATUS_COMPLETED
+                && current != KnowledgeIngestionService.STATUS_DISABLED
+                && current != KnowledgeIngestionService.STATUS_ARCHIVED) {
+            throw new SystemBusinessException("当前文档状态不支持该操作");
+        }
+
+        AiKnowledgeBase kb = aiKnowledgeBaseMapper.selectById(doc.getKnowledgeBaseId());
+        if (kb == null) {
+            throw new SystemBusinessException("知识库不存在");
+        }
+
+        List<AiKnowledgeChunk> chunks = aiKnowledgeChunkMapper.selectList(
+                Wrappers.<AiKnowledgeChunk>lambdaQuery().eq(AiKnowledgeChunk::getDocumentId, doc.getId()));
+
+        if (chunks.isEmpty()) {
+            return;
+        }
+
+        // 重建向量
+        List<String> vectorIds = new ArrayList<>();
+        List<String> contents = new ArrayList<>();
+        List<Map<String, Object>> metadatas = new ArrayList<>();
+        for (AiKnowledgeChunk c : chunks) {
+            if (StringUtils.isNotBlank(c.getVectorId())) {
+                vectorIds.add(c.getVectorId());
+                contents.add(c.getContent());
+                metadatas.add(KnowledgeMetadata.build(c.getId(), doc.getId(), doc.getName(), doc.getDocUrl()));
+            }
+        }
+        if (!vectorIds.isEmpty()) {
+            try {
+                knowledgeStoreService.batchEmbedAndStore(
+                        kb.getCollectionName(), vectorIds, contents, metadatas, kb.getEmbeddingModelId());
+            } catch (Exception e) {
+                throw new SystemBusinessException("重建向量数据失败:" + e.getMessage());
+            }
+        }
+
+        // 更新文档更新时间
+        AiKnowledgeDocument update = new AiKnowledgeDocument();
+        update.setId(doc.getId());
+        update.setUpdateBy(reqVo.getOperatorId());
+        super.updateById(update);
+    }
+
 }

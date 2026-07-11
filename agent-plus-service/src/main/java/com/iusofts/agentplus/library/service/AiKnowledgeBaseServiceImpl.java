@@ -6,10 +6,15 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.iusofts.agentplus.library.entity.AiKnowledgeBase;
+import com.iusofts.agentplus.library.entity.AiKnowledgeChunk;
 import com.iusofts.agentplus.library.entity.AiKnowledgeDocument;
 import com.iusofts.agentplus.library.interfaces.IAiKnowledgeBaseService;
+import com.iusofts.agentplus.library.knowledge.KnowledgeIngestionService;
 import com.iusofts.agentplus.library.mapper.AiKnowledgeBaseMapper;
+import com.iusofts.agentplus.library.mapper.AiKnowledgeChunkMapper;
 import com.iusofts.agentplus.library.mapper.AiKnowledgeDocumentMapper;
+import com.iusofts.agentplus.plugin.vectorstore.KnowledgeMetadata;
+import com.iusofts.agentplus.plugin.vectorstore.KnowledgeStoreService;
 import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeBaseAddReqVo;
 import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeBaseDetailVo;
 import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeBaseEditReqVo;
@@ -24,8 +29,11 @@ import com.iusofts.agentplus.id.service.IdService;
 import com.iusofts.agentplus.id.service.IdService.UidTypeEnum;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * <p>
@@ -44,6 +52,12 @@ public class AiKnowledgeBaseServiceImpl extends ServiceImpl<AiKnowledgeBaseMappe
 
     @Resource
     private AiKnowledgeDocumentMapper aiKnowledgeDocumentMapper;
+
+    @Resource
+    private AiKnowledgeChunkMapper aiKnowledgeChunkMapper;
+
+    @Resource
+    private KnowledgeStoreService knowledgeStoreService;
 
     @Override
     public Long add(AiKnowledgeBaseAddReqVo reqVo) {
@@ -137,6 +151,68 @@ public class AiKnowledgeBaseServiceImpl extends ServiceImpl<AiKnowledgeBaseMappe
         if (count == 0) {
             throw new SystemBusinessException("操作权限获取失败！");
         }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void rebuildAllVectors(IdReqVo reqVo) {
+        AiKnowledgeBase kb = super.getById(reqVo.getId());
+        if (kb == null) {
+            throw new SystemBusinessException("知识库不存在");
+        }
+        if (reqVo.getOrgId() != null && !reqVo.getOrgId().equals(kb.getOrgId())) {
+            throw new SystemBusinessException("操作权限获取失败！");
+        }
+
+        // 获取知识库下所有已完成/已禁用/已归档的文档
+        List<AiKnowledgeDocument> docs = aiKnowledgeDocumentMapper.selectList(
+                Wrappers.<AiKnowledgeDocument>lambdaQuery()
+                        .eq(AiKnowledgeDocument::getKnowledgeBaseId, kb.getId())
+                        .in(AiKnowledgeDocument::getStatus,
+                            KnowledgeIngestionService.STATUS_COMPLETED,
+                            KnowledgeIngestionService.STATUS_DISABLED,
+                            KnowledgeIngestionService.STATUS_ARCHIVED));
+
+        for (AiKnowledgeDocument doc : docs) {
+            List<AiKnowledgeChunk> chunks = aiKnowledgeChunkMapper.selectList(
+                    Wrappers.<AiKnowledgeChunk>lambdaQuery().eq(AiKnowledgeChunk::getDocumentId, doc.getId()));
+
+            if (chunks.isEmpty()) {
+                continue;
+            }
+
+            // 为每个文档重建向量
+            List<String> vectorIds = new ArrayList<>();
+            List<String> contents = new ArrayList<>();
+            List<Map<String, Object>> metadatas = new ArrayList<>();
+            for (AiKnowledgeChunk c : chunks) {
+                if (StringUtils.isNotBlank(c.getVectorId())) {
+                    vectorIds.add(c.getVectorId());
+                    contents.add(c.getContent());
+                    metadatas.add(KnowledgeMetadata.build(c.getId(), doc.getId(), doc.getName(), doc.getDocUrl()));
+                }
+            }
+            if (!vectorIds.isEmpty()) {
+                try {
+                    knowledgeStoreService.batchEmbedAndStore(
+                            kb.getCollectionName(), vectorIds, contents, metadatas, kb.getEmbeddingModelId());
+                } catch (Exception e) {
+                    throw new SystemBusinessException("重建文档[" + doc.getName() + "]向量失败:" + e.getMessage());
+                }
+            }
+
+            // 更新文档更新时间
+            AiKnowledgeDocument updateDoc = new AiKnowledgeDocument();
+            updateDoc.setId(doc.getId());
+            updateDoc.setUpdateBy(reqVo.getOperatorId());
+            aiKnowledgeDocumentMapper.updateById(updateDoc);
+        }
+
+        // 更新知识库更新时间
+        AiKnowledgeBase updateKb = new AiKnowledgeBase();
+        updateKb.setId(kb.getId());
+        updateKb.setUpdateBy(reqVo.getOperatorId());
+        super.updateById(updateKb);
     }
 
 }

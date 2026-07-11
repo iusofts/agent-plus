@@ -88,4 +88,12 @@ public class AiKnowledgeDocumentController extends BApiController {
         return aiKnowledgeDocumentService.getById(reqVo);
     }
 
+    @Operation(description = "重建文档向量（用DB保存的分块内容重新向量化）")
+    @PostMapping("/rebuildVector")
+    public void rebuildVector(@RequestBody IdReqVo reqVo, @BLoginUser BLoginUserVo loginUserVo) {
+        reqVo.setOrgId(SYSCODE);
+        reqVo.setOperatorId(loginUserVo.getUser().getUserId());
+        aiKnowledgeDocumentService.rebuildVector(reqVo);
+    }
+
 }

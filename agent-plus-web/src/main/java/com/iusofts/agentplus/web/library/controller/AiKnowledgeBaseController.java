@@ -78,4 +78,12 @@ public class AiKnowledgeBaseController extends BApiController {
         return aiKnowledgeBaseService.getById(reqVo);
     }
 
+    @Operation(description = "重建知识库下所有文档的向量")
+    @PostMapping("/rebuildAllVectors")
+    public void rebuildAllVectors(@RequestBody IdReqVo reqVo, @BLoginUser BLoginUserVo loginUserVo) {
+        reqVo.setOrgId(SYSCODE);
+        reqVo.setOperatorId(loginUserVo.getUser().getUserId());
+        aiKnowledgeBaseService.rebuildAllVectors(reqVo);
+    }
+
 }

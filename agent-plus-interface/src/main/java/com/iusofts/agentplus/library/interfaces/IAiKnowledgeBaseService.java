@@ -32,4 +32,9 @@ public interface IAiKnowledgeBaseService {
 
     AiKnowledgeBaseDetailVo getById(IdReqVo reqVo);
 
+    /**
+     * 重建知识库下所有文档的向量
+     */
+    void rebuildAllVectors(IdReqVo reqVo);
+
 }

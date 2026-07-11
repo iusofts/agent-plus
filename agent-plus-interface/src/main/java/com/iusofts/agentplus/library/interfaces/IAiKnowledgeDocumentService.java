@@ -30,4 +30,9 @@ public interface IAiKnowledgeDocumentService {
 
     AiKnowledgeDocumentVo getById(IdReqVo reqVo);
 
+    /**
+     * 重建文档向量（用 DB 保存的分块内容重新向量化）
+     */
+    void rebuildVector(IdReqVo reqVo);
+
 }
