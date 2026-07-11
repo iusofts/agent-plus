@@ -2,6 +2,7 @@ package com.iusofts.agentplus.web.config;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import com.fasterxml.jackson.datatype.jsr310.deser.LocalDateDeserializer;
 import com.fasterxml.jackson.datatype.jsr310.deser.LocalDateTimeDeserializer;
 import com.fasterxml.jackson.datatype.jsr310.deser.LocalTimeDeserializer;
@@ -45,6 +46,10 @@ public class JacksonConfig {
         // 3. LocalTime 序列化 + 反序列化
         module.addSerializer(LocalTime.class, new LocalTimeSerializer(DateTimeFormatter.ofPattern(TIME_PATTERN)));
         module.addDeserializer(LocalTime.class, new LocalTimeDeserializer(DateTimeFormatter.ofPattern(TIME_PATTERN)));
+
+        // 4. Long 类型序列化：Long → String（避免前端 JS 精度丢失）
+        module.addSerializer(Long.class, ToStringSerializer.instance);
+        module.addSerializer(long.class, ToStringSerializer.instance);
 
         objectMapper.registerModule(module);
         objectMapper.setTimeZone(java.util.TimeZone.getTimeZone(TIME_ZONE));
