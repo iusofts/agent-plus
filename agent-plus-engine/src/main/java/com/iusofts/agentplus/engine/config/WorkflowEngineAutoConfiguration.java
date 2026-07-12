@@ -7,11 +7,16 @@ import com.iusofts.agentplus.engine.llm.ChatModelProvider;
 import com.iusofts.agentplus.engine.llm.DefaultChatModelProvider;
 import com.iusofts.agentplus.engine.llm.DoubaoProperties;
 import com.iusofts.agentplus.engine.llm.QwenProperties;
+import com.iusofts.agentplus.engine.tool.ToolRegistry;
+import com.iusofts.agentplus.tool.Tool;
+import com.iusofts.agentplus.tool.ToolQueryProvider;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import java.util.List;
 
 /**
  * 工作流引擎 Spring 自动装配。
@@ -41,10 +46,25 @@ public class WorkflowEngineAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public WorkflowEngine workflowEngine(ChatModelProvider chatModelProvider, ObjectProvider<KnowledgeRetriever> retriever) {
-        return WorkflowEngine.builder()
+    public ToolRegistry toolRegistry(ObjectProvider<Tool> tools) {
+        ToolRegistry registry = new ToolRegistry();
+        tools.orderedStream().forEach(registry::register);
+        return registry;
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public WorkflowEngine workflowEngine(ChatModelProvider chatModelProvider,
+                                         ObjectProvider<KnowledgeRetriever> retriever,
+                                         ObjectProvider<ToolRegistry> toolRegistry,
+                                         ObjectProvider<ToolQueryProvider> toolQueryProvider) {
+        WorkflowEngine.Builder builder = WorkflowEngine.builder()
                 .chatModelProvider(chatModelProvider)
-                .knowledgeRetriever(retriever.getIfAvailable(NoopKnowledgeRetriever::new))
-                .build();
+                .knowledgeRetriever(retriever.getIfAvailable(NoopKnowledgeRetriever::new));
+
+        toolRegistry.ifAvailable(builder::toolRegistry);
+        toolQueryProvider.ifAvailable(builder::toolQueryProvider);
+
+        return builder.build();
     }
 }

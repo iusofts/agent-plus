@@ -16,6 +16,9 @@ import com.iusofts.agentplus.engine.executor.impl.EndNodeExecutor;
 import com.iusofts.agentplus.engine.executor.impl.KnowledgeNodeExecutor;
 import com.iusofts.agentplus.engine.executor.impl.LLMNodeExecutor;
 import com.iusofts.agentplus.engine.executor.impl.StartNodeExecutor;
+import com.iusofts.agentplus.engine.executor.impl.ToolNodeExecutor;
+import com.iusofts.agentplus.engine.tool.ToolRegistry;
+import com.iusofts.agentplus.tool.ToolQueryProvider;
 import com.iusofts.agentplus.engine.graph.ExecutionContextTracker;
 import com.iusofts.agentplus.engine.graph.WorkflowGraphCompiler;
 import com.iusofts.agentplus.engine.graph.WorkflowState;
@@ -125,6 +128,8 @@ public class WorkflowEngine {
 
         private ChatModelProvider chatModelProvider;
         private KnowledgeRetriever knowledgeRetriever;
+        private ToolRegistry toolRegistry;
+        private ToolQueryProvider toolQueryProvider;
         private final NodeExecutorRegistry registry = new NodeExecutorRegistry();
 
         public Builder chatModelProvider(ChatModelProvider provider) {
@@ -134,6 +139,16 @@ public class WorkflowEngine {
 
         public Builder knowledgeRetriever(KnowledgeRetriever retriever) {
             this.knowledgeRetriever = retriever;
+            return this;
+        }
+
+        public Builder toolRegistry(ToolRegistry toolRegistry) {
+            this.toolRegistry = toolRegistry;
+            return this;
+        }
+
+        public Builder toolQueryProvider(ToolQueryProvider toolQueryProvider) {
+            this.toolQueryProvider = toolQueryProvider;
             return this;
         }
 
@@ -158,6 +173,10 @@ public class WorkflowEngine {
                     .register(new BatchNodeExecutor())
                     .register(new KnowledgeNodeExecutor(retriever))
                     .register(new LLMNodeExecutor(chatModelProvider));
+
+            if (toolRegistry != null && toolQueryProvider != null) {
+                registry.register(new ToolNodeExecutor(toolRegistry, toolQueryProvider));
+            }
 
             return new WorkflowEngine(registry);
         }

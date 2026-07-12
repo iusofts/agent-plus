@@ -16,13 +16,14 @@ public interface IdService {
      * ID类型枚举，
      */
     enum UidTypeEnum {
-        
+
         CHAT(1, "Chat"),
         FLOW(2, "Flow"),
         KNOWLEDGE_BASE(3, "KnowledgeBase"),
         KNOWLEDGE_DOCUMENT(4, "KnowledgeDocument"),
         KNOWLEDGE_CHUNK(5, "KnowledgeChunk"),
         AI_MODEL(6, "AiModel"),
+        TOOL(11, "Tool"),
         ;
 
         /**

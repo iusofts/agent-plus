@@ -12,6 +12,7 @@ public enum FlowNodeType {
     START("Start", "开始"),
     LLM("LLM", "大模型"),
     KNOWLEDGE("Knowledge", "知识库"),
+    TOOL("Tool", "工具"),
     CONDITION("Condition", "选择器"),
     BATCH("Batch", "批处理"),
     AGGREGATOR("Aggregator", "变量聚合"),
