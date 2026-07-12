@@ -1,4 +1,4 @@
-package com.iusofts.agentplus.library.tool.entity;
+package com.iusofts.agentplus.library.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
@@ -6,6 +6,9 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.iusofts.agentplus.tool.dto.HttpConfig;
+import com.iusofts.agentplus.tool.dto.ToolParam;
+import com.iusofts.agentplus.tool.dto.ToolResponseParam;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.Setter;
@@ -13,7 +16,7 @@ import lombok.ToString;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
-import java.util.Map;
+import java.util.List;
 
 /**
  * <p>
@@ -51,17 +54,17 @@ public class AiTool implements Serializable {
     @Schema(description = "图标地址")
     private String icon;
 
-    @Schema(description = "参数定义(JSON Schema格式)")
+    @Schema(description = "参数定义列表")
     @TableField(typeHandler = JacksonTypeHandler.class)
-    private Map<String, Object> paramsSchema;
+    private List<ToolParam> paramsSchema;
 
-    @Schema(description = "响应定义(JSON Schema格式)")
+    @Schema(description = "响应定义列表")
     @TableField(typeHandler = JacksonTypeHandler.class)
-    private Map<String, Object> responseSchema;
+    private List<ToolResponseParam> responseSchema;
 
-    @Schema(description = "HTTP配置(JSON格式)")
+    @Schema(description = "HTTP配置")
     @TableField(typeHandler = JacksonTypeHandler.class)
-    private Map<String, Object> httpConfig;
+    private HttpConfig httpConfig;
 
     @Schema(description = "启用状态 0:禁用 1:启用")
     private Integer status;

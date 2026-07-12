@@ -25,7 +25,11 @@ public class ToolParam {
     private String description;
 
     @NotBlank(message = "参数类型不能为空")
-    @Schema(description = "参数类型")
+    @Schema(description = "参数类型", allowableValues = {
+            "String", "File", "Image", "Doc", "Code", "PPT", "TXT",
+            "Excel", "Audio", "Zip", "Video", "Integer", "Number",
+            "Object", "Array", "Boolean"
+    })
     private String type;
 
     @Schema(description = "传入方法(仅http工具需要)")

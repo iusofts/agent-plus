@@ -2,14 +2,10 @@ package com.iusofts.agentplus.library.provider;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.iusofts.agentplus.library.tool.entity.AiTool;
-import com.iusofts.agentplus.library.tool.mapper.AiToolMapper;
+import com.iusofts.agentplus.library.entity.AiTool;
+import com.iusofts.agentplus.library.mapper.AiToolMapper;
 import com.iusofts.agentplus.tool.ToolQueryProvider;
-import com.iusofts.agentplus.tool.dto.HttpConfig;
 import com.iusofts.agentplus.tool.dto.ToolDTO;
-import com.iusofts.agentplus.tool.dto.ToolParam;
-import com.iusofts.agentplus.tool.dto.ToolResponseParam;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -23,11 +19,9 @@ import java.util.List;
 public class DbToolQueryProvider implements ToolQueryProvider {
 
     private final AiToolMapper toolMapper;
-    private final ObjectMapper objectMapper;
 
     public DbToolQueryProvider(AiToolMapper toolMapper) {
         this.toolMapper = toolMapper;
-        this.objectMapper = new ObjectMapper();
     }
 
     @Override
@@ -80,29 +74,11 @@ public class DbToolQueryProvider implements ToolQueryProvider {
         dto.setDescription(tool.getDescription());
         dto.setIcon(tool.getIcon());
         dto.setStatus(tool.getStatus());
-
-        if (tool.getParamsSchema() != null) {
-            dto.setParamsSchema(convertToList(tool.getParamsSchema(), ToolParam.class));
-        }
-        if (tool.getResponseSchema() != null) {
-            dto.setResponseSchema(convertToList(tool.getResponseSchema(), ToolResponseParam.class));
-        }
-        if (tool.getHttpConfig() != null) {
-            dto.setHttpConfig(objectMapper.convertValue(tool.getHttpConfig(), HttpConfig.class));
-        }
+        dto.setParamsSchema(tool.getParamsSchema());
+        dto.setResponseSchema(tool.getResponseSchema());
+        dto.setHttpConfig(tool.getHttpConfig());
 
         return dto;
-    }
-
-    @SuppressWarnings("unchecked")
-    private <T> List<T> convertToList(Object value, Class<T> clazz) {
-        if (value instanceof List) {
-            List<?> list = (List<?>) value;
-            return list.stream()
-                    .map(item -> objectMapper.convertValue(item, clazz))
-                    .toList();
-        }
-        return null;
     }
 
 }

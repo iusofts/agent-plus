@@ -1,7 +1,7 @@
-package com.iusofts.agentplus.library.tool.mapper;
+package com.iusofts.agentplus.library.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.iusofts.agentplus.library.tool.entity.AiTool;
+import com.iusofts.agentplus.library.entity.AiTool;
 
 /**
  * <p>

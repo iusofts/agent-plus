@@ -1,7 +1,7 @@
-package com.iusofts.agentplus.library.tool.service;
+package com.iusofts.agentplus.library.service.tool;
 
-import com.iusofts.agentplus.library.tool.entity.AiTool;
-import com.iusofts.agentplus.library.tool.mapper.AiToolMapper;
+import com.iusofts.agentplus.library.entity.AiTool;
+import com.iusofts.agentplus.library.mapper.AiToolMapper;
 import com.iusofts.agentplus.tool.Tool;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.Resource;
@@ -50,13 +50,28 @@ public class ToolInitializer {
             aiTool.setType(1);
             aiTool.setStatus(1);
             aiTool.setOrgId(1);
+            aiTool.setParamsSchema(tool.getInputParams());
+            aiTool.setResponseSchema(tool.getOutputParams());
+
             aiToolMapper.insert(aiTool);
             LOGGER.info("新增内置工具: {}", tool.getCode());
         } else {
-            if (!tool.getName().equals(existing.getName())
-                    || !tool.getDescription().equals(existing.getDescription())) {
+            boolean needUpdate = false;
+
+            if (!tool.getName().equals(existing.getName())) {
                 existing.setName(tool.getName());
+                needUpdate = true;
+            }
+            if (!tool.getDescription().equals(existing.getDescription())) {
                 existing.setDescription(tool.getDescription());
+                needUpdate = true;
+            }
+
+            existing.setParamsSchema(tool.getInputParams());
+            existing.setResponseSchema(tool.getOutputParams());
+            needUpdate = true;
+
+            if (needUpdate) {
                 aiToolMapper.updateById(existing);
                 LOGGER.info("更新内置工具: {}", tool.getCode());
             }

@@ -2,6 +2,10 @@ package com.iusofts.agentplus.tool;
 
 import com.iusofts.agentplus.tool.dto.ToolExecuteRequest;
 import com.iusofts.agentplus.tool.dto.ToolExecuteResult;
+import com.iusofts.agentplus.tool.dto.ToolParam;
+import com.iusofts.agentplus.tool.dto.ToolResponseParam;
+
+import java.util.List;
 
 /**
  * 工具执行接口.
@@ -30,6 +34,24 @@ public interface Tool {
      * @return 工具描述
      */
     String getDescription();
+
+    /**
+     * 获取入参定义.
+     *
+     * @return 入参定义列表
+     */
+    default List<ToolParam> getInputParams() {
+        return null;
+    }
+
+    /**
+     * 获取出参定义.
+     *
+     * @return 出参定义列表
+     */
+    default List<ToolResponseParam> getOutputParams() {
+        return null;
+    }
 
     /**
      * 执行工具.

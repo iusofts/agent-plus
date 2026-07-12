@@ -3,11 +3,15 @@ package com.iusofts.agentplus.plugin.tool;
 import com.iusofts.agentplus.tool.Tool;
 import com.iusofts.agentplus.tool.dto.ToolExecuteRequest;
 import com.iusofts.agentplus.tool.dto.ToolExecuteResult;
+import com.iusofts.agentplus.tool.dto.ToolParam;
+import com.iusofts.agentplus.tool.dto.ToolResponseParam;
+import com.iusofts.agentplus.common.enums.ParamTypeEnum;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -35,6 +39,69 @@ public class CalculatorTool implements Tool {
     @Override
     public String getDescription() {
         return DESCRIPTION;
+    }
+
+    @Override
+    public List<ToolParam> getInputParams() {
+        ToolParam a = new ToolParam();
+        a.setName("a");
+        a.setDescription("第一个操作数");
+        a.setType(ParamTypeEnum.NUMBER.getValue());
+        a.setRequired(true);
+        a.setEnabled(true);
+
+        ToolParam b = new ToolParam();
+        b.setName("b");
+        b.setDescription("第二个操作数");
+        b.setType(ParamTypeEnum.NUMBER.getValue());
+        b.setRequired(true);
+        b.setEnabled(true);
+
+        ToolParam operation = new ToolParam();
+        operation.setName("operation");
+        operation.setDescription("运算类型：add(+)、subtract(-)、multiply(*)、divide(/)");
+        operation.setType(ParamTypeEnum.STRING.getValue());
+        operation.setRequired(true);
+        operation.setEnabled(true);
+
+        ToolParam scale = new ToolParam();
+        scale.setName("scale");
+        scale.setDescription("除法精度（小数位数）");
+        scale.setType(ParamTypeEnum.INTEGER.getValue());
+        scale.setRequired(false);
+        scale.setDefaultValue("10");
+        scale.setEnabled(true);
+
+        return List.of(a, b, operation, scale);
+    }
+
+    @Override
+    public List<ToolResponseParam> getOutputParams() {
+        ToolResponseParam a = new ToolResponseParam();
+        a.setName("a");
+        a.setDescription("第一个操作数");
+        a.setType(ParamTypeEnum.NUMBER.getValue());
+        a.setEnabled(true);
+
+        ToolResponseParam bParam = new ToolResponseParam();
+        bParam.setName("b");
+        bParam.setDescription("第二个操作数");
+        bParam.setType(ParamTypeEnum.NUMBER.getValue());
+        bParam.setEnabled(true);
+
+        ToolResponseParam operation = new ToolResponseParam();
+        operation.setName("operation");
+        operation.setDescription("运算类型");
+        operation.setType(ParamTypeEnum.STRING.getValue());
+        operation.setEnabled(true);
+
+        ToolResponseParam result = new ToolResponseParam();
+        result.setName("result");
+        result.setDescription("计算结果");
+        result.setType(ParamTypeEnum.NUMBER.getValue());
+        result.setEnabled(true);
+
+        return List.of(a, bParam, operation, result);
     }
 
     @Override
