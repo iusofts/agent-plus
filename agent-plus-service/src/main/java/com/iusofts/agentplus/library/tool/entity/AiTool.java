@@ -42,7 +42,7 @@ public class AiTool implements Serializable {
     @Schema(description = "工具唯一编码")
     private String code;
 
-    @Schema(description = "工具类型 1:内置工具 2:自定义工具")
+    @Schema(description = "工具类型 1:内置工具 2:HTTP工具")
     private Integer type;
 
     @Schema(description = "工具描述")
@@ -55,9 +55,13 @@ public class AiTool implements Serializable {
     @TableField(typeHandler = JacksonTypeHandler.class)
     private Map<String, Object> paramsSchema;
 
-    @Schema(description = "工具配置(JSON格式)")
+    @Schema(description = "响应定义(JSON Schema格式)")
     @TableField(typeHandler = JacksonTypeHandler.class)
-    private Map<String, Object> config;
+    private Map<String, Object> responseSchema;
+
+    @Schema(description = "HTTP配置(JSON格式)")
+    @TableField(typeHandler = JacksonTypeHandler.class)
+    private Map<String, Object> httpConfig;
 
     @Schema(description = "启用状态 0:禁用 1:启用")
     private Integer status;

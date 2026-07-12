@@ -13,7 +13,7 @@ import lombok.RequiredArgsConstructor;
 public enum ToolTypeEnum {
 
     BUILT_IN(1, "内置工具"),
-    CUSTOM(2, "自定义工具");
+    HTTP(2, "HTTP工具");
 
     private final Integer code;
     private final String desc;

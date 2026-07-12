@@ -3,8 +3,6 @@ package com.iusofts.agentplus.library.tool.service;
 import com.iusofts.agentplus.library.tool.entity.AiTool;
 import com.iusofts.agentplus.library.tool.mapper.AiToolMapper;
 import com.iusofts.agentplus.tool.Tool;
-import com.iusofts.agentplus.tool.ToolQueryProvider;
-import com.iusofts.agentplus.tool.dto.ToolDTO;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.Resource;
 import org.slf4j.Logger;
@@ -12,7 +10,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * 工具初始化器，负责将内置工具同步到数据库

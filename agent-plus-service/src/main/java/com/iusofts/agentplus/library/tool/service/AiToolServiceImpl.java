@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.iusofts.agentplus.basic.exception.SystemBusinessException;
 import com.iusofts.agentplus.basic.utils.ModelMapperUtil;
 import com.iusofts.agentplus.basic.utils.StringUtils;
@@ -19,10 +20,14 @@ import com.iusofts.agentplus.library.vo.tool.AiToolDetailVo;
 import com.iusofts.agentplus.library.vo.tool.AiToolEditReqVo;
 import com.iusofts.agentplus.library.vo.tool.AiToolQueryPageReqVo;
 import com.iusofts.agentplus.library.vo.tool.AiToolVo;
+import com.iusofts.agentplus.tool.dto.HttpConfig;
+import com.iusofts.agentplus.tool.dto.ToolParam;
+import com.iusofts.agentplus.tool.dto.ToolResponseParam;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * <p>
@@ -37,6 +42,8 @@ public class AiToolServiceImpl extends ServiceImpl<AiToolMapper, AiTool> impleme
 
     @Resource
     private IdService idService;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     public PageResult<AiToolVo> queryPage(AiToolQueryPageReqVo reqVo) {
@@ -80,7 +87,29 @@ public class AiToolServiceImpl extends ServiceImpl<AiToolMapper, AiTool> impleme
         if (aiTool == null) {
             throw new SystemBusinessException("工具不存在");
         }
-        return ModelMapperUtil.strictMap(aiTool, AiToolDetailVo.class);
+
+        AiToolDetailVo vo = new AiToolDetailVo();
+        vo.setId(aiTool.getId());
+        vo.setName(aiTool.getName());
+        vo.setCode(aiTool.getCode());
+        vo.setType(aiTool.getType());
+        vo.setDescription(aiTool.getDescription());
+        vo.setIcon(aiTool.getIcon());
+        vo.setStatus(aiTool.getStatus());
+        vo.setCreateTime(aiTool.getCreateTime());
+        vo.setUpdateTime(aiTool.getUpdateTime());
+
+        if (aiTool.getParamsSchema() != null) {
+            vo.setParamsSchema(convertToList(aiTool.getParamsSchema(), ToolParam.class));
+        }
+        if (aiTool.getResponseSchema() != null) {
+            vo.setResponseSchema(convertToList(aiTool.getResponseSchema(), ToolResponseParam.class));
+        }
+        if (aiTool.getHttpConfig() != null) {
+            vo.setHttpConfig(objectMapper.convertValue(aiTool.getHttpConfig(), HttpConfig.class));
+        }
+
+        return vo;
     }
 
     @Override
@@ -92,7 +121,23 @@ public class AiToolServiceImpl extends ServiceImpl<AiToolMapper, AiTool> impleme
             throw new SystemBusinessException("工具编码已存在");
         }
 
-        AiTool aiTool = ModelMapperUtil.strictMap(reqVo, AiTool.class);
+        AiTool aiTool = new AiTool();
+        aiTool.setName(reqVo.getName());
+        aiTool.setCode(reqVo.getCode());
+        aiTool.setType(reqVo.getType());
+        aiTool.setDescription(reqVo.getDescription());
+        aiTool.setIcon(reqVo.getIcon());
+
+        if (reqVo.getParamsSchema() != null) {
+            aiTool.setParamsSchema(convertToMap(reqVo.getParamsSchema()));
+        }
+        if (reqVo.getResponseSchema() != null) {
+            aiTool.setResponseSchema(convertToMap(reqVo.getResponseSchema()));
+        }
+        if (reqVo.getHttpConfig() != null) {
+            aiTool.setHttpConfig(objectMapper.convertValue(reqVo.getHttpConfig(), Map.class));
+        }
+
         Long id = idService.generateUid(IdService.UidTypeEnum.TOOL).longValue();
         aiTool.setId(id);
         aiTool.setStatus(1);
@@ -108,7 +153,23 @@ public class AiToolServiceImpl extends ServiceImpl<AiToolMapper, AiTool> impleme
             throw new SystemBusinessException("工具不存在");
         }
 
-        AiTool updateEntity = ModelMapperUtil.strictMap(reqVo, AiTool.class);
+        AiTool updateEntity = new AiTool();
+        updateEntity.setId(reqVo.getId());
+        if (reqVo.getName() != null) updateEntity.setName(reqVo.getName());
+        if (reqVo.getDescription() != null) updateEntity.setDescription(reqVo.getDescription());
+        if (reqVo.getIcon() != null) updateEntity.setIcon(reqVo.getIcon());
+        if (reqVo.getStatus() != null) updateEntity.setStatus(reqVo.getStatus());
+
+        if (reqVo.getParamsSchema() != null) {
+            updateEntity.setParamsSchema(convertToMap(reqVo.getParamsSchema()));
+        }
+        if (reqVo.getResponseSchema() != null) {
+            updateEntity.setResponseSchema(convertToMap(reqVo.getResponseSchema()));
+        }
+        if (reqVo.getHttpConfig() != null) {
+            updateEntity.setHttpConfig(objectMapper.convertValue(reqVo.getHttpConfig(), Map.class));
+        }
+
         updateEntity.setUpdateBy(reqVo.getOperatorId());
         super.updateById(updateEntity);
     }
@@ -120,6 +181,22 @@ public class AiToolServiceImpl extends ServiceImpl<AiToolMapper, AiTool> impleme
             throw new SystemBusinessException("工具不存在");
         }
         super.removeById(reqVo.getId());
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> convertToMap(Object value) {
+        return objectMapper.convertValue(value, Map.class);
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T> List<T> convertToList(Object value, Class<T> clazz) {
+        if (value instanceof List) {
+            List<?> list = (List<?>) value;
+            return list.stream()
+                    .map(item -> objectMapper.convertValue(item, clazz))
+                    .toList();
+        }
+        return null;
     }
 
 }

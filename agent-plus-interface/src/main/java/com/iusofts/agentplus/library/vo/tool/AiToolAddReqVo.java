@@ -1,11 +1,14 @@
 package com.iusofts.agentplus.library.vo.tool;
 
+import com.iusofts.agentplus.tool.dto.HttpConfig;
+import com.iusofts.agentplus.tool.dto.ToolParam;
+import com.iusofts.agentplus.tool.dto.ToolResponseParam;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
-import java.util.Map;
+import java.util.List;
 
 /**
  * <p>
@@ -27,7 +30,7 @@ public class AiToolAddReqVo {
     private String code;
 
     @NotNull(message = "工具类型不能为空")
-    @Schema(description = "工具类型 1:内置工具 2:自定义工具")
+    @Schema(description = "工具类型 1:内置工具 2:HTTP工具")
     private Integer type;
 
     @Schema(description = "工具描述")
@@ -36,11 +39,14 @@ public class AiToolAddReqVo {
     @Schema(description = "图标地址")
     private String icon;
 
-    @Schema(description = "参数定义(JSON Schema格式)")
-    private Map<String, Object> paramsSchema;
+    @Schema(description = "参数定义列表")
+    private List<ToolParam> paramsSchema;
 
-    @Schema(description = "工具配置(JSON格式)")
-    private Map<String, Object> config;
+    @Schema(description = "响应定义列表")
+    private List<ToolResponseParam> responseSchema;
+
+    @Schema(description = "HTTP配置")
+    private HttpConfig httpConfig;
 
     @Schema(description = "组织ID", hidden = true)
     private Integer orgId;

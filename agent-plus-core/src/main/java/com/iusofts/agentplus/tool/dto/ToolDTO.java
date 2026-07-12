@@ -2,7 +2,7 @@ package com.iusofts.agentplus.tool.dto;
 
 import lombok.Data;
 
-import java.util.Map;
+import java.util.List;
 
 /**
  * 工具 DTO.
@@ -28,7 +28,7 @@ public class ToolDTO {
     private String code;
 
     /**
-     * 工具类型 1:内置工具 2:自定义工具.
+     * 工具类型 1:内置工具 2:HTTP工具.
      */
     private Integer type;
 
@@ -43,12 +43,23 @@ public class ToolDTO {
     private String icon;
 
     /**
-     * 参数定义(JSON Schema格式).
+     * 参数定义列表.
      */
-    private Map<String, Object> paramsSchema;
+    private List<ToolParam> paramsSchema;
 
     /**
-     * 工具配置(JSON格式).
+     * 响应定义列表.
      */
-    private Map<String, Object> config;
+    private List<ToolResponseParam> responseSchema;
+
+    /**
+     * HTTP配置.
+     */
+    private HttpConfig httpConfig;
+
+    /**
+     * 启用状态 0:禁用 1:启用.
+     */
+    private Integer status;
+
 }

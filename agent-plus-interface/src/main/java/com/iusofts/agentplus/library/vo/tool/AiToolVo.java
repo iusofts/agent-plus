@@ -26,7 +26,7 @@ public class AiToolVo {
     @Schema(description = "工具唯一编码")
     private String code;
 
-    @Schema(description = "工具类型 1:内置工具 2:自定义工具")
+    @Schema(description = "工具类型 1:内置工具 2:HTTP工具")
     private Integer type;
 
     @Schema(description = "工具描述")

@@ -46,8 +46,8 @@ public class WorkflowEngineAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public ToolRegistry toolRegistry(ObjectProvider<Tool> tools) {
-        ToolRegistry registry = new ToolRegistry();
+    public ToolRegistry toolRegistry(ObjectProvider<Tool> tools, ToolQueryProvider toolQueryProvider) {
+        ToolRegistry registry = new ToolRegistry(toolQueryProvider);
         tools.orderedStream().forEach(registry::register);
         return registry;
     }
