@@ -32,6 +32,9 @@ public class ToolParam {
     })
     private String type;
 
+    @Schema(description = "数组项类型")
+    private String itemType;
+
     @Schema(description = "传入方法(仅http工具需要)")
     private String injectMethod;
 

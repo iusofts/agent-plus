@@ -15,7 +15,7 @@
         "inputParams": [
           {
             "name": "query",
-            "type": "string",
+            "type": "String",
             "description": "xxx",
             "defaultValue": "",
             "required": false,
@@ -24,7 +24,7 @@
           },
           {
             "name": "ssss",
-            "type": "array",
+            "type": "Array",
             "description": "",
             "defaultValue": "",
             "required": false,
@@ -49,12 +49,12 @@
         "outputParams": [
           {
             "name": "resultList",
-            "type": "array",
+            "type": "Array",
             "description": null,
             "paramMapKey": {
               "nodeId": "node-Batch-1783390242671",
               "name": "output",
-              "type": "array"
+              "type": "Array"
             }
           }
         ]
@@ -79,18 +79,18 @@
         "inputParams": [
           {
             "name": "query",
-            "type": "string",
+            "type": "String",
             "paramMapKey": {
               "nodeId": "start",
               "name": "query",
-              "type": "string"
+              "type": "String"
             }
           }
         ],
         "outputParams": [
           {
             "name": "intention",
-            "type": "array",
+            "type": "Array",
             "description": "意图",
             "paramMapKey": null
           }
@@ -123,7 +123,7 @@
                 "variable": {
                   "nodeId": "node-LLM-1783389919291",
                   "name": "intention",
-                  "type": "array"
+                  "type": "Array"
                 },
                 "operator": "contains",
                 "value": "吃饭"
@@ -153,23 +153,23 @@
         "inputParams": [
           {
             "name": "input",
-            "type": "array",
+            "type": "Array",
             "paramMapKey": {
               "nodeId": "node-LLM-1783389919291",
               "name": "intention",
-              "type": "array"
+              "type": "Array"
             }
           }
         ],
         "outputParams": [
           {
             "name": "output",
-            "type": "string",
+            "type": "String",
             "description": "批处理结果数组",
             "paramMapKey": {
               "nodeId": "node-LLM-1783393654868",
               "name": "text",
-              "type": "string"
+              "type": "String"
             }
           }
         ]
@@ -229,11 +229,11 @@
         "inputParams": [
           {
             "name": "query",
-            "type": "string",
+            "type": "String",
             "paramMapKey": {
               "nodeId": "node-LLM-1783393654868",
               "name": "text",
-              "type": "string"
+              "type": "String"
             }
           }
         ],

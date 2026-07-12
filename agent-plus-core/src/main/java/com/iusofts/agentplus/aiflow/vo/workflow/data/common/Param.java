@@ -26,6 +26,9 @@ public class Param {
     @NotBlank(message = "参数类型不能为空")
     @Schema(description = "参数类型")
     private String type;
+    
+    @Schema(description = "数组项类型")
+    private String itemType;
 
     @Schema(description = "参数描述")
     private String description;

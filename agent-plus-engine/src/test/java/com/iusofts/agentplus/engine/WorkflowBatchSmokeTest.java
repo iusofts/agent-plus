@@ -99,7 +99,7 @@ class WorkflowBatchSmokeTest {
         List<EnvVar> envVars = new ArrayList<>();
         EnvVar envVar = new EnvVar();
         envVar.setName("type");
-        envVar.setType("string");
+        envVar.setType("String");
         envVar.setDefaultValue("1");
         envVars.add(envVar);
         config.setEnvVars(envVars);

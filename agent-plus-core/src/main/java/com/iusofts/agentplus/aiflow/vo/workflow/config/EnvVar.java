@@ -18,7 +18,7 @@ public class EnvVar implements Serializable {
     @Schema(description = "变量名称", example = "apiKey")
     private String name;
 
-    @Schema(description = "变量类型", example = "string")
+    @Schema(description = "变量类型", example = "String")
     private String type;
 
     @Schema(description = "变量描述", example = "API 密钥")

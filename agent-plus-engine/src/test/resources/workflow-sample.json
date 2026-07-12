@@ -15,7 +15,7 @@
         "inputParams": [
           {
             "name": "query",
-            "type": "string",
+            "type": "String",
             "description": "",
             "defaultValue": "",
             "required": false,
@@ -40,12 +40,12 @@
         "outputParams": [
           {
             "name": "res",
-            "type": "string",
+            "type": "String",
             "description": null,
             "paramMapKey": {
               "nodeId": "node-LLM-1783413076451",
               "name": "text",
-              "type": "string"
+              "type": "String"
             }
           }
         ]
@@ -68,11 +68,11 @@
         "inputParams": [
           {
             "name": "query",
-            "type": "string",
+            "type": "String",
             "paramMapKey": {
               "nodeId": "start",
               "name": "query",
-              "type": "string"
+              "type": "String"
             }
           }
         ],
@@ -98,20 +98,20 @@
         "inputParams": [
           {
             "name": "query",
-            "type": "string",
+            "type": "String",
             "paramMapKey": {
               "nodeId": "start",
               "name": "query",
-              "type": "string"
+              "type": "String"
             }
           },
           {
             "name": "FAQ",
-            "type": "array",
+            "type": "Array",
             "paramMapKey": {
               "nodeId": "node-Knowledge-1783413063988",
               "name": "documents",
-              "type": "array"
+              "type": "Array"
             }
           }
         ],
