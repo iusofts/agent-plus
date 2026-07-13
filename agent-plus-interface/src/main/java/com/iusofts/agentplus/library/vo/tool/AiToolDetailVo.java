@@ -1,6 +1,5 @@
 package com.iusofts.agentplus.library.vo.tool;
 
-import com.iusofts.agentplus.tool.dto.HttpConfig;
 import com.iusofts.agentplus.tool.dto.ToolParam;
 import com.iusofts.agentplus.tool.dto.ToolResponseParam;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -29,7 +28,7 @@ public class AiToolDetailVo {
     @Schema(description = "工具唯一编码")
     private String code;
 
-    @Schema(description = "工具类型 1:内置工具 2:HTTP工具")
+    @Schema(description = "工具类型 1:内置工具 2:服务接口 3:MCP")
     private Integer type;
 
     @Schema(description = "工具描述")
@@ -45,7 +44,7 @@ public class AiToolDetailVo {
     private List<ToolResponseParam> responseSchema;
 
     @Schema(description = "HTTP配置")
-    private HttpConfig httpConfig;
+    private AiToolHttpConfigVo httpConfig;
 
     @Schema(description = "启用状态 0:禁用 1:启用")
     private Integer status;

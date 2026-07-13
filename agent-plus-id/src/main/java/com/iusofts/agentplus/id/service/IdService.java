@@ -24,6 +24,7 @@ public interface IdService {
         KNOWLEDGE_CHUNK(5, "KnowledgeChunk"),
         AI_MODEL(6, "AiModel"),
         TOOL(11, "Tool"),
+        PLUGIN(12, "Plugin"),
         ;
 
         /**

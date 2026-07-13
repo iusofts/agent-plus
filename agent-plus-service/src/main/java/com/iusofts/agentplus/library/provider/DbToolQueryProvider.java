@@ -4,7 +4,9 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.iusofts.agentplus.library.entity.AiTool;
 import com.iusofts.agentplus.library.mapper.AiToolMapper;
+import com.iusofts.agentplus.library.vo.tool.AiToolHttpConfigVo;
 import com.iusofts.agentplus.tool.ToolQueryProvider;
+import com.iusofts.agentplus.tool.dto.HttpConfig;
 import com.iusofts.agentplus.tool.dto.ToolDTO;
 import org.springframework.stereotype.Component;
 
@@ -76,7 +78,17 @@ public class DbToolQueryProvider implements ToolQueryProvider {
         dto.setStatus(tool.getStatus());
         dto.setParamsSchema(tool.getParamsSchema());
         dto.setResponseSchema(tool.getResponseSchema());
-        dto.setHttpConfig(tool.getHttpConfig());
+
+        AiToolHttpConfigVo httpConfigVo = tool.getHttpConfig();
+        if (httpConfigVo != null) {
+            HttpConfig httpConfig = new HttpConfig();
+            httpConfig.setUrl("");
+            httpConfig.setMethod("");
+            httpConfig.setHeaders(null);
+            httpConfig.setTimeout(0);
+            
+            dto.setHttpConfig(httpConfig);
+        }
 
         return dto;
     }

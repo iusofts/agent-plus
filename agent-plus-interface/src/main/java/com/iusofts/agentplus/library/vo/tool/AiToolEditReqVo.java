@@ -40,7 +40,7 @@ public class AiToolEditReqVo {
     private List<ToolResponseParam> responseSchema;
 
     @Schema(description = "HTTP配置")
-    private HttpConfig httpConfig;
+    private AiToolHttpConfigVo httpConfig;
 
     @Schema(description = "启用状态 0:禁用 1:启用")
     private Integer status;

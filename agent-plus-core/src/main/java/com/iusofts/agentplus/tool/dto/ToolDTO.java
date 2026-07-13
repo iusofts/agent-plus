@@ -28,7 +28,7 @@ public class ToolDTO {
     private String code;
 
     /**
-     * 工具类型 1:内置工具 2:HTTP工具.
+     * 工具类型 1:内置工具 2:服务接口 3:MCP.
      */
     private Integer type;
 

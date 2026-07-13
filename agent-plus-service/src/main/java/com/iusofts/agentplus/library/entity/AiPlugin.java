@@ -2,9 +2,7 @@ package com.iusofts.agentplus.library.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
 import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
-import com.iusofts.agentplus.library.vo.tool.AiToolHttpConfigVo;
-import com.iusofts.agentplus.tool.dto.ToolParam;
-import com.iusofts.agentplus.tool.dto.ToolResponseParam;
+import com.iusofts.agentplus.plugin.dto.PluginConfig;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.Setter;
@@ -16,51 +14,50 @@ import java.util.List;
 
 /**
  * <p>
- * ai工具
+ * ai插件
  * </p>
  *
  * @author Ivan
- * @since 2026-07-12
+ * @since 2026-07-13
  */
 @Getter
 @Setter
 @ToString
-@TableName(value = "ai_tool", autoResultMap = true)
-@Schema(name = "AiTool", description = "ai工具")
-public class AiTool implements Serializable {
+@TableName(value = "ai_plugin", autoResultMap = true)
+@Schema(name = "AiPlugin", description = "ai插件")
+public class AiPlugin implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    @Schema(description = "编号")
+    @Schema(description = "主键编号")
     @TableId(value = "id", type = IdType.NONE)
     private Long id;
 
-    @Schema(description = "工具名称")
+    @Schema(description = "插件名称")
     private String name;
 
-    @Schema(description = "工具唯一编码")
+    @Schema(description = "插件唯一编码")
     private String code;
 
-    @Schema(description = "工具类型 1:内置工具 2:服务接口 3:MCP")
-    private Integer type;
+    @Schema(description = "插件类型 1:内置工具 2:服务接口 3:MCP")
+    private Integer pluginType;
 
-    @Schema(description = "工具描述")
+    @Schema(description = "插件描述")
     private String description;
 
-    @Schema(description = "图标地址")
+    @Schema(description = "插件图标地址")
     private String icon;
 
-    @Schema(description = "参数定义列表")
+    @Schema(description = "绑定工具ID数组，工具包/微服务使用，MCP为空")
     @TableField(typeHandler = JacksonTypeHandler.class)
-    private List<ToolParam> paramsSchema;
+    private List<Long> toolIds;
 
-    @Schema(description = "响应定义列表")
+    @Schema(description = "插件专属配置，按类型区分结构")
     @TableField(typeHandler = JacksonTypeHandler.class)
-    private List<ToolResponseParam> responseSchema;
+    private PluginConfig pluginConfig;
 
-    @Schema(description = "HTTP配置")
-    @TableField(typeHandler = JacksonTypeHandler.class)
-    private AiToolHttpConfigVo httpConfig;
+    @Schema(description = "排序权重")
+    private Integer sort;
 
     @Schema(description = "启用状态 0:禁用 1:启用")
     private Integer status;
