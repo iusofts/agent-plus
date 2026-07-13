@@ -1,6 +1,5 @@
 package com.iusofts.agentplus.library.vo.tool;
 
-import com.iusofts.agentplus.tool.dto.HttpConfig;
 import com.iusofts.agentplus.tool.dto.ToolParam;
 import com.iusofts.agentplus.tool.dto.ToolResponseParam;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -26,9 +25,6 @@ public class AiToolEditReqVo {
 
     @Schema(description = "工具名称")
     private String name;
-
-    @Schema(description = "所属插件ID")
-    private Long pluginId;
 
     @Schema(description = "工具描述")
     private String description;

@@ -133,9 +133,9 @@ public class AiToolServiceImpl extends ServiceImpl<AiToolMapper, AiTool> impleme
             throw new SystemBusinessException("工具不存在");
         }
 
-        Long targetPluginId = reqVo.getPluginId() != null ? reqVo.getPluginId() : aiTool.getPluginId();
+        Long targetPluginId = aiTool.getPluginId() != null ? aiTool.getPluginId() : aiTool.getPluginId();
         String targetName = reqVo.getName() != null ? reqVo.getName() : aiTool.getName();
-        if (reqVo.getName() != null || reqVo.getPluginId() != null) {
+        if (reqVo.getName() != null || aiTool.getPluginId() != null) {
             LambdaQueryWrapper<AiTool> checkWrapper = Wrappers.lambdaQuery();
             checkWrapper.eq(AiTool::getPluginId, targetPluginId);
             checkWrapper.eq(AiTool::getName, targetName);
@@ -149,7 +149,6 @@ public class AiToolServiceImpl extends ServiceImpl<AiToolMapper, AiTool> impleme
         AiTool updateEntity = new AiTool();
         updateEntity.setId(reqVo.getId());
         if (reqVo.getName() != null) updateEntity.setName(reqVo.getName());
-        if (reqVo.getPluginId() != null) updateEntity.setPluginId(reqVo.getPluginId());
         if (reqVo.getDescription() != null) updateEntity.setDescription(reqVo.getDescription());
         if (reqVo.getIcon() != null) updateEntity.setIcon(reqVo.getIcon());
         if (reqVo.getStatus() != null) updateEntity.setStatus(reqVo.getStatus());
