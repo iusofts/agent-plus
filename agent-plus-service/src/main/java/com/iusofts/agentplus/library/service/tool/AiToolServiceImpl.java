@@ -12,9 +12,12 @@ import com.iusofts.agentplus.basic.web.vo.page.PageResult;
 import com.iusofts.agentplus.common.vo.IdReqVo;
 import com.iusofts.agentplus.id.service.IdService;
 import com.iusofts.agentplus.library.interfaces.IAiToolService;
+import com.iusofts.agentplus.library.entity.AiPlugin;
 import com.iusofts.agentplus.library.entity.AiTool;
+import com.iusofts.agentplus.library.mapper.AiPluginMapper;
 import com.iusofts.agentplus.library.mapper.AiToolMapper;
 import com.iusofts.agentplus.library.vo.tool.AiToolAddReqVo;
+import com.iusofts.agentplus.library.vo.tool.AiToolBindVo;
 import com.iusofts.agentplus.library.vo.tool.AiToolDetailVo;
 import com.iusofts.agentplus.library.vo.tool.AiToolEditReqVo;
 import com.iusofts.agentplus.library.vo.tool.AiToolQueryPageReqVo;
@@ -23,7 +26,10 @@ import com.iusofts.agentplus.library.vo.tool.AiToolVo;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * <p>
@@ -38,6 +44,9 @@ public class AiToolServiceImpl extends ServiceImpl<AiToolMapper, AiTool> impleme
 
     @Resource
     private IdService idService;
+
+    @Resource
+    private AiPluginMapper aiPluginMapper;
 
     @Override
     public PageResult<AiToolVo> queryPage(AiToolQueryPageReqVo reqVo) {
@@ -181,6 +190,61 @@ public class AiToolServiceImpl extends ServiceImpl<AiToolMapper, AiTool> impleme
             throw new SystemBusinessException("工具不存在");
         }
         super.removeById(reqVo.getId());
+    }
+
+    @Override
+    public List<AiToolBindVo> listByToolIds(List<Long> toolIds) {
+        if (toolIds == null || toolIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        LambdaQueryWrapper<AiTool> wrapper = Wrappers.lambdaQuery();
+        wrapper.in(AiTool::getId, toolIds);
+        wrapper.select(AiTool::getId, AiTool::getPluginId, AiTool::getName, AiTool::getDescription, AiTool::getIcon);
+        List<AiTool> toolList = super.list(wrapper);
+        if (toolList.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<Long> pluginIds = toolList.stream()
+                .map(AiTool::getPluginId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Long, String> pluginNameMap = Collections.emptyMap();
+        if (!pluginIds.isEmpty()) {
+            LambdaQueryWrapper<AiPlugin> pluginWrapper = Wrappers.lambdaQuery();
+            pluginWrapper.in(AiPlugin::getId, pluginIds);
+            pluginWrapper.select(AiPlugin::getId, AiPlugin::getName);
+            pluginNameMap = aiPluginMapper.selectList(pluginWrapper).stream()
+                    .collect(Collectors.toMap(AiPlugin::getId, AiPlugin::getName, (a, b) -> a));
+        }
+
+        Map<Long, String> finalPluginNameMap = pluginNameMap;
+        return toolList.stream().map(item -> {
+            AiToolBindVo vo = new AiToolBindVo();
+            vo.setId(item.getId());
+            vo.setPluginId(item.getPluginId());
+            vo.setPluginName(finalPluginNameMap.get(item.getPluginId()));
+            vo.setName(item.getName());
+            vo.setDescription(item.getDescription());
+            vo.setIcon(item.getIcon());
+            return vo;
+        }).toList();
+    }
+
+    @Override
+    public List<AiToolVo> listByPluginId(Long pluginId) {
+        LambdaQueryWrapper<AiTool> wrapper = Wrappers.lambdaQuery();
+        wrapper.eq(AiTool::getPluginId, pluginId);
+        wrapper.orderByDesc(AiTool::getId);
+        wrapper.select(AiTool::getId, AiTool::getName, AiTool::getPluginId, AiTool::getType,
+                AiTool::getDescription, AiTool::getIcon, AiTool::getStatus,
+                AiTool::getCreateTime, AiTool::getUpdateTime);
+        List<AiTool> list = super.list(wrapper);
+        return list.stream()
+                .map(item -> ModelMapperUtil.strictMap(item, AiToolVo.class))
+                .toList();
     }
 
 }

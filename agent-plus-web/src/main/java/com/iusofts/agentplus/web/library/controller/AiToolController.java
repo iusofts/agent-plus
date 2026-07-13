@@ -3,8 +3,10 @@ package com.iusofts.agentplus.web.library.controller;
 import com.iusofts.agentplus.basic.web.annotation.OperationLogExclude;
 import com.iusofts.agentplus.basic.web.vo.page.PageResult;
 import com.iusofts.agentplus.common.vo.IdReqVo;
+import com.iusofts.agentplus.common.vo.IdsReqVo;
 import com.iusofts.agentplus.library.interfaces.IAiToolService;
 import com.iusofts.agentplus.library.vo.tool.AiToolAddReqVo;
+import com.iusofts.agentplus.library.vo.tool.AiToolBindVo;
 import com.iusofts.agentplus.library.vo.tool.AiToolDetailVo;
 import com.iusofts.agentplus.library.vo.tool.AiToolEditReqVo;
 import com.iusofts.agentplus.library.vo.tool.AiToolQueryPageReqVo;
@@ -19,6 +21,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 import static com.iusofts.agentplus.basic.enums.OperationLogExcludeTypeEnums.RES;
 import static com.iusofts.agentplus.common.constants.SysConstant.SYSCODE;
@@ -80,6 +84,20 @@ public class AiToolController extends BApiController {
     public AiToolDetailVo getById(@RequestBody IdReqVo reqVo) {
         reqVo.setOrgId(SYSCODE);
         return aiToolService.getById(reqVo);
+    }
+
+    @Operation(description = "根据工具ID列表批量查询工具信息")
+    @OperationLogExclude(type = RES)
+    @PostMapping("/listByToolIds")
+    public List<AiToolBindVo> listByToolIds(@RequestBody IdsReqVo reqVo) {
+        return aiToolService.listByToolIds(reqVo.getIds());
+    }
+
+    @Operation(description = "根据插件ID查询插件下全部工具列表")
+    @OperationLogExclude(type = RES)
+    @PostMapping("/listByPluginId")
+    public List<AiToolVo> listByPluginId(@RequestBody IdReqVo reqVo) {
+        return aiToolService.listByPluginId(reqVo.getId());
     }
 
 }
