@@ -10,7 +10,6 @@ import com.iusofts.agentplus.engine.executor.NodeExecutor;
 import com.iusofts.agentplus.engine.tool.ToolRegistry;
 import com.iusofts.agentplus.engine.util.ParamResolver;
 import com.iusofts.agentplus.tool.ToolQueryProvider;
-import com.iusofts.agentplus.tool.dto.ToolDTO;
 import com.iusofts.agentplus.tool.dto.ToolExecuteRequest;
 import com.iusofts.agentplus.tool.dto.ToolExecuteResult;
 
@@ -25,11 +24,9 @@ import java.util.Map;
 public class ToolNodeExecutor implements NodeExecutor {
 
     private final ToolRegistry toolRegistry;
-    private final ToolQueryProvider toolQueryProvider;
 
     public ToolNodeExecutor(ToolRegistry toolRegistry, ToolQueryProvider toolQueryProvider) {
         this.toolRegistry = toolRegistry;
-        this.toolQueryProvider = toolQueryProvider;
     }
 
     @Override
@@ -42,16 +39,8 @@ public class ToolNodeExecutor implements NodeExecutor {
         ToolNodeData data = (ToolNodeData) node.getData();
         Map<String, Object> inputs = ParamResolver.resolveInputs(data.getInputParams(), ctx);
 
-        String toolCode = data.getToolCode();
-        if (toolCode == null && data.getToolId() != null) {
-            ToolDTO tool = toolQueryProvider.getById(data.getToolId());
-            if (tool != null) {
-                toolCode = tool.getCode();
-            }
-        }
-
         ToolExecuteRequest request = ToolExecuteRequest.builder()
-            .toolCode(toolCode)
+            .toolId(data.getToolId())
             .params(inputs)
             .build();
 

@@ -35,39 +35,44 @@ public class ToolRegistry {
     }
 
     public ToolRegistry register(Tool tool) {
-        builtInTools.put(tool.getCode(), tool);
+        builtInTools.put(tool.getName(), tool);
         return this;
     }
 
-    public Tool get(String code) {
-        if (builtInTools.containsKey(code)) {
-            return builtInTools.get(code);
-        }
-        return createHttpTool(code);
+    public Tool get(String name) {
+        return builtInTools.get(name);
     }
 
-    public boolean hasTool(String code) {
-        if (builtInTools.containsKey(code)) {
-            return true;
-        }
-        ToolDTO tool = toolQueryProvider.getByCode(code);
-        return tool != null && tool.getStatus() == 1;
+    public boolean hasTool(String name) {
+        return builtInTools.containsKey(name);
     }
 
     public ToolExecuteResult execute(ToolExecuteRequest request) {
-        Tool tool = get(request.getToolCode());
+        Tool tool = resolveTool(request);
         if (tool == null) {
-            return ToolExecuteResult.error("未找到工具: " + request.getToolCode());
+            return ToolExecuteResult.error("未找到工具: " + request.getToolId());
         }
         return tool.execute(request);
     }
 
-    private Tool createHttpTool(String code) {
-        ToolDTO toolDTO = toolQueryProvider.getByCode(code);
-        if (toolDTO == null || toolDTO.getStatus() == null || toolDTO.getStatus() != 1 || toolDTO.getType() != 2) {
+    private Tool resolveTool(ToolExecuteRequest request) {
+        Long id = request.getToolId();
+        if (id == null) {
             return null;
         }
-        return new HttpToolWrapper(toolDTO, httpClient, objectMapper);
+        ToolDTO toolDTO = toolQueryProvider.getById(id);
+        if (toolDTO == null || toolDTO.getStatus() == null || toolDTO.getStatus() != 1) {
+            return null;
+        }
+        // 内置工具：按名称匹配已注册的实现
+        if (toolDTO.getType() != null && toolDTO.getType() == 1) {
+            return builtInTools.get(toolDTO.getName());
+        }
+        // 服务接口工具：HTTP 包装
+        if (toolDTO.getType() != null && toolDTO.getType() == 2) {
+            return new HttpToolWrapper(toolDTO, httpClient, objectMapper);
+        }
+        return null;
     }
 
     private static class HttpToolWrapper implements Tool {
@@ -79,11 +84,6 @@ public class ToolRegistry {
             this.toolDTO = toolDTO;
             this.httpClient = httpClient;
             this.objectMapper = objectMapper;
-        }
-
-        @Override
-        public String getCode() {
-            return toolDTO.getCode();
         }
 
         @Override

@@ -35,11 +35,11 @@ public class AiTool implements Serializable {
     @TableId(value = "id", type = IdType.NONE)
     private Long id;
 
+    @Schema(description = "所属插件ID")
+    private Long pluginId;
+
     @Schema(description = "工具名称")
     private String name;
-
-    @Schema(description = "工具唯一编码")
-    private String code;
 
     @Schema(description = "工具类型 1:内置工具 2:服务接口 3:MCP")
     private Integer type;

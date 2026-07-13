@@ -24,9 +24,9 @@ public class AiToolAddReqVo {
     @Schema(description = "工具名称")
     private String name;
 
-    @NotBlank(message = "工具编码不能为空")
-    @Schema(description = "工具唯一编码")
-    private String code;
+    @NotNull(message = "所属插件ID不能为空")
+    @Schema(description = "所属插件ID")
+    private Long pluginId;
 
     @NotNull(message = "工具类型不能为空")
     @Schema(description = "工具类型 1:内置工具 2:服务接口 3:MCP")

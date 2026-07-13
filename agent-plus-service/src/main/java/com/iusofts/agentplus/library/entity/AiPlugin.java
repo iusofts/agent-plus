@@ -36,9 +36,6 @@ public class AiPlugin implements Serializable {
     @Schema(description = "插件名称")
     private String name;
 
-    @Schema(description = "插件唯一编码")
-    private String code;
-
     @Schema(description = "插件类型 1:内置工具 2:服务接口 3:MCP")
     private Integer pluginType;
 
@@ -47,10 +44,6 @@ public class AiPlugin implements Serializable {
 
     @Schema(description = "插件图标地址")
     private String icon;
-
-    @Schema(description = "绑定工具ID数组，工具包/微服务使用，MCP为空")
-    @TableField(typeHandler = JacksonTypeHandler.class)
-    private List<Long> toolIds;
 
     @Schema(description = "插件专属配置，按类型区分结构")
     @TableField(typeHandler = JacksonTypeHandler.class)

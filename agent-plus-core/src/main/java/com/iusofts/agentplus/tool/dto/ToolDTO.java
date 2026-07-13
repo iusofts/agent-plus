@@ -23,11 +23,6 @@ public class ToolDTO {
     private String name;
 
     /**
-     * 工具唯一编码.
-     */
-    private String code;
-
-    /**
      * 工具类型 1:内置工具 2:服务接口 3:MCP.
      */
     private Integer type;

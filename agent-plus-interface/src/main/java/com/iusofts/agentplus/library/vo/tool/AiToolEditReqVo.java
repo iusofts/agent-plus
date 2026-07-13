@@ -27,6 +27,9 @@ public class AiToolEditReqVo {
     @Schema(description = "工具名称")
     private String name;
 
+    @Schema(description = "所属插件ID")
+    private Long pluginId;
+
     @Schema(description = "工具描述")
     private String description;
 

@@ -31,9 +31,6 @@ public class AiPluginEditReqVo {
     @Schema(description = "插件图标地址")
     private String icon;
 
-    @Schema(description = "绑定工具ID数组，工具包/微服务使用，MCP为空")
-    private List<Long> toolIds;
-
     @Schema(description = "插件专属配置，按类型区分结构")
     private PluginConfig pluginConfig;
 

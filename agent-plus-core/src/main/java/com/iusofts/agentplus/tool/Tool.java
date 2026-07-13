@@ -15,13 +15,6 @@ import java.util.List;
 public interface Tool {
 
     /**
-     * 获取工具编码.
-     *
-     * @return 工具编码
-     */
-    String getCode();
-
-    /**
      * 获取工具名称.
      *
      * @return 工具名称

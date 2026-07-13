@@ -19,9 +19,9 @@ import java.util.Map;
 public class ToolExecuteRequest {
 
     /**
-     * 工具编码.
+     * 工具 ID.
      */
-    private String toolCode;
+    private Long toolId;
 
     /**
      * 工具参数.

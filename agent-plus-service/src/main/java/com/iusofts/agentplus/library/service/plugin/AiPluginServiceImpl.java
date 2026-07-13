@@ -48,9 +48,6 @@ public class AiPluginServiceImpl extends ServiceImpl<AiPluginMapper, AiPlugin> i
         if (StringUtils.isNotBlank(reqVo.getName())) {
             wrapper.like(AiPlugin::getName, reqVo.getName());
         }
-        if (StringUtils.isNotBlank(reqVo.getCode())) {
-            wrapper.like(AiPlugin::getCode, reqVo.getCode());
-        }
         if (reqVo.getPluginType() != null) {
             wrapper.eq(AiPlugin::getPluginType, reqVo.getPluginType());
         }
@@ -60,7 +57,7 @@ public class AiPluginServiceImpl extends ServiceImpl<AiPluginMapper, AiPlugin> i
         wrapper.orderByAsc(AiPlugin::getSort).orderByDesc(AiPlugin::getId);
 
         Page<AiPlugin> pageParam = new Page<>(reqVo.getCurrentPage(), reqVo.getPageSize());
-        wrapper.select(AiPlugin::getId, AiPlugin::getName, AiPlugin::getCode, AiPlugin::getPluginType,
+        wrapper.select(AiPlugin::getId, AiPlugin::getName, AiPlugin::getPluginType,
                 AiPlugin::getDescription, AiPlugin::getIcon, AiPlugin::getSort, AiPlugin::getStatus,
                 AiPlugin::getCreateTime, AiPlugin::getUpdateTime);
         IPage<AiPlugin> page = super.page(pageParam, wrapper);
@@ -84,11 +81,9 @@ public class AiPluginServiceImpl extends ServiceImpl<AiPluginMapper, AiPlugin> i
         AiPluginDetailVo vo = new AiPluginDetailVo();
         vo.setId(aiPlugin.getId());
         vo.setName(aiPlugin.getName());
-        vo.setCode(aiPlugin.getCode());
         vo.setPluginType(aiPlugin.getPluginType());
         vo.setDescription(aiPlugin.getDescription());
         vo.setIcon(aiPlugin.getIcon());
-        vo.setToolIds(aiPlugin.getToolIds());
         vo.setPluginConfig(aiPlugin.getPluginConfig());
         vo.setSort(aiPlugin.getSort());
         vo.setStatus(aiPlugin.getStatus());
@@ -101,19 +96,17 @@ public class AiPluginServiceImpl extends ServiceImpl<AiPluginMapper, AiPlugin> i
     @Override
     public void add(AiPluginAddReqVo reqVo) {
         LambdaQueryWrapper<AiPlugin> checkWrapper = Wrappers.lambdaQuery();
-        checkWrapper.eq(AiPlugin::getCode, reqVo.getCode());
+        checkWrapper.eq(AiPlugin::getName, reqVo.getName());
         long count = super.count(checkWrapper);
         if (count > 0) {
-            throw new SystemBusinessException("插件编码已存在");
+            throw new SystemBusinessException("插件名称已存在");
         }
 
         AiPlugin aiPlugin = new AiPlugin();
         aiPlugin.setName(reqVo.getName());
-        aiPlugin.setCode(reqVo.getCode());
         aiPlugin.setPluginType(reqVo.getPluginType());
         aiPlugin.setDescription(reqVo.getDescription());
         aiPlugin.setIcon(reqVo.getIcon());
-        aiPlugin.setToolIds(reqVo.getToolIds());
         aiPlugin.setPluginConfig(reqVo.getPluginConfig());
 
         Long id = idService.generateUid(IdService.UidTypeEnum.PLUGIN).longValue();
@@ -131,6 +124,17 @@ public class AiPluginServiceImpl extends ServiceImpl<AiPluginMapper, AiPlugin> i
         if (aiPlugin == null) {
             throw new SystemBusinessException("插件不存在");
         }
+        
+        // 如果名称发生变化判重
+        if(!reqVo.getName().equals(aiPlugin.getName())) {
+            LambdaQueryWrapper<AiPlugin> checkWrapper = Wrappers.lambdaQuery();
+            checkWrapper.eq(AiPlugin::getName, reqVo.getName());
+            checkWrapper.ne(AiPlugin::getId, reqVo.getId());
+            long count = super.count(checkWrapper);
+            if (count > 0) {
+                throw new SystemBusinessException("插件名称已存在");
+            }
+        }
 
         AiPlugin updateEntity = new AiPlugin();
         updateEntity.setId(reqVo.getId());
@@ -139,7 +143,6 @@ public class AiPluginServiceImpl extends ServiceImpl<AiPluginMapper, AiPlugin> i
         if (reqVo.getIcon() != null) updateEntity.setIcon(reqVo.getIcon());
         if (reqVo.getSort() != null) updateEntity.setSort(reqVo.getSort());
         if (reqVo.getStatus() != null) updateEntity.setStatus(reqVo.getStatus());
-        updateEntity.setToolIds(reqVo.getToolIds());
         updateEntity.setPluginConfig(reqVo.getPluginConfig());
 
         updateEntity.setUpdateBy(reqVo.getOperatorId());

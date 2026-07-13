@@ -20,8 +20,8 @@ public class AiToolQueryPageReqVo extends PageQuery {
     @Schema(description = "工具名称")
     private String name;
 
-    @Schema(description = "工具编码")
-    private String code;
+    @Schema(description = "所属插件ID")
+    private Long pluginId;
 
     @Schema(description = "工具类型 1:内置工具 2:自定义工具")
     private Integer type;

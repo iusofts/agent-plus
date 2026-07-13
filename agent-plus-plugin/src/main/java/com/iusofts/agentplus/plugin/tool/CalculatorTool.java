@@ -22,14 +22,8 @@ import java.util.Map;
 @Component
 public class CalculatorTool implements Tool {
 
-    private static final String CODE = "calculator";
     private static final String NAME = "计算器";
     private static final String DESCRIPTION = "执行基本数学运算：加减乘除";
-
-    @Override
-    public String getCode() {
-        return CODE;
-    }
 
     @Override
     public String getName() {

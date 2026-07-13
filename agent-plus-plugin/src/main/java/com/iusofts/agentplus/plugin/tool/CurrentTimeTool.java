@@ -22,14 +22,8 @@ import java.util.Map;
 @Component
 public class CurrentTimeTool implements Tool {
 
-    private static final String CODE = "current_time";
     private static final String NAME = "当前时间";
     private static final String DESCRIPTION = "获取当前系统时间";
-
-    @Override
-    public String getCode() {
-        return CODE;
-    }
 
     @Override
     public String getName() {

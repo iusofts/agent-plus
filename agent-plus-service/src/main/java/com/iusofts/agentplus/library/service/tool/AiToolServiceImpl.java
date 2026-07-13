@@ -48,8 +48,8 @@ public class AiToolServiceImpl extends ServiceImpl<AiToolMapper, AiTool> impleme
         if (StringUtils.isNotBlank(reqVo.getName())) {
             wrapper.like(AiTool::getName, reqVo.getName());
         }
-        if (StringUtils.isNotBlank(reqVo.getCode())) {
-            wrapper.like(AiTool::getCode, reqVo.getCode());
+        if (reqVo.getPluginId() != null) {
+            wrapper.eq(AiTool::getPluginId, reqVo.getPluginId());
         }
         if (reqVo.getType() != null) {
             wrapper.eq(AiTool::getType, reqVo.getType());
@@ -60,7 +60,7 @@ public class AiToolServiceImpl extends ServiceImpl<AiToolMapper, AiTool> impleme
         wrapper.orderByDesc(AiTool::getId);
 
         Page<AiTool> pageParam = new Page<>(reqVo.getCurrentPage(), reqVo.getPageSize());
-        wrapper.select(AiTool::getId, AiTool::getName, AiTool::getCode, AiTool::getType,
+        wrapper.select(AiTool::getId, AiTool::getName, AiTool::getPluginId, AiTool::getType,
                 AiTool::getDescription, AiTool::getIcon, AiTool::getStatus,
                 AiTool::getCreateTime, AiTool::getUpdateTime);
         IPage<AiTool> page = super.page(pageParam, wrapper);
@@ -84,7 +84,7 @@ public class AiToolServiceImpl extends ServiceImpl<AiToolMapper, AiTool> impleme
         AiToolDetailVo vo = new AiToolDetailVo();
         vo.setId(aiTool.getId());
         vo.setName(aiTool.getName());
-        vo.setCode(aiTool.getCode());
+        vo.setPluginId(aiTool.getPluginId());
         vo.setType(aiTool.getType());
         vo.setDescription(aiTool.getDescription());
         vo.setIcon(aiTool.getIcon());
@@ -101,15 +101,16 @@ public class AiToolServiceImpl extends ServiceImpl<AiToolMapper, AiTool> impleme
     @Override
     public void add(AiToolAddReqVo reqVo) {
         LambdaQueryWrapper<AiTool> checkWrapper = Wrappers.lambdaQuery();
-        checkWrapper.eq(AiTool::getCode, reqVo.getCode());
+        checkWrapper.eq(AiTool::getPluginId, reqVo.getPluginId());
+        checkWrapper.eq(AiTool::getName, reqVo.getName());
         long count = super.count(checkWrapper);
         if (count > 0) {
-            throw new SystemBusinessException("工具编码已存在");
+            throw new SystemBusinessException("同一插件下工具名称已存在");
         }
 
         AiTool aiTool = new AiTool();
         aiTool.setName(reqVo.getName());
-        aiTool.setCode(reqVo.getCode());
+        aiTool.setPluginId(reqVo.getPluginId());
         aiTool.setType(reqVo.getType());
         aiTool.setDescription(reqVo.getDescription());
         aiTool.setIcon(reqVo.getIcon());
@@ -132,9 +133,23 @@ public class AiToolServiceImpl extends ServiceImpl<AiToolMapper, AiTool> impleme
             throw new SystemBusinessException("工具不存在");
         }
 
+        Long targetPluginId = reqVo.getPluginId() != null ? reqVo.getPluginId() : aiTool.getPluginId();
+        String targetName = reqVo.getName() != null ? reqVo.getName() : aiTool.getName();
+        if (reqVo.getName() != null || reqVo.getPluginId() != null) {
+            LambdaQueryWrapper<AiTool> checkWrapper = Wrappers.lambdaQuery();
+            checkWrapper.eq(AiTool::getPluginId, targetPluginId);
+            checkWrapper.eq(AiTool::getName, targetName);
+            checkWrapper.ne(AiTool::getId, reqVo.getId());
+            long count = super.count(checkWrapper);
+            if (count > 0) {
+                throw new SystemBusinessException("同一插件下工具名称已存在");
+            }
+        }
+
         AiTool updateEntity = new AiTool();
         updateEntity.setId(reqVo.getId());
         if (reqVo.getName() != null) updateEntity.setName(reqVo.getName());
+        if (reqVo.getPluginId() != null) updateEntity.setPluginId(reqVo.getPluginId());
         if (reqVo.getDescription() != null) updateEntity.setDescription(reqVo.getDescription());
         if (reqVo.getIcon() != null) updateEntity.setIcon(reqVo.getIcon());
         if (reqVo.getStatus() != null) updateEntity.setStatus(reqVo.getStatus());
