@@ -1,6 +1,7 @@
 package com.iusofts.agentplus.library.service.tool;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.iusofts.agentplus.id.service.IdService;
 import com.iusofts.agentplus.library.entity.AiPlugin;
 import com.iusofts.agentplus.library.entity.AiTool;
 import com.iusofts.agentplus.library.mapper.AiPluginMapper;
@@ -43,6 +44,9 @@ public class ToolInitializer {
     @Resource
     private List<Tool> builtInTools;
 
+    @Resource
+    private IdService idService;
+
     @PostConstruct
     public void init() {
         initBuiltInPlugin();
@@ -81,6 +85,7 @@ public class ToolInitializer {
 
         if (existing == null) {
             AiTool aiTool = new AiTool();
+            aiTool.setId(idService.generateUid(IdService.UidTypeEnum.TOOL).longValue());
             aiTool.setName(tool.getName());
             aiTool.setPluginId(BUILT_IN_PLUGIN_ID);
             aiTool.setDescription(tool.getDescription());
