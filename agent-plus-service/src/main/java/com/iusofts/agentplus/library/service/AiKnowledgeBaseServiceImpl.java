@@ -32,6 +32,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -213,6 +214,24 @@ public class AiKnowledgeBaseServiceImpl extends ServiceImpl<AiKnowledgeBaseMappe
         updateKb.setId(kb.getId());
         updateKb.setUpdateBy(reqVo.getOperatorId());
         super.updateById(updateKb);
+    }
+
+    @Override
+    public List<AiKnowledgeBaseVo> listByIds(List<Long> knowledgeBaseIds) {
+        if (knowledgeBaseIds == null || knowledgeBaseIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        LambdaQueryWrapper<AiKnowledgeBase> wrapper = Wrappers.lambdaQuery();
+        wrapper.in(AiKnowledgeBase::getId, knowledgeBaseIds);
+        wrapper.select(AiKnowledgeBase::getId, AiKnowledgeBase::getName, AiKnowledgeBase::getDescription,
+                AiKnowledgeBase::getEmbeddingModelId, AiKnowledgeBase::getChunkSize,
+                AiKnowledgeBase::getChunkOverlap, AiKnowledgeBase::getCreateTime,
+                AiKnowledgeBase::getUpdateTime);
+        List<AiKnowledgeBase> list = super.list(wrapper);
+        return list.stream()
+                .map(item -> ModelMapperUtil.strictMap(item, AiKnowledgeBaseVo.class))
+                .toList();
     }
 
 }

@@ -10,6 +10,7 @@ import com.iusofts.agentplus.basic.web.annotation.BLoginUser;
 import com.iusofts.agentplus.basic.web.annotation.OperationLogExclude;
 import com.iusofts.agentplus.basic.web.vo.page.PageResult;
 import com.iusofts.agentplus.common.vo.IdReqVo;
+import com.iusofts.agentplus.common.vo.IdsReqVo;
 import com.iusofts.agentplus.system.vo.BLoginUserVo;
 import com.iusofts.agentplus.web.common.controller.BApiController;
 import io.swagger.v3.oas.annotations.Operation;
@@ -20,6 +21,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 import static com.iusofts.agentplus.basic.enums.OperationLogExcludeTypeEnums.RES;
 import static com.iusofts.agentplus.common.constants.SysConstant.SYSCODE;
@@ -84,6 +87,13 @@ public class AiKnowledgeBaseController extends BApiController {
         reqVo.setOrgId(SYSCODE);
         reqVo.setOperatorId(loginUserVo.getUser().getUserId());
         aiKnowledgeBaseService.rebuildAllVectors(reqVo);
+    }
+
+    @Operation(description = "根据知识库ID列表批量查询知识库信息")
+    @OperationLogExclude(type = RES)
+    @PostMapping("/listByIds")
+    public List<AiKnowledgeBaseVo> listByIds(@RequestBody IdsReqVo reqVo) {
+        return aiKnowledgeBaseService.listByIds(reqVo.getIds());
     }
 
 }

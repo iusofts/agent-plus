@@ -30,4 +30,12 @@ public interface IAiFlowService {
 
     void setStatus(AiFlowSetStatusReqVo reqVo);
 
+    /**
+     * 根据流程ID列表批量查询流程信息
+     *
+     * @param flowIds 流程ID列表
+     * @return 流程信息列表
+     */
+    List<AiFlowVo> listByIds(List<Long> flowIds);
+
 }

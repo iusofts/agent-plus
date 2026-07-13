@@ -37,4 +37,12 @@ public interface IAiKnowledgeBaseService {
      */
     void rebuildAllVectors(IdReqVo reqVo);
 
+    /**
+     * 根据知识库ID列表批量查询知识库信息
+     *
+     * @param knowledgeBaseIds 知识库ID列表
+     * @return 知识库信息列表
+     */
+    List<AiKnowledgeBaseVo> listByIds(List<Long> knowledgeBaseIds);
+
 }

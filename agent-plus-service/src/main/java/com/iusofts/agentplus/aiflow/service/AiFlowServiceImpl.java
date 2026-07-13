@@ -20,6 +20,7 @@ import com.iusofts.agentplus.id.service.IdService.UidTypeEnum;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -133,6 +134,24 @@ public class AiFlowServiceImpl extends ServiceImpl<AiFlowMapper, AiFlow> impleme
         aiFlow.setStatus(reqVo.getStatus());
         aiFlow.setUpdateBy(reqVo.getOperatorId());
         updateById(aiFlow);
+    }
+
+    @Override
+    public List<AiFlowVo> listByIds(List<Long> flowIds) {
+        if (flowIds == null || flowIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        LambdaQueryWrapper<AiFlow> wrapper = Wrappers.lambdaQuery();
+        wrapper.in(AiFlow::getId, flowIds);
+        wrapper.select(AiFlow::getId, AiFlow::getType, AiFlow::getName, AiFlow::getCode,
+                AiFlow::getDescription, AiFlow::getIcon, AiFlow::getStatus,
+                AiFlow::getLatestVersion, AiFlow::getOnlineVersion,
+                AiFlow::getCreateTime, AiFlow::getUpdateTime);
+        List<AiFlow> list = super.list(wrapper);
+        return list.stream()
+                .map(item -> ModelMapperUtil.strictMap(item, AiFlowVo.class))
+                .toList();
     }
 
 }
