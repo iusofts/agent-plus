@@ -34,6 +34,9 @@ public class AiAgentAddReqVo {
     @Schema(description = "绑定工作流ID列表")
     private List<Long> workflowIds;
 
+    @Schema(description = "绑定工具ID列表")
+    private List<Long> toolIds;
+
     @Schema(description = "开场白文案")
     private String openingStatement;
 

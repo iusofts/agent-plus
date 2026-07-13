@@ -53,6 +53,10 @@ public class AiAgent implements Serializable {
     @TableField(typeHandler = JacksonTypeHandler.class)
     private List<Long> workflowIds;
 
+    @Schema(description = "绑定工具ID列表(JSON数组存储)")
+    @TableField(typeHandler = JacksonTypeHandler.class)
+    private List<Long> toolIds;
+
     @Schema(description = "开场白文案")
     private String openingStatement;
 
