@@ -22,9 +22,6 @@ public class AiPluginVo {
     @Schema(description = "插件名称")
     private String name;
 
-    @Schema(description = "插件唯一编码")
-    private String code;
-
     @Schema(description = "插件类型 1:内置工具 2:服务接口 3:MCP")
     private Integer pluginType;
 
