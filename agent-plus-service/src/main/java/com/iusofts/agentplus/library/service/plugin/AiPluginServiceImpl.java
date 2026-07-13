@@ -18,6 +18,7 @@ import com.iusofts.agentplus.library.vo.plugin.AiPluginAddReqVo;
 import com.iusofts.agentplus.library.vo.plugin.AiPluginDetailVo;
 import com.iusofts.agentplus.library.vo.plugin.AiPluginEditReqVo;
 import com.iusofts.agentplus.library.vo.plugin.AiPluginQueryPageReqVo;
+import com.iusofts.agentplus.library.vo.plugin.AiPluginStatusReqVo;
 import com.iusofts.agentplus.library.vo.plugin.AiPluginVo;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
@@ -142,9 +143,22 @@ public class AiPluginServiceImpl extends ServiceImpl<AiPluginMapper, AiPlugin> i
         if (reqVo.getDescription() != null) updateEntity.setDescription(reqVo.getDescription());
         if (reqVo.getIcon() != null) updateEntity.setIcon(reqVo.getIcon());
         if (reqVo.getSort() != null) updateEntity.setSort(reqVo.getSort());
-        if (reqVo.getStatus() != null) updateEntity.setStatus(reqVo.getStatus());
         updateEntity.setPluginConfig(reqVo.getPluginConfig());
 
+        updateEntity.setUpdateBy(reqVo.getOperatorId());
+        super.updateById(updateEntity);
+    }
+
+    @Override
+    public void changeStatus(AiPluginStatusReqVo reqVo) {
+        AiPlugin aiPlugin = super.getById(reqVo.getId());
+        if (aiPlugin == null) {
+            throw new SystemBusinessException("插件不存在");
+        }
+
+        AiPlugin updateEntity = new AiPlugin();
+        updateEntity.setId(reqVo.getId());
+        updateEntity.setStatus(reqVo.getStatus());
         updateEntity.setUpdateBy(reqVo.getOperatorId());
         super.updateById(updateEntity);
     }

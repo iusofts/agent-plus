@@ -8,11 +8,13 @@ import com.iusofts.agentplus.library.vo.plugin.AiPluginAddReqVo;
 import com.iusofts.agentplus.library.vo.plugin.AiPluginDetailVo;
 import com.iusofts.agentplus.library.vo.plugin.AiPluginEditReqVo;
 import com.iusofts.agentplus.library.vo.plugin.AiPluginQueryPageReqVo;
+import com.iusofts.agentplus.library.vo.plugin.AiPluginStatusReqVo;
 import com.iusofts.agentplus.library.vo.plugin.AiPluginVo;
 import com.iusofts.agentplus.web.common.controller.BApiController;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -39,16 +41,23 @@ public class AiPluginController extends BApiController {
 
     @Operation(description = "新增ai插件")
     @PostMapping("/add")
-    public void add(@RequestBody AiPluginAddReqVo reqVo) {
+    public void add(@Valid @RequestBody AiPluginAddReqVo reqVo) {
         reqVo.setOrgId(SYSCODE);
         aiPluginService.add(reqVo);
     }
 
     @Operation(description = "编辑ai插件")
     @PostMapping("/edit")
-    public void edit(@RequestBody AiPluginEditReqVo reqVo) {
+    public void edit(@Valid @RequestBody AiPluginEditReqVo reqVo) {
         reqVo.setOrgId(SYSCODE);
         aiPluginService.edit(reqVo);
+    }
+
+    @Operation(description = "变更ai插件状态")
+    @PostMapping("/changeStatus")
+    public void changeStatus(@Valid @RequestBody AiPluginStatusReqVo reqVo) {
+        reqVo.setOrgId(SYSCODE);
+        aiPluginService.changeStatus(reqVo);
     }
 
     @Operation(description = "分页查询ai插件")

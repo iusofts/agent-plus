@@ -3,6 +3,7 @@ package com.iusofts.agentplus.library.vo.tool;
 import com.iusofts.agentplus.tool.dto.ToolParam;
 import com.iusofts.agentplus.tool.dto.ToolResponseParam;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
@@ -23,9 +24,11 @@ public class AiToolEditReqVo {
     @Schema(description = "编号")
     private Long id;
 
+    @NotBlank(message = "工具名称不能为空")
     @Schema(description = "工具名称")
     private String name;
 
+    @NotBlank(message = "工具描述不能为空")
     @Schema(description = "工具描述")
     private String description;
 
@@ -40,9 +43,6 @@ public class AiToolEditReqVo {
 
     @Schema(description = "HTTP配置")
     private AiToolHttpConfigVo httpConfig;
-
-    @Schema(description = "启用状态 0:禁用 1:启用")
-    private Integer status;
 
     @Schema(description = "组织ID", hidden = true)
     private Integer orgId;

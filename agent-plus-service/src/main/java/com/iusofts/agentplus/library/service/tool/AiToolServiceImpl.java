@@ -18,6 +18,7 @@ import com.iusofts.agentplus.library.vo.tool.AiToolAddReqVo;
 import com.iusofts.agentplus.library.vo.tool.AiToolDetailVo;
 import com.iusofts.agentplus.library.vo.tool.AiToolEditReqVo;
 import com.iusofts.agentplus.library.vo.tool.AiToolQueryPageReqVo;
+import com.iusofts.agentplus.library.vo.tool.AiToolStatusReqVo;
 import com.iusofts.agentplus.library.vo.tool.AiToolVo;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
@@ -151,11 +152,24 @@ public class AiToolServiceImpl extends ServiceImpl<AiToolMapper, AiTool> impleme
         if (reqVo.getName() != null) updateEntity.setName(reqVo.getName());
         if (reqVo.getDescription() != null) updateEntity.setDescription(reqVo.getDescription());
         if (reqVo.getIcon() != null) updateEntity.setIcon(reqVo.getIcon());
-        if (reqVo.getStatus() != null) updateEntity.setStatus(reqVo.getStatus());
         updateEntity.setParamsSchema(reqVo.getParamsSchema());
         updateEntity.setResponseSchema(reqVo.getResponseSchema());
         updateEntity.setHttpConfig(reqVo.getHttpConfig());
 
+        updateEntity.setUpdateBy(reqVo.getOperatorId());
+        super.updateById(updateEntity);
+    }
+
+    @Override
+    public void changeStatus(AiToolStatusReqVo reqVo) {
+        AiTool aiTool = super.getById(reqVo.getId());
+        if (aiTool == null) {
+            throw new SystemBusinessException("工具不存在");
+        }
+
+        AiTool updateEntity = new AiTool();
+        updateEntity.setId(reqVo.getId());
+        updateEntity.setStatus(reqVo.getStatus());
         updateEntity.setUpdateBy(reqVo.getOperatorId());
         super.updateById(updateEntity);
     }

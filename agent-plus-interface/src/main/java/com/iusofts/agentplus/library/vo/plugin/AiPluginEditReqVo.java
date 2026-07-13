@@ -2,10 +2,9 @@ package com.iusofts.agentplus.library.vo.plugin;
 
 import com.iusofts.agentplus.plugin.dto.PluginConfig;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
-
-import java.util.List;
 
 /**
  * <p>
@@ -22,9 +21,11 @@ public class AiPluginEditReqVo {
     @Schema(description = "主键编号")
     private Long id;
 
+    @NotBlank(message = "插件名称不能为空")
     @Schema(description = "插件名称")
     private String name;
 
+    @NotBlank(message = "插件描述不能为空")
     @Schema(description = "插件描述")
     private String description;
 
@@ -36,9 +37,6 @@ public class AiPluginEditReqVo {
 
     @Schema(description = "排序权重")
     private Integer sort;
-
-    @Schema(description = "启用状态 0:禁用 1:启用")
-    private Integer status;
 
     @Schema(description = "组织ID", hidden = true)
     private Integer orgId;

@@ -6,6 +6,7 @@ import com.iusofts.agentplus.library.vo.tool.AiToolAddReqVo;
 import com.iusofts.agentplus.library.vo.tool.AiToolDetailVo;
 import com.iusofts.agentplus.library.vo.tool.AiToolEditReqVo;
 import com.iusofts.agentplus.library.vo.tool.AiToolQueryPageReqVo;
+import com.iusofts.agentplus.library.vo.tool.AiToolStatusReqVo;
 import com.iusofts.agentplus.library.vo.tool.AiToolVo;
 
 /**
@@ -45,6 +46,13 @@ public interface IAiToolService {
      * @param reqVo 编辑请求
      */
     void edit(AiToolEditReqVo reqVo);
+
+    /**
+     * 变更工具状态
+     *
+     * @param reqVo 状态变更请求
+     */
+    void changeStatus(AiToolStatusReqVo reqVo);
 
     /**
      * 删除工具

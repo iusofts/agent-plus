@@ -8,11 +8,13 @@ import com.iusofts.agentplus.library.vo.tool.AiToolAddReqVo;
 import com.iusofts.agentplus.library.vo.tool.AiToolDetailVo;
 import com.iusofts.agentplus.library.vo.tool.AiToolEditReqVo;
 import com.iusofts.agentplus.library.vo.tool.AiToolQueryPageReqVo;
+import com.iusofts.agentplus.library.vo.tool.AiToolStatusReqVo;
 import com.iusofts.agentplus.library.vo.tool.AiToolVo;
 import com.iusofts.agentplus.web.common.controller.BApiController;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -39,16 +41,23 @@ public class AiToolController extends BApiController {
 
     @Operation(description = "新增ai工具")
     @PostMapping("/add")
-    public void add(@RequestBody AiToolAddReqVo reqVo) {
+    public void add(@Valid @RequestBody AiToolAddReqVo reqVo) {
         reqVo.setOrgId(SYSCODE);
         aiToolService.add(reqVo);
     }
 
     @Operation(description = "编辑ai工具")
     @PostMapping("/edit")
-    public void edit(@RequestBody AiToolEditReqVo reqVo) {
+    public void edit(@Valid @RequestBody AiToolEditReqVo reqVo) {
         reqVo.setOrgId(SYSCODE);
         aiToolService.edit(reqVo);
+    }
+
+    @Operation(description = "变更ai工具状态")
+    @PostMapping("/changeStatus")
+    public void changeStatus(@Valid @RequestBody AiToolStatusReqVo reqVo) {
+        reqVo.setOrgId(SYSCODE);
+        aiToolService.changeStatus(reqVo);
     }
 
     @Operation(description = "分页查询ai工具")

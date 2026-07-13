@@ -6,6 +6,7 @@ import com.iusofts.agentplus.library.vo.plugin.AiPluginAddReqVo;
 import com.iusofts.agentplus.library.vo.plugin.AiPluginDetailVo;
 import com.iusofts.agentplus.library.vo.plugin.AiPluginEditReqVo;
 import com.iusofts.agentplus.library.vo.plugin.AiPluginQueryPageReqVo;
+import com.iusofts.agentplus.library.vo.plugin.AiPluginStatusReqVo;
 import com.iusofts.agentplus.library.vo.plugin.AiPluginVo;
 
 /**
@@ -45,6 +46,13 @@ public interface IAiPluginService {
      * @param reqVo 编辑请求
      */
     void edit(AiPluginEditReqVo reqVo);
+
+    /**
+     * 变更插件状态
+     *
+     * @param reqVo 状态变更请求
+     */
+    void changeStatus(AiPluginStatusReqVo reqVo);
 
     /**
      * 删除插件
