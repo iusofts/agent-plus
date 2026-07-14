@@ -15,6 +15,7 @@ import com.iusofts.agentplus.system.interfaces.ISysDeptService;
 import com.iusofts.agentplus.system.interfaces.ISysRoleService;
 import com.iusofts.agentplus.system.interfaces.ISysUserExpandService;
 import com.iusofts.agentplus.system.interfaces.ISysUserService;
+import com.iusofts.agentplus.system.interfaces.ILoginService;
 import com.iusofts.agentplus.system.vo.BLoginUserVo;
 import com.iusofts.agentplus.system.vo.EditPasswordReqVo;
 import com.iusofts.agentplus.system.vo.UpdateAvatarReqVo;
@@ -47,6 +48,10 @@ public class SysUserController extends BApiController {
 
     @Autowired
     private ISysDeptService deptService;
+
+    @Autowired
+    private ILoginService loginService;
+
     @Resource
     private ISysUserExpandService userExpandService;
 
@@ -135,8 +140,14 @@ public class SysUserController extends BApiController {
     @Operation(summary = "修改头像")
     @PostMapping("/updateAvatar")
     public void updateAvatar(@Validated @RequestBody UpdateAvatarReqVo reqVo) {
-        reqVo.setUserId(getUserId());
+        Long userId = getUserId();
+        reqVo.setUserId(userId);
         userService.updateUserAvatar(reqVo);
+        // 刷新登录缓存
+        String token = SessionUtil.getToken();
+        if (StringUtils.isNotBlank(token)) {
+            loginService.refreshLoginUserCache(userId, token);
+        }
     }
 
     @Operation(summary = "状态修改")

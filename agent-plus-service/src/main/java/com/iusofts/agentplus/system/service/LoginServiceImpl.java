@@ -178,4 +178,19 @@ public class LoginServiceImpl implements ILoginService {
         sysUserService.updateUserProfile(sysUser);
     }
 
+    @Override
+    public void refreshLoginUserCache(Long userId, String token) {
+        SysUserDto user = sysUserService.selectUserById(userId);
+        if (user != null) {
+            user.setPassword(null);
+            BLoginUserVo bLoginUserVo = new BLoginUserVo();
+            bLoginUserVo.setUser(user);
+            bLoginUserVo.setRoles(sysPermissionService.getRolePermission(user));
+            bLoginUserVo.setPermissions(sysPermissionService.getMenuPermission(user));
+            // 保存到redis
+            redissonClient.getBucket(LOGIN_TOKEN_KEY + token, StringCodec.INSTANCE)
+                    .set(JsonUtils.obj2json(bLoginUserVo), Duration.ofSeconds(60 * 60 * 24 * 3));
+        }
+    }
+
 }
