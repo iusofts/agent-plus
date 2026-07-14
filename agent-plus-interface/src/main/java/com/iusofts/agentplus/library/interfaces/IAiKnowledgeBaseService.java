@@ -4,6 +4,7 @@ import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeBaseAddReqVo;
 import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeBaseDetailVo;
 import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeBaseEditReqVo;
 import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeBaseQueryPageReqVo;
+import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeBaseStatusReqVo;
 import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeBaseVo;
 import com.iusofts.agentplus.basic.web.vo.page.PageResult;
 import com.iusofts.agentplus.common.vo.IdReqVo;
@@ -23,6 +24,11 @@ public interface IAiKnowledgeBaseService {
     Long add(AiKnowledgeBaseAddReqVo reqVo);
 
     void edit(AiKnowledgeBaseEditReqVo reqVo);
+
+    /**
+     * 变更知识库启用状态
+     */
+    void changeStatus(AiKnowledgeBaseStatusReqVo reqVo);
 
     PageResult<AiKnowledgeBaseVo> queryPage(AiKnowledgeBaseQueryPageReqVo reqVo);
 

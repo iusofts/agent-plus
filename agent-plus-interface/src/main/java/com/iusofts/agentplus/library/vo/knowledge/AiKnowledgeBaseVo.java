@@ -37,6 +37,9 @@ public class AiKnowledgeBaseVo {
     @Schema(description = "分块重叠大小")
     private Integer chunkOverlap;
 
+    @Schema(description = "启用状态 0:禁用 1:启用")
+    private Integer status;
+
     @Schema(description = "记录创建时间")
     private LocalDateTime createTime;
 

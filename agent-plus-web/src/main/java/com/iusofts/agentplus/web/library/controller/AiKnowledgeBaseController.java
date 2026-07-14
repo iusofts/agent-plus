@@ -5,6 +5,7 @@ import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeBaseAddReqVo;
 import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeBaseDetailVo;
 import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeBaseEditReqVo;
 import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeBaseQueryPageReqVo;
+import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeBaseStatusReqVo;
 import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeBaseVo;
 import com.iusofts.agentplus.basic.web.annotation.BLoginUser;
 import com.iusofts.agentplus.basic.web.annotation.OperationLogExclude;
@@ -57,6 +58,14 @@ public class AiKnowledgeBaseController extends BApiController {
         reqVo.setOrgId(SYSCODE);
         reqVo.setOperatorId(loginUserVo.getUser().getUserId());
         aiKnowledgeBaseService.edit(reqVo);
+    }
+
+    @Operation(description = "变更知识库启用状态")
+    @PostMapping("/changeStatus")
+    public void changeStatus(@Valid @RequestBody AiKnowledgeBaseStatusReqVo reqVo, @BLoginUser BLoginUserVo loginUserVo) {
+        reqVo.setOrgId(SYSCODE);
+        reqVo.setOperatorId(loginUserVo.getUser().getUserId());
+        aiKnowledgeBaseService.changeStatus(reqVo);
     }
 
     @Operation(description = "分页查询知识库")

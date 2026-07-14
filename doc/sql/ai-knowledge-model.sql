@@ -54,6 +54,7 @@ CREATE TABLE `ai_knowledge_base` (
   `embedding_model_id` bigint(20) NULL DEFAULT NULL COMMENT '嵌入模型ID',
   `chunk_size` int(11) NOT NULL DEFAULT 512 COMMENT '分块大小',
   `chunk_overlap` int(11) NOT NULL DEFAULT 100 COMMENT '分块重叠大小',
+  `status` tinyint(4) NOT NULL DEFAULT 1 COMMENT '启用状态 0:禁用 1:启用',
   `create_by` bigint(20) NOT NULL DEFAULT 0 COMMENT '创建人ID',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '记录创建时间',
   `update_by` bigint(20) NOT NULL DEFAULT 0 COMMENT '最后更新人ID',
@@ -67,8 +68,8 @@ CREATE TABLE `ai_knowledge_base` (
 -- ----------------------------
 -- Records of ai_knowledge_base
 -- ----------------------------
-INSERT INTO `ai_knowledge_base` (`id`, `name`, `description`, `collection_name`, `embedding_model_id`, `chunk_size`, `chunk_overlap`, `create_by`, `create_time`, `update_by`, `update_time`, `delete_flag`, `org_id`) VALUES
-(1, '测试知识库', '用于测试的知识库', 'kb_test_1', 2, 512, 100, 0, NOW(), 0, NULL, 0, 1);
+INSERT INTO `ai_knowledge_base` (`id`, `name`, `description`, `collection_name`, `embedding_model_id`, `chunk_size`, `chunk_overlap`, `status`, `create_by`, `create_time`, `update_by`, `update_time`, `delete_flag`, `org_id`) VALUES
+(1, '测试知识库', '用于测试的知识库', 'kb_test_1', 2, 512, 100, 1, 0, NOW(), 0, NULL, 0, 1);
 
 -- ----------------------------
 -- Table structure for ai_knowledge_document

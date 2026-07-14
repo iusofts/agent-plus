@@ -380,4 +380,38 @@ public class AiKnowledgeDocumentServiceImpl extends ServiceImpl<AiKnowledgeDocum
         super.updateById(update);
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void cascadeStatusByKnowledgeBase(Long knowledgeBaseId, boolean enable, Long operatorId) {
+        AiKnowledgeBase kb = aiKnowledgeBaseMapper.selectById(knowledgeBaseId);
+        if (kb == null) {
+            throw new SystemBusinessException("知识库不存在");
+        }
+        // 启用时恢复「已禁用」文档,停用时处理「可用」文档;归档/失败/处理中的文档不联动
+        int fromStatus = enable ? KnowledgeIngestionService.STATUS_DISABLED
+                : KnowledgeIngestionService.STATUS_COMPLETED;
+        int toStatus = enable ? KnowledgeIngestionService.STATUS_COMPLETED
+                : KnowledgeIngestionService.STATUS_DISABLED;
+
+        List<AiKnowledgeDocument> docs = super.list(
+                Wrappers.<AiKnowledgeDocument>lambdaQuery()
+                        .eq(AiKnowledgeDocument::getKnowledgeBaseId, knowledgeBaseId)
+                        .eq(AiKnowledgeDocument::getStatus, fromStatus));
+
+        for (AiKnowledgeDocument doc : docs) {
+            List<AiKnowledgeChunk> chunks = aiKnowledgeChunkMapper.selectList(
+                    Wrappers.<AiKnowledgeChunk>lambdaQuery().eq(AiKnowledgeChunk::getDocumentId, doc.getId()));
+            if (enable) {
+                enableChunks(kb, doc, chunks);
+            } else {
+                disableChunks(kb, chunks);
+            }
+            AiKnowledgeDocument update = new AiKnowledgeDocument();
+            update.setId(doc.getId());
+            update.setStatus(toStatus);
+            update.setUpdateBy(operatorId);
+            super.updateById(update);
+        }
+    }
+
 }

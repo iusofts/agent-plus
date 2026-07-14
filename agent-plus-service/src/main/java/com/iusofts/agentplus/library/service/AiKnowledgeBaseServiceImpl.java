@@ -9,6 +9,7 @@ import com.iusofts.agentplus.library.entity.AiKnowledgeBase;
 import com.iusofts.agentplus.library.entity.AiKnowledgeChunk;
 import com.iusofts.agentplus.library.entity.AiKnowledgeDocument;
 import com.iusofts.agentplus.library.interfaces.IAiKnowledgeBaseService;
+import com.iusofts.agentplus.library.interfaces.IAiKnowledgeDocumentService;
 import com.iusofts.agentplus.library.knowledge.KnowledgeIngestionService;
 import com.iusofts.agentplus.library.mapper.AiKnowledgeBaseMapper;
 import com.iusofts.agentplus.library.mapper.AiKnowledgeChunkMapper;
@@ -19,6 +20,7 @@ import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeBaseAddReqVo;
 import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeBaseDetailVo;
 import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeBaseEditReqVo;
 import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeBaseQueryPageReqVo;
+import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeBaseStatusReqVo;
 import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeBaseVo;
 import com.iusofts.agentplus.basic.exception.SystemBusinessException;
 import com.iusofts.agentplus.basic.web.vo.page.PageResult;
@@ -60,6 +62,9 @@ public class AiKnowledgeBaseServiceImpl extends ServiceImpl<AiKnowledgeBaseMappe
     @Resource
     private KnowledgeStoreService knowledgeStoreService;
 
+    @Resource
+    private IAiKnowledgeDocumentService aiKnowledgeDocumentService;
+
     @Override
     public Long add(AiKnowledgeBaseAddReqVo reqVo) {
         AiKnowledgeBase entity = ModelMapperUtil.strictMap(reqVo, AiKnowledgeBase.class);
@@ -79,6 +84,32 @@ public class AiKnowledgeBaseServiceImpl extends ServiceImpl<AiKnowledgeBaseMappe
         AiKnowledgeBase entity = ModelMapperUtil.strictMap(reqVo, AiKnowledgeBase.class);
         entity.setUpdateBy(reqVo.getOperatorId());
         super.updateById(entity);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void changeStatus(AiKnowledgeBaseStatusReqVo reqVo) {
+        checkDataPermission(reqVo.getId(), reqVo.getOrgId());
+        AiKnowledgeBase entity = super.getById(reqVo.getId());
+        if (entity == null) {
+            throw new SystemBusinessException("知识库不存在");
+        }
+        Integer target = reqVo.getStatus();
+        if (target == null || (target != 0 && target != 1)) {
+            throw new SystemBusinessException("目标状态只能是启用或禁用");
+        }
+        // 状态未变化时直接返回,避免无意义的文档联动
+        if (target.equals(entity.getStatus())) {
+            return;
+        }
+        AiKnowledgeBase updateEntity = new AiKnowledgeBase();
+        updateEntity.setId(reqVo.getId());
+        updateEntity.setStatus(target);
+        updateEntity.setUpdateBy(reqVo.getOperatorId());
+        super.updateById(updateEntity);
+        // 联动知识库下文档的启停:停用删向量、启用重建向量
+        aiKnowledgeDocumentService.cascadeStatusByKnowledgeBase(
+                reqVo.getId(), target == 1, reqVo.getOperatorId());
     }
 
     @Override
@@ -226,7 +257,7 @@ public class AiKnowledgeBaseServiceImpl extends ServiceImpl<AiKnowledgeBaseMappe
         wrapper.in(AiKnowledgeBase::getId, knowledgeBaseIds);
         wrapper.select(AiKnowledgeBase::getId, AiKnowledgeBase::getName, AiKnowledgeBase::getDescription,
                 AiKnowledgeBase::getIcon, AiKnowledgeBase::getEmbeddingModelId, AiKnowledgeBase::getChunkSize,
-                AiKnowledgeBase::getChunkOverlap, AiKnowledgeBase::getCreateTime,
+                AiKnowledgeBase::getChunkOverlap, AiKnowledgeBase::getStatus, AiKnowledgeBase::getCreateTime,
                 AiKnowledgeBase::getUpdateTime);
         List<AiKnowledgeBase> list = super.list(wrapper);
         return list.stream()
