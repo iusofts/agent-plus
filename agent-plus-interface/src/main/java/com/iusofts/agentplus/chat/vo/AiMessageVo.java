@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Schema(name = "AiMessageVo", description = "ai对话消息vo")
@@ -44,5 +45,8 @@ public class AiMessageVo {
     
     @Schema(description = "需要转人工")
     private boolean needTransferHuman;
-    
+
+    @Schema(description = "本轮工具调用轨迹(不落库)")
+    private List<ToolCallTraceVo> toolCalls;
+
 }

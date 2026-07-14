@@ -7,6 +7,7 @@ import com.iusofts.agentplus.chat.entity.AiMessage;
 import com.iusofts.agentplus.chat.mapper.AiAgentMapper;
 import com.iusofts.agentplus.chat.vo.AiMessageVo;
 import com.iusofts.agentplus.chat.vo.AiServiceChatReqVo;
+import com.iusofts.agentplus.chat.vo.ToolCallTraceVo;
 import com.iusofts.agentplus.library.entity.AiKnowledgeBase;
 import com.iusofts.agentplus.library.mapper.AiKnowledgeBaseMapper;
 import com.iusofts.agentplus.basic.exception.SystemBusinessException;
@@ -18,11 +19,20 @@ import com.iusofts.agentplus.llm.AiChatService;
 import com.iusofts.agentplus.llm.dto.ChatMessage;
 import com.iusofts.agentplus.llm.dto.ChatResponse;
 import com.iusofts.agentplus.llm.dto.LlmModelConfigDTO;
+import com.iusofts.agentplus.llm.dto.ToolCall;
+import com.iusofts.agentplus.llm.dto.ToolDefinition;
 import com.iusofts.agentplus.llm.LlmModelQueryProvider;
 import com.iusofts.agentplus.llm.log.LlmLogRecorder;
 import com.iusofts.agentplus.engine.knowledge.KnowledgeRetriever;
+import com.iusofts.agentplus.engine.tool.ToolRegistry;
 import com.iusofts.agentplus.knowledge.dto.KnowledgeChunk;
 import com.iusofts.agentplus.knowledge.dto.KnowledgeRetrieveResult;
+import com.iusofts.agentplus.tool.ToolQueryProvider;
+import com.iusofts.agentplus.tool.dto.ToolDTO;
+import com.iusofts.agentplus.tool.dto.ToolExecuteRequest;
+import com.iusofts.agentplus.tool.dto.ToolExecuteResult;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
@@ -30,7 +40,9 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -61,9 +73,18 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
     private LlmModelQueryProvider llmModelQueryProvider;
     @Resource
     private LlmLogRecorder llmLogRecorder;
+    @Resource
+    private ToolRegistry toolRegistry;
+    @Resource
+    private ToolQueryProvider toolQueryProvider;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     /** 知识库召回默认条数 */
     private static final int DEFAULT_RETRIEVAL_TOP_K = 3;
+
+    /** 单轮对话中工具调用的最大迭代次数，防止模型陷入无限调用 */
+    private static final int MAX_TOOL_ITERATIONS = 5;
 
     @Override
     public AiMessageVo chat(AiServiceChatReqVo reqVo) {
@@ -119,19 +140,45 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
 
         LlmModelConfigDTO config = buildModelConfig(aiAgent);
 
-        // 4. 调用 LLM，失败直接抛出，不写入任何脏数据
-        ChatResponse response = aiChatService.chat(msgList, modelId, config);
+        // 4. 构建绑定工具规格，进入"调用 LLM -> 执行工具 -> 回填结果 -> 再次推理"循环
+        //    工具由智能体绑定的 toolIds 决定；中间的 tool_calls / tool 结果消息仅在本轮内存循环使用，不落库。
+        List<ToolDefinition> toolDefinitions = buildToolDefinitions(aiAgent);
+        Map<String, Long> toolNameToId = buildToolNameToIdMap(aiAgent);
+        List<ToolCallTraceVo> toolTraces = new ArrayList<>();
 
-        llmLogRecorder.recordLlmCall()
-            .traceId(traceId)
-            .fromChat(conversation != null ? conversation.getId() : null)
-            .model(llmModelQueryProvider.getModel(modelId))
-            .config(config)
-            .inputMessages(msgList)
-            .output(response.getContent(), response.getInputTokens(), response.getOutputTokens())
-            .success()
-            .operator(reqVo.getOperatorId(), reqVo.getOrgId())
-            .record();
+        ChatResponse response = null;
+        for (int iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
+            response = aiChatService.chat(msgList, modelId, config, toolDefinitions);
+
+            llmLogRecorder.recordLlmCall()
+                .traceId(traceId)
+                .fromChat(conversation != null ? conversation.getId() : null)
+                .model(llmModelQueryProvider.getModel(modelId))
+                .config(config)
+                .inputMessages(msgList)
+                .output(response.getContent(), response.getInputTokens(), response.getOutputTokens())
+                .success()
+                .operator(reqVo.getOperatorId(), reqVo.getOrgId())
+                .record();
+
+            // 模型未请求工具调用，得到最终回答，结束循环
+            if (CollectionUtils.isEmpty(response.getToolCalls())) {
+                break;
+            }
+
+            // 将本轮 assistant 的工具调用请求追加到上下文
+            msgList.add(ChatMessage.builder()
+                .role("assistant")
+                .content(response.getContent())
+                .toolCalls(response.getToolCalls())
+                .build());
+
+            // 逐个执行工具，并把结果作为 tool 消息回填
+            for (ToolCall toolCall : response.getToolCalls()) {
+                ToolCallTraceVo trace = executeToolCall(toolCall, toolNameToId, msgList);
+                toolTraces.add(trace);
+            }
+        }
 
         AiMessageVo resultMessage = new AiMessageVo();
         resultMessage.setRole("assistant");
@@ -139,6 +186,9 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
         resultMessage.setInputTokens(response.getInputTokens());
         resultMessage.setOutputTokens(response.getOutputTokens());
         resultMessage.setTotalTokens(response.getTotalTokens());
+        if (!toolTraces.isEmpty()) {
+            resultMessage.setToolCalls(toolTraces);
+        }
 
         // 5. 调用成功后再落库：会话、新消息、轮次
         if (newConversation) {
@@ -286,5 +336,118 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
             sb.append("[").append(i + 1).append("] ").append(chunks.get(i)).append("\n");
         }
         return sb.toString();
+    }
+
+    /**
+     * 根据智能体绑定的 toolIds 构建下发给模型的工具规格列表（过滤禁用工具）。
+     */
+    private List<ToolDefinition> buildToolDefinitions(AiAgent aiAgent) {
+        if (aiAgent == null || CollectionUtils.isEmpty(aiAgent.getToolIds())) {
+            return null;
+        }
+        List<ToolDefinition> definitions = new ArrayList<>();
+        for (Long toolId : aiAgent.getToolIds()) {
+            if (toolId == null) {
+                continue;
+            }
+            ToolDTO tool = toolQueryProvider.getById(toolId);
+            if (tool == null || tool.getStatus() == null || tool.getStatus() != 1) {
+                continue;
+            }
+            definitions.add(ToolDefinition.builder()
+                .name(tool.getName())
+                .description(tool.getDescription())
+                .parameters(tool.getParamsSchema())
+                .build());
+        }
+        return definitions.isEmpty() ? null : definitions;
+    }
+
+    /**
+     * 构建工具名称到工具 ID 的映射，用于将模型返回的工具名解析回 toolId 以便执行。
+     */
+    private Map<String, Long> buildToolNameToIdMap(AiAgent aiAgent) {
+        Map<String, Long> map = new HashMap<>();
+        if (aiAgent == null || CollectionUtils.isEmpty(aiAgent.getToolIds())) {
+            return map;
+        }
+        for (Long toolId : aiAgent.getToolIds()) {
+            if (toolId == null) {
+                continue;
+            }
+            ToolDTO tool = toolQueryProvider.getById(toolId);
+            if (tool == null || tool.getStatus() == null || tool.getStatus() != 1) {
+                continue;
+            }
+            map.put(tool.getName(), toolId);
+        }
+        return map;
+    }
+
+    /**
+     * 执行一次模型请求的工具调用，将结果作为 tool 消息追加到上下文，并返回可展示的调用轨迹。
+     */
+    private ToolCallTraceVo executeToolCall(ToolCall toolCall, Map<String, Long> toolNameToId, List<ChatMessage> msgList) {
+        ToolCallTraceVo trace = new ToolCallTraceVo();
+        trace.setToolName(toolCall.getName());
+
+        Map<String, Object> params = parseArguments(toolCall.getArguments());
+        trace.setArguments(params);
+
+        Long toolId = toolNameToId.get(toolCall.getName());
+        ToolExecuteResult result;
+        if (toolId == null) {
+            result = ToolExecuteResult.error("未找到工具: " + toolCall.getName());
+        } else {
+            trace.setToolId(toolId);
+            result = toolRegistry.execute(ToolExecuteRequest.builder()
+                .toolId(toolId)
+                .params(params)
+                .build());
+        }
+
+        trace.setSuccess(result.isSuccess());
+        trace.setResult(result.getData());
+        trace.setErrorMessage(result.getErrorMessage());
+
+        // 回填工具执行结果，供模型下一轮推理
+        msgList.add(ChatMessage.builder()
+            .role("tool")
+            .toolCallId(toolCall.getId())
+            .name(toolCall.getName())
+            .content(serializeToolResult(result))
+            .build());
+
+        return trace;
+    }
+
+    /**
+     * 解析模型返回的工具调用参数（JSON 字符串）为 Map。
+     */
+    private Map<String, Object> parseArguments(String arguments) {
+        if (StringUtils.isBlank(arguments)) {
+            return new HashMap<>();
+        }
+        try {
+            return objectMapper.readValue(arguments, new TypeReference<Map<String, Object>>() {});
+        } catch (Exception e) {
+            log.warn("解析工具调用参数失败, arguments={}", arguments, e);
+            return new HashMap<>();
+        }
+    }
+
+    /**
+     * 将工具执行结果序列化为回填给模型的文本。
+     */
+    private String serializeToolResult(ToolExecuteResult result) {
+        try {
+            if (result.isSuccess()) {
+                return objectMapper.writeValueAsString(result.getData());
+            }
+            return "工具执行失败: " + result.getErrorMessage();
+        } catch (Exception e) {
+            log.warn("序列化工具执行结果失败", e);
+            return String.valueOf(result.getData());
+        }
     }
 }
