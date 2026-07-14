@@ -3,6 +3,7 @@ package com.iusofts.agentplus.system.interfaces;
 import com.iusofts.agentplus.basic.web.vo.page.PageResult;
 import com.iusofts.agentplus.system.dto.SysUserDto;
 import com.iusofts.agentplus.system.vo.EditPasswordReqVo;
+import com.iusofts.agentplus.system.vo.UpdateAvatarReqVo;
 
 import java.util.List;
 
@@ -157,12 +158,19 @@ public interface ISysUserService
 
     /**
      * 修改用户头像
-     * 
+     *
      * @param userName 用户名
      * @param avatar 头像地址
      * @return 结果
      */
     public boolean updateUserAvatar(String userName, String avatar);
+
+    /**
+     * 根据用户ID修改用户头像
+     *
+     * @param reqVo 修改头像参数
+     */
+    void updateUserAvatar(UpdateAvatarReqVo reqVo);
 
     /**
      * 重置用户密码

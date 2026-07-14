@@ -17,6 +17,7 @@ import com.iusofts.agentplus.system.interfaces.ISysUserExpandService;
 import com.iusofts.agentplus.system.interfaces.ISysUserService;
 import com.iusofts.agentplus.system.vo.BLoginUserVo;
 import com.iusofts.agentplus.system.vo.EditPasswordReqVo;
+import com.iusofts.agentplus.system.vo.UpdateAvatarReqVo;
 import com.iusofts.agentplus.web.common.controller.BApiController;
 import com.iusofts.agentplus.web.common.util.SessionUtil;
 import io.swagger.v3.oas.annotations.Operation;
@@ -129,6 +130,13 @@ public class SysUserController extends BApiController {
     public void editPassword(@RequestBody EditPasswordReqVo reqVo) {
         reqVo.setOperatorId(getUserId());
         userService.editPassword(reqVo);
+    }
+
+    @Operation(summary = "修改头像")
+    @PostMapping("/updateAvatar")
+    public void updateAvatar(@Validated @RequestBody UpdateAvatarReqVo reqVo) {
+        reqVo.setUserId(getUserId());
+        userService.updateUserAvatar(reqVo);
     }
 
     @Operation(summary = "状态修改")
