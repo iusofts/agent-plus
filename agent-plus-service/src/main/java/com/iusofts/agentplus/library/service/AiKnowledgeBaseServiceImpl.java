@@ -225,7 +225,7 @@ public class AiKnowledgeBaseServiceImpl extends ServiceImpl<AiKnowledgeBaseMappe
         LambdaQueryWrapper<AiKnowledgeBase> wrapper = Wrappers.lambdaQuery();
         wrapper.in(AiKnowledgeBase::getId, knowledgeBaseIds);
         wrapper.select(AiKnowledgeBase::getId, AiKnowledgeBase::getName, AiKnowledgeBase::getDescription,
-                AiKnowledgeBase::getEmbeddingModelId, AiKnowledgeBase::getChunkSize,
+                AiKnowledgeBase::getIcon, AiKnowledgeBase::getEmbeddingModelId, AiKnowledgeBase::getChunkSize,
                 AiKnowledgeBase::getChunkOverlap, AiKnowledgeBase::getCreateTime,
                 AiKnowledgeBase::getUpdateTime);
         List<AiKnowledgeBase> list = super.list(wrapper);

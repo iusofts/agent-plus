@@ -49,6 +49,7 @@ CREATE TABLE `ai_knowledge_base` (
   `id` bigint(20) NOT NULL COMMENT '编号',
   `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '知识库名称',
   `description` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '知识库描述',
+  `icon` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '知识库图标',
   `collection_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '向量库集合名称',
   `embedding_model_id` bigint(20) NULL DEFAULT NULL COMMENT '嵌入模型ID',
   `chunk_size` int(11) NOT NULL DEFAULT 512 COMMENT '分块大小',

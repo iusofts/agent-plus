@@ -22,6 +22,9 @@ public class AiKnowledgeBaseAddReqVo {
     @Schema(description = "知识库描述")
     private String description;
 
+    @Schema(description = "知识库图标")
+    private String icon;
+
     @Schema(description = "嵌入模型ID")
     private Long embeddingModelId;
 

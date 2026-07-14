@@ -25,6 +25,9 @@ public class AiKnowledgeBaseDetailVo {
     @Schema(description = "知识库描述")
     private String description;
 
+    @Schema(description = "知识库图标")
+    private String icon;
+
     @Schema(description = "向量库集合名称")
     private String collectionName;
 
