@@ -11,6 +11,7 @@ import com.iusofts.agentplus.basic.exception.SystemBusinessException;
 import com.iusofts.agentplus.basic.oss.OSSProperties;
 import com.iusofts.agentplus.basic.oss.StsService;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.Data;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -29,6 +30,14 @@ public class OSSController extends BApiController {
     @Autowired
     private StsService stsService;
 
+    @Data
+    public static class OssConfigResponse {
+        private AssumeRoleResponse.Credentials credentials;
+        private String domain;
+        private String regionId;
+        private String bucket;
+    }
+
     /**
      * 签名授权
      *
@@ -46,7 +55,12 @@ public class OSSController extends BApiController {
                 3600L
         );
         if (response != null) {
-            return response.getCredentials();
+            OssConfigResponse result = new OssConfigResponse();
+            result.setCredentials(response.getCredentials());
+            result.setDomain(ossProperties.getDomain());
+            result.setRegionId(ossProperties.getRegionId());
+            result.setBucket(ossProperties.getBucket());
+            return result;
         }
         throw new SystemBusinessException("OssToken获取失败");
     }

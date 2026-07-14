@@ -69,6 +69,8 @@ storage:
     endPoint: XXX
     regionId: XXX
     roleArn: XXX
+    bucket: iusofts
+    domain: https://iusofts.oss-cn-hangzhou.aliyuncs.com
     
 
 # 阿里云通义千问官方SDK配置
