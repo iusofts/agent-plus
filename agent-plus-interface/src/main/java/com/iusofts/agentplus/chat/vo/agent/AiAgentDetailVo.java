@@ -27,6 +27,9 @@ public class AiAgentDetailVo {
     @Schema(description = "功能介绍")
     private String description;
 
+    @Schema(description = "智能体图标")
+    private String icon;
+
     @Schema(description = "设定描述")
     private String systemPrompt;
 

@@ -25,6 +25,7 @@ CREATE TABLE `ai_agent` (
   `id` bigint(20) NOT NULL COMMENT '编号',
   `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT '新对话' COMMENT '智能体名称',
   `description` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '功能介绍',
+  `icon` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '智能体图标',
   `system_prompt` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '设定描述',
   `model_id` bigint(20) NULL DEFAULT NULL COMMENT '使用模型ID',
   `workflow_ids` json NULL DEFAULT NULL COMMENT '绑定工作流ID列表(JSON数组存储)',

@@ -64,7 +64,7 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgent> impl
         }
         wrapper.orderByDesc(AiAgent::getId);
         Page<AiAgent> pageParam = new Page<>(reqVo.getCurrentPage(), reqVo.getPageSize());
-        wrapper.select(AiAgent::getId, AiAgent::getName, AiAgent::getDescription, AiAgent::getModelId,
+        wrapper.select(AiAgent::getId, AiAgent::getName, AiAgent::getDescription, AiAgent::getIcon, AiAgent::getModelId,
                 AiAgent::getCreateTime, AiAgent::getUpdateTime);
         IPage<AiAgent> page = super.page(pageParam, wrapper);
         List<AiAgentVo> voList = page.getRecords().stream().map(item -> {
