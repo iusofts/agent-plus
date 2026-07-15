@@ -40,6 +40,9 @@ public class AiAgent implements Serializable {
     @Schema(description = "智能体名称")
     private String name;
 
+    @Schema(description = "类型 1:自主规划 2:对话流")
+    private Integer type;
+
     @Schema(description = "功能介绍")
     private String description;
 

@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.iusofts.agentplus.chat.interfaces.IAiAgentService;
 import com.iusofts.agentplus.chat.entity.AiAgent;
+import com.iusofts.agentplus.chat.enums.AiAgentTypeEnum;
 import com.iusofts.agentplus.chat.mapper.AiAgentMapper;
 import com.iusofts.agentplus.basic.exception.SystemBusinessException;
 import com.iusofts.agentplus.basic.web.vo.page.PageResult;
@@ -40,6 +41,9 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgent> impl
         AiAgent aiAgent = ModelMapperUtil.strictMap(reqVo, AiAgent.class);
         Integer uid = idService.generateUid(UidTypeEnum.CHAT);
         aiAgent.setId(uid.longValue());
+        if (aiAgent.getType() == null) {
+            aiAgent.setType(AiAgentTypeEnum.AUTONOMOUS.getCode());
+        }
         aiAgent.setCreateBy(reqVo.getOperatorId());
         super.save(aiAgent);
     }
@@ -62,9 +66,12 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgent> impl
         if (StringUtils.isNotBlank(reqVo.getName())) {
             wrapper.like(AiAgent::getName, reqVo.getName());
         }
+        if (reqVo.getType() != null) {
+            wrapper.eq(AiAgent::getType, reqVo.getType());
+        }
         wrapper.orderByDesc(AiAgent::getId);
         Page<AiAgent> pageParam = new Page<>(reqVo.getCurrentPage(), reqVo.getPageSize());
-        wrapper.select(AiAgent::getId, AiAgent::getName, AiAgent::getDescription, AiAgent::getIcon, AiAgent::getModelId,
+        wrapper.select(AiAgent::getId, AiAgent::getName, AiAgent::getType, AiAgent::getDescription, AiAgent::getIcon, AiAgent::getModelId,
                 AiAgent::getCreateTime, AiAgent::getUpdateTime);
         IPage<AiAgent> page = super.page(pageParam, wrapper);
         List<AiAgentVo> voList = page.getRecords().stream().map(item -> {

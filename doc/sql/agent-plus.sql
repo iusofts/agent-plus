@@ -24,6 +24,7 @@ DROP TABLE IF EXISTS `ai_agent`;
 CREATE TABLE `ai_agent`  (
   `id` bigint(20) NOT NULL COMMENT '编号',
   `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT '新对话' COMMENT '智能体名称',
+  `type` tinyint(4) NOT NULL DEFAULT 1 COMMENT '类型 1:自主规划 2:对话流',
   `description` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '功能介绍',
   `icon` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '智能体图标',
   `system_prompt` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL COMMENT '设定描述',
