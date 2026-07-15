@@ -51,6 +51,7 @@ public class AiFlowServiceImpl extends ServiceImpl<AiFlowMapper, AiFlow> impleme
         aiFlow.setId(uid.longValue());
         aiFlow.setCreateBy(reqVo.getOperatorId());
         aiFlow.setStatus(FlowStatusEnum.ENABLED.getCode());
+        aiFlow.setPublishStatus(0);
         aiFlow.setLatestVersion("v1.0.0");
         aiFlow.setOnlineVersion("");
         save(aiFlow);
@@ -81,6 +82,9 @@ public class AiFlowServiceImpl extends ServiceImpl<AiFlowMapper, AiFlow> impleme
         }
         if (reqVo.getStatus() != null) {
             wrapper.eq(AiFlow::getStatus, reqVo.getStatus());
+        }
+        if (reqVo.getPublishStatus() != null) {
+            wrapper.eq(AiFlow::getPublishStatus, reqVo.getPublishStatus());
         }
 
         wrapper.orderByDesc(AiFlow::getId);

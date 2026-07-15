@@ -24,4 +24,7 @@ public class AiFlowQueryPageReqVo extends PageQuery {
     @Schema(description = "启用状态 0:禁用 1:启用")
     private Integer status;
 
+    @Schema(description = "发布状态 0:未发布 1:已发布")
+    private Integer publishStatus;
+
 }

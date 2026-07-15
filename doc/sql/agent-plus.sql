@@ -93,6 +93,7 @@ CREATE TABLE `ai_flow` (
   `description` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '流程描述',
   `icon` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '图标地址',
   `status` tinyint(4) NOT NULL DEFAULT 1 COMMENT '启用状态 0:禁用 1:启用',
+  `publish_status` tinyint(4) NOT NULL DEFAULT 0 COMMENT '发布状态 0:未发布 1:已发布',
   `latest_version` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'v1.0.0' COMMENT '当前最新版本号(v1.0.0格式)',
   `online_version` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '线上发布版本号，空=未发布',
   `create_by` bigint(20) NOT NULL DEFAULT 0 COMMENT '创建人ID',
