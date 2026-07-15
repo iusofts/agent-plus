@@ -25,9 +25,12 @@ import java.util.List;
 @Schema(description = "知识库节点数据")
 public class KnowledgeNodeData extends NodeData {
 
-    @NotNull(message = "知识库不能为空")
+    @NotEmpty(message = "知识库不能为空")
     @Schema(description = "知识库ID")
-    private Long knowledgeId;
+    private List<Long> knowledgeIds;
+
+    @Schema(description = "知识库名称")
+    private List<String> knowledgeNames;
 
     @Range(min = 1, max = 99, message = "返回结果数量不合法")
     @NotNull(message = "返回结果数量不能为空")

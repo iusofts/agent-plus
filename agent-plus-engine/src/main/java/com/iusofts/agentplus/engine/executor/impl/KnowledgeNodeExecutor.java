@@ -46,7 +46,7 @@ public class KnowledgeNodeExecutor implements NodeExecutor {
                 .orElse("");
 
         int topK = data.getTopK() == null ? 3 : data.getTopK();
-        KnowledgeRetrieveResult result = retriever.retrieve(data.getKnowledgeId(), query, topK);
+        KnowledgeRetrieveResult result = retriever.retrieve(data.getKnowledgeIds(), query, topK);
 
         Map<String, Object> outputs = new LinkedHashMap<>();
         String outName = "documents";

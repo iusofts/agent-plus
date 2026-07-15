@@ -69,4 +69,41 @@ public class MockKnowledgeRetriever implements KnowledgeRetriever {
         result.setHasResult(!chunks.isEmpty());
         return result;
     }
+
+    @Override
+    public KnowledgeRetrieveResult retrieve(List<Long> knowledgeIds, String query, int topK) {
+        if (knowledgeIds == null || knowledgeIds.isEmpty()) {
+            return retrieve((Long) null, query, topK);
+        }
+        if (knowledgeIds.size() == 1) {
+            return retrieve(knowledgeIds.get(0), query, topK);
+        }
+        // 多个知识库时，从每个知识库检索后合并
+        int perKbK = Math.max(1, topK / knowledgeIds.size());
+        List<KnowledgeChunk> allChunks = new ArrayList<>();
+        for (Long knowledgeId : knowledgeIds) {
+            KnowledgeRetrieveResult singleResult = retrieve(knowledgeId, query, perKbK);
+            if (singleResult.getChunks() != null) {
+                allChunks.addAll(singleResult.getChunks());
+            }
+        }
+        // 按分数排序并截取 topK
+        allChunks.sort((a, b) -> Double.compare(b.getScore(), a.getScore()));
+        if (allChunks.size() > topK) {
+            allChunks = allChunks.subList(0, topK);
+        }
+        String contextText = allChunks.stream()
+                .map(KnowledgeChunk::getContent)
+                .collect(Collectors.joining("\n\n"));
+
+        KnowledgeRetrieveResult result = new KnowledgeRetrieveResult();
+        result.setSuccess(true);
+        result.setQuery(query);
+        result.setRewriteQuery(query);
+        result.setChunks(allChunks);
+        result.setContextText(contextText);
+        result.setTotalHit(allChunks.size());
+        result.setHasResult(!allChunks.isEmpty());
+        return result;
+    }
 }
