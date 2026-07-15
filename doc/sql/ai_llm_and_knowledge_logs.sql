@@ -33,6 +33,7 @@ CREATE TABLE `ai_llm_call_log` (
   `end_time` datetime(3) NULL DEFAULT NULL COMMENT '调用结束时间',
   `duration` int(11) NULL DEFAULT 0 COMMENT '调用时长(毫秒)',
   `time_sign` date NOT NULL COMMENT '日期(用于分区)',
+  `hour_sign` tinyint(4) NULL DEFAULT NULL COMMENT '小时(0-23,用于按小时聚合)',
   `create_by` bigint(20) NOT NULL DEFAULT 0 COMMENT '创建人ID',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '记录创建时间',
   `org_id` int(11) NOT NULL DEFAULT 0 COMMENT '所属组织ID',
@@ -42,6 +43,7 @@ CREATE TABLE `ai_llm_call_log` (
   INDEX `idx_source_id`(`source_id`),
   INDEX `idx_model_id`(`model_id`),
   INDEX `idx_time_sign`(`time_sign`),
+  INDEX `idx_time_hour`(`time_sign`, `hour_sign`),
   INDEX `idx_org_id`(`org_id`),
   INDEX `idx_create_time`(`create_time`),
   INDEX `idx_call_status`(`call_status`)
@@ -70,6 +72,7 @@ CREATE TABLE `ai_knowledge_retrieval_log` (
   `end_time` datetime(3) NULL DEFAULT NULL COMMENT '调用结束时间',
   `duration` int(11) NULL DEFAULT 0 COMMENT '调用时长(毫秒)',
   `time_sign` date NOT NULL COMMENT '日期(用于分区)',
+  `hour_sign` tinyint(4) NULL DEFAULT NULL COMMENT '小时(0-23,用于按小时聚合)',
   `create_by` bigint(20) NOT NULL DEFAULT 0 COMMENT '创建人ID',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '记录创建时间',
   `org_id` int(11) NOT NULL DEFAULT 0 COMMENT '所属组织ID',
@@ -78,6 +81,7 @@ CREATE TABLE `ai_knowledge_retrieval_log` (
   INDEX `idx_call_source`(`call_source`),
   INDEX `idx_knowledge_base_id`(`knowledge_base_id`),
   INDEX `idx_time_sign`(`time_sign`),
+  INDEX `idx_time_hour`(`time_sign`, `hour_sign`),
   INDEX `idx_org_id`(`org_id`),
   INDEX `idx_create_time`(`create_time`)
 ) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = 'AI知识库检索日志' ROW_FORMAT = Dynamic;
@@ -102,11 +106,13 @@ CREATE TABLE `ai_knowledge_doc_log` (
   `end_time` datetime(3) NULL DEFAULT NULL COMMENT '调用结束时间',
   `duration` int(11) NULL DEFAULT 0 COMMENT '调用时长(毫秒)',
   `time_sign` date NOT NULL COMMENT '日期(用于分区)',
+  `hour_sign` tinyint(4) NULL DEFAULT NULL COMMENT '小时(0-23,用于按小时聚合)',
   `create_by` bigint(20) NOT NULL DEFAULT 0 COMMENT '创建人ID',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '记录创建时间',
   `org_id` int(11) NOT NULL DEFAULT 0 COMMENT '所属组织ID',
   PRIMARY KEY (`id`),
   INDEX `idx_knowledge_base_id`(`knowledge_base_id`),
   INDEX `idx_doc_id`(`doc_id`),
-  INDEX `idx_time_sign`(`time_sign`)
+  INDEX `idx_time_sign`(`time_sign`),
+  INDEX `idx_time_hour`(`time_sign`, `hour_sign`)
 ) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = 'AI知识库文档处理日志' ROW_FORMAT = Dynamic;

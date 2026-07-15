@@ -105,6 +105,9 @@ public class AiLlmCallLog implements Serializable {
     @Schema(description = "日期")
     private LocalDate timeSign;
 
+    @Schema(description = "小时(0-23,用于按小时聚合)")
+    private Integer hourSign;
+
     @Schema(description = "创建人ID")
     private Long createBy;
 

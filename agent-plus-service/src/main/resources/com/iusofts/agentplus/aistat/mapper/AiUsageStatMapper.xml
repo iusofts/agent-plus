@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.iusofts.agentplus.aistat.mapper.AiUsageStatMapper">
+
+    <!-- 公共过滤条件:按起始日期过滤,可选小时范围、组织 -->
+    <sql id="Time_Filter">
+        <where>
+            <if test="startDate != null">
+                AND time_sign &gt;= #{startDate}
+            </if>
+            <if test="endDate != null">
+                AND time_sign &lt;= #{endDate}
+            </if>
+            <if test="startHour != null">
+                AND hour_sign &gt;= #{startHour}
+            </if>
+            <if test="endHour != null">
+                AND hour_sign &lt;= #{endHour}
+            </if>
+            <if test="orgId != null">
+                AND org_id = #{orgId}
+            </if>
+        </where>
+    </sql>
+
+    <!-- ============ 总览 ============ -->
+    <select id="selectLlmOverview" resultType="com.iusofts.agentplus.aistat.vo.AiUsageOverviewVo">
+        SELECT
+            COUNT(*)                                                AS llmTotalCalls,
+            COALESCE(SUM(CASE WHEN call_status = 1 THEN 1 ELSE 0 END), 0) AS llmSuccessCalls,
+            COALESCE(SUM(CASE WHEN call_status = 0 THEN 1 ELSE 0 END), 0) AS llmFailCalls,
+            COALESCE(SUM(input_tokens), 0)                          AS llmInputTokens,
+            COALESCE(SUM(output_tokens), 0)                         AS llmOutputTokens,
+            COALESCE(SUM(total_tokens), 0)                          AS llmTotalTokens,
+            COALESCE(ROUND(AVG(duration), 2), 0)                    AS llmAvgDurationMs
+        FROM ai_llm_call_log
+        <include refid="Time_Filter"/>
+    </select>
+
+    <select id="selectRetrievalOverview" resultType="com.iusofts.agentplus.aistat.vo.AiUsageOverviewVo">
+        SELECT
+            COUNT(*)                                                AS retrievalTotalCalls,
+            COALESCE(SUM(CASE WHEN call_status = 1 THEN 1 ELSE 0 END), 0) AS retrievalSuccessCalls,
+            COALESCE(SUM(retrieved_count), 0)                       AS retrievalTotalChunks,
+            COALESCE(SUM(query_embedding_tokens), 0)                AS retrievalEmbeddingTokens,
+            COALESCE(ROUND(AVG(duration), 2), 0)                    AS retrievalAvgDurationMs
+        FROM ai_knowledge_retrieval_log
+        <include refid="Time_Filter"/>
+    </select>
+
+    <select id="selectDocOverview" resultType="com.iusofts.agentplus.aistat.vo.AiUsageOverviewVo">
+        SELECT
+            COUNT(*)                                                AS docTotalOps,
+            COALESCE(SUM(CASE WHEN call_status = 1 THEN 1 ELSE 0 END), 0) AS docSuccessOps,
+            COALESCE(SUM(chunk_count), 0)                           AS docTotalChunks,
+            COALESCE(SUM(total_embedding_tokens), 0)                AS docEmbeddingTokens
+        FROM ai_knowledge_doc_log
+        <include refid="Time_Filter"/>
+    </select>
+
+    <!-- ============ 趋势 ============ -->
+    <select id="selectLlmTrend" resultType="com.iusofts.agentplus.aistat.vo.AiUsageTrendItem">
+        SELECT
+            time_sign AS date,
+            <choose>
+                <when test="byHour">hour_sign AS hour,</when>
+                <otherwise>NULL AS hour,</otherwise>
+            </choose>
+            COUNT(*)                              AS llmCalls,
+            COALESCE(SUM(total_tokens), 0)        AS llmTotalTokens,
+            COALESCE(ROUND(AVG(duration), 2), 0)  AS llmAvgDurationMs
+        FROM ai_llm_call_log
+        <include refid="Time_Filter"/>
+        <choose>
+            <when test="byHour">GROUP BY time_sign, hour_sign ORDER BY time_sign, hour_sign</when>
+            <otherwise>GROUP BY time_sign ORDER BY time_sign</otherwise>
+        </choose>
+    </select>
+
+    <select id="selectRetrievalTrend" resultType="com.iusofts.agentplus.aistat.vo.AiUsageTrendItem">
+        SELECT
+            time_sign AS date,
+            <choose>
+                <when test="byHour">hour_sign AS hour,</when>
+                <otherwise>NULL AS hour,</otherwise>
+            </choose>
+            COUNT(*)                                  AS retrievals,
+            COALESCE(SUM(query_embedding_tokens), 0)  AS retrievalEmbeddingTokens
+        FROM ai_knowledge_retrieval_log
+        <include refid="Time_Filter"/>
+        <choose>
+            <when test="byHour">GROUP BY time_sign, hour_sign ORDER BY time_sign, hour_sign</when>
+            <otherwise>GROUP BY time_sign ORDER BY time_sign</otherwise>
+        </choose>
+    </select>
+
+    <select id="selectDocTrend" resultType="com.iusofts.agentplus.aistat.vo.AiUsageTrendItem">
+        SELECT
+            time_sign AS date,
+            <choose>
+                <when test="byHour">hour_sign AS hour,</when>
+                <otherwise>NULL AS hour,</otherwise>
+            </choose>
+            COUNT(*) AS docOps
+        FROM ai_knowledge_doc_log
+        <include refid="Time_Filter"/>
+        <choose>
+            <when test="byHour">GROUP BY time_sign, hour_sign ORDER BY time_sign, hour_sign</when>
+            <otherwise>GROUP BY time_sign ORDER BY time_sign</otherwise>
+        </choose>
+    </select>
+
+    <!-- ============ 分维度明细 ============ -->
+    <select id="selectStatByModel" resultType="com.iusofts.agentplus.aistat.vo.LlmModelUsageItem">
+        SELECT
+            model_id                                                AS modelId,
+            MAX(model_name)                                         AS modelName,
+            MAX(model_provider)                                     AS modelProvider,
+            COUNT(*)                                                AS totalCalls,
+            COALESCE(SUM(CASE WHEN call_status = 1 THEN 1 ELSE 0 END), 0) AS successCalls,
+            COALESCE(SUM(CASE WHEN call_status = 0 THEN 1 ELSE 0 END), 0) AS failCalls,
+            COALESCE(SUM(input_tokens), 0)                          AS totalInputTokens,
+            COALESCE(SUM(output_tokens), 0)                         AS totalOutputTokens,
+            COALESCE(SUM(total_tokens), 0)                          AS totalTokens,
+            COALESCE(ROUND(AVG(duration), 2), 0)                    AS avgDurationMs
+        FROM ai_llm_call_log
+        <include refid="Time_Filter"/>
+        GROUP BY model_id
+        ORDER BY totalCalls DESC
+    </select>
+
+    <select id="selectStatByKnowledgeBase" resultType="com.iusofts.agentplus.aistat.vo.KbRetrievalUsageItem">
+        SELECT
+            knowledge_base_id                                       AS knowledgeBaseId,
+            MAX(knowledge_base_name)                                AS knowledgeBaseName,
+            COUNT(*)                                                AS totalRetrievals,
+            COALESCE(SUM(CASE WHEN call_status = 1 THEN 1 ELSE 0 END), 0) AS successRetrievals,
+            COALESCE(SUM(retrieved_count), 0)                       AS totalRetrievedChunks,
+            COALESCE(SUM(query_embedding_tokens), 0)                AS totalEmbeddingTokens,
+            COALESCE(ROUND(AVG(duration), 2), 0)                    AS avgDurationMs
+        FROM ai_knowledge_retrieval_log
+        <include refid="Time_Filter"/>
+        GROUP BY knowledge_base_id
+        ORDER BY totalRetrievals DESC
+    </select>
+
+    <select id="selectStatByDocOperation" resultType="com.iusofts.agentplus.aistat.vo.DocOperationUsageItem">
+        SELECT
+            operation_type                                          AS operationType,
+            COUNT(*)                                                AS totalOps,
+            COALESCE(SUM(CASE WHEN call_status = 1 THEN 1 ELSE 0 END), 0) AS successOps,
+            COALESCE(SUM(CASE WHEN call_status = 0 THEN 1 ELSE 0 END), 0) AS failOps,
+            COALESCE(SUM(chunk_count), 0)                           AS totalChunks,
+            COALESCE(SUM(total_char_count), 0)                      AS totalCharCount,
+            COALESCE(SUM(total_embedding_tokens), 0)                AS totalEmbeddingTokens
+        FROM ai_knowledge_doc_log
+        <include refid="Time_Filter"/>
+        GROUP BY operation_type
+        ORDER BY totalOps DESC
+    </select>
+
+</mapper>
