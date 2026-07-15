@@ -36,11 +36,11 @@ public class AiModelChatModelProvider implements ChatModelProvider {
 
     @Override
     public ChatModel provide(LLMNodeData nodeData) {
-        if (nodeData == null || nodeData.getModel() == null) {
+        if (nodeData == null || nodeData.getModelId() == null) {
             throw new IllegalStateException("LLM 节点未指定模型 (model 为空)");
         }
 
-        Long modelId = nodeData.getModel();
+        Long modelId = nodeData.getModelId();
         Double temperature = nodeData.getTemperature();
         String cacheKey = modelId + "@" + temperature;
 

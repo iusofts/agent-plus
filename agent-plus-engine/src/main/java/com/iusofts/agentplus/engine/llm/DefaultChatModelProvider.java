@@ -16,7 +16,7 @@ import java.util.concurrent.ConcurrentMap;
  * 若提供了按 {@code ai_model} 表路由的 {@link ChatModelProvider} bean，
  * 会通过 {@code @ConditionalOnMissingBean} 覆盖本实现。</p>
  *
- * <p>本实现不解析 {@link LLMNodeData#getModel()}（模型 ID），因为兜底场景没有 id→渠道 映射；
+ * <p>本实现不解析 {@link LLMNodeData#getModelId()}（模型 ID），因为兜底场景没有 id→渠道 映射；
  * 但节点上的 {@code temperature} 会生效，按温度缓存 {@link ChatModel} 实例避免重建。</p>
  *
  * @author Ivan

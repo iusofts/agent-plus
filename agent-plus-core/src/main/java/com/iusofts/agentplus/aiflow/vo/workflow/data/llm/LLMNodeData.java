@@ -6,7 +6,6 @@ import com.iusofts.agentplus.aiflow.vo.workflow.data.common.InputParam;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -28,7 +27,10 @@ public class LLMNodeData extends NodeData {
 
     @NotNull(message = "模型不能为空")
     @Schema(description = "模型ID")
-    private Long model;
+    private Long modelId;
+
+    @Schema(description = "模型名称")
+    private String modelName;
 
     @Schema(description = "温度参数")
     private Double temperature;

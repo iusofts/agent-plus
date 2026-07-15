@@ -6,7 +6,7 @@ import dev.langchain4j.model.chat.ChatModel;
 /**
  * LLM 模型工厂。
  *
- * <p>接入方需要实现本接口,把 {@link LLMNodeData#getModel()} 指向的模型 id
+ * <p>接入方需要实现本接口,把 {@link LLMNodeData#getModelId()} 指向的模型 id
  * 解析为 LangChain4j 的 {@link ChatModel}(如 OpenAI 兼容渠道、DashScope、Ollama 等)。</p>
  *
  * @author Ivan

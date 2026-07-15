@@ -57,7 +57,7 @@ public class MockChatModelProvider implements ChatModelProvider {
 
     private static String defaultResponse(LLMNodeData data, List<ChatMessage> messages) {
         String userText = extractUserText(messages);
-        String tag = "[mock:" + data.getModel() + "]";
+        String tag = "[mock:" + data.getModelId() + "]";
 
         List<OutputParam> outs = data.getOutputParams();
         if (outs != null && outs.size() > 1) {
