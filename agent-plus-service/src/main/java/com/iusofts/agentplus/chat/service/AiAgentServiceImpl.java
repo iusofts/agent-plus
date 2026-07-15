@@ -44,6 +44,7 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgent> impl
         if (aiAgent.getType() == null) {
             aiAgent.setType(AiAgentTypeEnum.AUTONOMOUS.getCode());
         }
+        aiAgent.setStatus(1);
         aiAgent.setCreateBy(reqVo.getOperatorId());
         super.save(aiAgent);
     }
@@ -69,10 +70,13 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgent> impl
         if (reqVo.getType() != null) {
             wrapper.eq(AiAgent::getType, reqVo.getType());
         }
+        if (reqVo.getStatus() != null) {
+            wrapper.eq(AiAgent::getStatus, reqVo.getStatus());
+        }
         wrapper.orderByDesc(AiAgent::getId);
         Page<AiAgent> pageParam = new Page<>(reqVo.getCurrentPage(), reqVo.getPageSize());
         wrapper.select(AiAgent::getId, AiAgent::getName, AiAgent::getType, AiAgent::getDescription, AiAgent::getIcon, AiAgent::getModelId,
-                AiAgent::getCreateTime, AiAgent::getUpdateTime);
+                AiAgent::getWorkflowIds, AiAgent::getStatus, AiAgent::getCreateTime, AiAgent::getUpdateTime);
         IPage<AiAgent> page = super.page(pageParam, wrapper);
         List<AiAgentVo> voList = page.getRecords().stream().map(item -> {
             AiAgentVo vo = ModelMapperUtil.strictMap(item, AiAgentVo.class);
@@ -126,6 +130,21 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgent> impl
         if (count == 0) {
             throw new SystemBusinessException("操作权限获取失败！");
         }
+    }
+
+    @Override
+    public void changeStatus(AiAgentStatusReqVo reqVo) {
+        checkDataPermission(reqVo.getId(), reqVo.getOrgId());
+        AiAgent aiAgent = super.getById(reqVo.getId());
+        if (aiAgent == null) {
+            throw new SystemBusinessException("智能体不存在");
+        }
+
+        AiAgent updateEntity = new AiAgent();
+        updateEntity.setId(reqVo.getId());
+        updateEntity.setStatus(reqVo.getStatus());
+        updateEntity.setUpdateBy(reqVo.getOperatorId());
+        super.updateById(updateEntity);
     }
 
 }

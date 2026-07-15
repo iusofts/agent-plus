@@ -28,4 +28,11 @@ public interface IAiAgentService {
 
     AiAgentDetailVo getById(IdReqVo reqVo);
 
+    /**
+     * 变更智能体状态
+     *
+     * @param reqVo 状态变更请求
+     */
+    void changeStatus(AiAgentStatusReqVo reqVo);
+
 }

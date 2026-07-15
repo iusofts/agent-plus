@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * <p>
@@ -37,10 +38,16 @@ public class AiAgentVo {
     @Schema(description = "使用模型ID")
     private Long modelId;
 
+    @Schema(description = "绑定工作流ID列表")
+    private List<Long> workflowIds;
+
     @Schema(description = "记录创建时间")
     private LocalDateTime createTime;
 
     @Schema(description = "记录最后更新时间")
     private LocalDateTime updateTime;
+
+    @Schema(description = "启用状态 0:禁用 1:启用")
+    private Integer status;
 
 }

@@ -21,6 +21,9 @@ public class AiAgentQueryPageReqVo extends PageQuery {
     @Schema(description = "类型 1:自主规划 2:对话流")
     private Integer type;
 
+    @Schema(description = "启用状态 0:禁用 1:启用")
+    private Integer status;
+
     @Schema(description = "组织ID", hidden = true)
     private Integer orgId;
 

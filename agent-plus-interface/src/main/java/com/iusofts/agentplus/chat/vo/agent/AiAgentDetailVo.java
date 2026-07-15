@@ -84,4 +84,7 @@ public class AiAgentDetailVo {
     @Schema(description = "记录最后更新时间")
     private LocalDateTime updateTime;
 
+    @Schema(description = "启用状态 0:禁用 1:启用")
+    private Integer status;
+
 }

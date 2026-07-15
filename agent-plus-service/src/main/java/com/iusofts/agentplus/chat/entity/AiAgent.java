@@ -117,4 +117,7 @@ public class AiAgent implements Serializable {
     @Schema(description = "所属组织ID")
     private Integer orgId;
 
+    @Schema(description = "启用状态 0:禁用 1:启用")
+    private Integer status;
+
 }

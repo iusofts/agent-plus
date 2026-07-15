@@ -198,8 +198,9 @@ public class AiFlowVersionServiceImpl extends ServiceImpl<AiFlowVersionMapper, A
         version.setUpdateBy(reqVo.getOperatorId());
         updateById(version);
 
-        // 更新流程的线上版本号
+        // 更新流程的线上版本号和发布状态
         aiFlow.setOnlineVersion(version.getVersionNo());
+        aiFlow.setPublishStatus(PublishingStatusEnum.PUBLISHED.getCode());
         aiFlow.setUpdateBy(reqVo.getOperatorId());
         aiFlowMapper.updateById(aiFlow);
     }

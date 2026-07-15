@@ -9,6 +9,7 @@ import com.iusofts.agentplus.web.common.controller.BApiController;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -67,6 +68,13 @@ public class AiAgentController extends BApiController {
     public AiAgentDetailVo getById(@RequestBody IdReqVo reqVo) {
         reqVo.setOrgId(SYSCODE);
         return aiAgentService.getById(reqVo);
+    }
+
+    @Operation(description = "变更智能体状态")
+    @PostMapping("/changeStatus")
+    public void changeStatus(@Valid @RequestBody AiAgentStatusReqVo reqVo) {
+        reqVo.setOrgId(SYSCODE);
+        aiAgentService.changeStatus(reqVo);
     }
 
 }

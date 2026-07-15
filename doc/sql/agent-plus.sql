@@ -48,6 +48,7 @@ CREATE TABLE `ai_agent`  (
   `update_time` datetime NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '记录最后更新时间',
   `delete_flag` tinyint(1) NOT NULL DEFAULT 0 COMMENT '删除标记(0:正常 1:已删除)',
   `org_id` int(11) NOT NULL DEFAULT 1 COMMENT '所属组织ID',
+  `status` tinyint(4) NOT NULL DEFAULT 1 COMMENT '启用状态 0:禁用 1:启用',
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_ai_agent_org_id`(`org_id`) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = 'ai智能体' ROW_FORMAT = DYNAMIC;
@@ -55,8 +56,8 @@ CREATE TABLE `ai_agent`  (
 -- ----------------------------
 -- Records of ai_agent
 -- ----------------------------
-INSERT INTO `ai_agent` VALUES (1109, '商场导购员', '一个商场AI导购ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss', 'https://iusofts.oss-cn-hangzhou.aliyuncs.com/agent/20260714160210-300e0ce4-fe8f-32bc.jpg', '你是一个商场导购，需要根据客户需求指引去对应楼层。要亲切、活泼。\n\n如果询问商场营业状态，先调用时间插件确认时间。\n\n每次回复不要超过30个字。', 1, '[]', '[700000002, 700000001]', '有什么我能帮你的吗？', '[\"吃饭在几楼？\", \"厕所在哪？\"]', '[1202]', 3, 0.70, 5, 2000, 4000, 0, 1, 'asdasdasdasd', 0, '2026-07-09 01:35:46', 0, '2026-07-14 16:02:19', 0, 1);
-INSERT INTO `ai_agent` VALUES (100000013, '小朋友', '一个会写代码的小学生', NULL, '你是一个会写Python代码的小学生', 1, '[]', '[]', '', '[]', '[]', 3, 0.70, 5, 2000, 4000, 0, 0, '', 0, '2026-07-10 17:18:45', 0, '2026-07-14 14:36:53', 0, 1);
+INSERT INTO `ai_agent` VALUES (1109, '商场导购员', 1, '一个商场AI导购ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss', 'https://iusofts.oss-cn-hangzhou.aliyuncs.com/agent/20260714160210-300e0ce4-fe8f-32bc.jpg', '你是一个商场导购，需要根据客户需求指引去对应楼层。要亲切、活泼。\n\n如果询问商场营业状态，先调用时间插件确认时间。\n\n每次回复不要超过30个字。', 1, '[]', '[700000002, 700000001]', '有什么我能帮你的吗？', '[\"吃饭在几楼？\", \"厕所在哪？\"]', '[1202]', 3, 0.70, 5, 2000, 4000, 0, 1, 'asdasdasdasd', 0, '2026-07-09 01:35:46', 0, '2026-07-14 16:02:19', 0, 1, 1);
+INSERT INTO `ai_agent` VALUES (100000013, '小朋友', 1, '一个会写代码的小学生', NULL, '你是一个会写Python代码的小学生', 1, '[]', '[]', '', '[]', '[]', 3, 0.70, 5, 2000, 4000, 0, 0, '', 0, '2026-07-10 17:18:45', 0, '2026-07-14 14:36:53', 0, 1, 1);
 
 -- ----------------------------
 -- Table structure for ai_conversation
