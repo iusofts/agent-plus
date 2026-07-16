@@ -26,11 +26,8 @@ public class AiFlowTrialRunNodeReqVo {
     @Schema(description = "目标节点ID")
     private String nodeId;
 
-    @Schema(description = "全局入参,键为入参名")
+    @Schema(description = "当前节点输入参数键值,键为该节点输入参数名,直接赋值不走上游依赖")
     private Map<String, Object> inputs;
-
-    @Schema(description = "上游节点模拟输出,外层键为节点ID,内层键为输出参数名")
-    private Map<String, Map<String, Object>> upstreamOutputs;
 
     @Schema(description = "操作人ID", hidden = true)
     private Long operatorId;

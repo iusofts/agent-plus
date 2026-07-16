@@ -8,6 +8,7 @@ import com.iusofts.agentplus.aiflow.entity.AiFlow;
 import com.iusofts.agentplus.aiflow.entity.AiFlowRuntime;
 import com.iusofts.agentplus.aiflow.entity.AiFlowRuntimeNode;
 import com.iusofts.agentplus.aiflow.entity.AiFlowVersion;
+import com.iusofts.agentplus.aiflow.enums.FlowNodeType;
 import com.iusofts.agentplus.aiflow.enums.NodeRunStatusEnum;
 import com.iusofts.agentplus.aiflow.enums.RunStatusEnum;
 import com.iusofts.agentplus.aiflow.interfaces.IAiFlowTrialService;
@@ -22,6 +23,10 @@ import com.iusofts.agentplus.aiflow.vo.AiFlowTrialRunResultVo;
 import com.iusofts.agentplus.aiflow.vo.workflow.Node;
 import com.iusofts.agentplus.aiflow.vo.workflow.Workflow;
 import com.iusofts.agentplus.aiflow.vo.workflow.config.WorkflowConfig;
+import com.iusofts.agentplus.aiflow.vo.workflow.data.InputParamNodeData;
+import com.iusofts.agentplus.aiflow.vo.workflow.data.NodeData;
+import com.iusofts.agentplus.aiflow.vo.workflow.data.common.InputParam;
+import com.iusofts.agentplus.aiflow.vo.workflow.data.common.ParamMapKey;
 import com.iusofts.agentplus.basic.exception.SystemBusinessException;
 import com.iusofts.agentplus.engine.WorkflowEngine;
 import com.iusofts.agentplus.engine.WorkflowExecutionResult;
@@ -136,6 +141,13 @@ public class AiFlowTrialServiceImpl implements IAiFlowTrialService {
         WorkflowConfig config = deserializeConfig(version.getConfigJson());
 
         Node target = findNode(workflow, reqVo.getNodeId());
+        // Start 节点不支持单节点试运行
+        if (FlowNodeType.START.getCode().equals(target.getType())) {
+            throw new SystemBusinessException("开始节点不支持单节点试运行");
+        }
+        // 仅支持含 InputParam 类型输入参数的节点
+        List<InputParam> inputParams = extractInputParams(target);
+
         Map<String, Object> inputs = reqVo.getInputs() == null ? new LinkedHashMap<>() : reqVo.getInputs();
         String traceId = newTraceId();
 
@@ -148,13 +160,9 @@ public class AiFlowTrialServiceImpl implements IAiFlowTrialService {
         result.setTraceId(traceId);
 
         try {
-            ExecutionContext ctx = new ExecutionContext(traceId, config, inputs);
-            // 预置上游节点的模拟输出,供目标节点通过 {{nodeId.name}} 引用
-            if (reqVo.getUpstreamOutputs() != null) {
-                for (Map.Entry<String, Map<String, Object>> up : reqVo.getUpstreamOutputs().entrySet()) {
-                    ctx.putOutput(new NodeOutput(up.getKey(), up.getValue()));
-                }
-            }
+            ExecutionContext ctx = new ExecutionContext(traceId, config, new LinkedHashMap<>());
+            // 按参数名直接赋值:把用户给的值回填到各输入参数 paramMapKey 指向的位置,不走真实上游
+            applyDirectInputs(inputParams, inputs, ctx);
 
             NodeExecutor executor = workflowEngine.registry().get(target.getType());
             NodeOutput output = executor.execute(target, ctx);
@@ -304,6 +312,56 @@ public class AiFlowTrialServiceImpl implements IAiFlowTrialService {
             }
         }
         throw new SystemBusinessException("节点不存在: " + nodeId);
+    }
+
+    /**
+     * 提取目标节点的输入参数定义。仅 {@link InputParamNodeData} 子类(LLM/知识库/工具/批处理)
+     * 支持单节点试运行,其余节点抛异常。
+     */
+    private List<InputParam> extractInputParams(Node target) {
+        NodeData data = target.getData();
+        if (!(data instanceof InputParamNodeData inputParamData)) {
+            throw new SystemBusinessException("该节点类型不支持单节点试运行");
+        }
+        List<InputParam> inputParams = inputParamData.getInputParams();
+        if (inputParams == null || inputParams.isEmpty()) {
+            throw new SystemBusinessException("该节点没有可赋值的输入参数");
+        }
+        return inputParams;
+    }
+
+    /**
+     * 按参数名直接赋值:用户传入的 {@code 参数名 → 值},按节点各输入参数的 {@code paramMapKey}
+     * 回填到上下文对应位置,使执行器解析时直接拿到用户给的值,不触碰真实上游节点。
+     */
+    private void applyDirectInputs(List<InputParam> inputParams, Map<String, Object> inputs,
+                                   ExecutionContext ctx) {
+        // 按来源节点归组,组装为该节点的模拟输出写入上下文
+        Map<String, Map<String, Object>> grouped = new LinkedHashMap<>();
+        for (InputParam param : inputParams) {
+            if (param.getName() == null) {
+                continue;
+            }
+            Object value = inputs.get(param.getName());
+            ParamMapKey key = param.getParamMapKey();
+            if (key == null || key.getNodeId() == null || key.getName() == null) {
+                continue;
+            }
+            grouped.computeIfAbsent(key.getNodeId(), k -> new LinkedHashMap<>())
+                    .put(key.getName(), value);
+        }
+        for (Map.Entry<String, Map<String, Object>> entry : grouped.entrySet()) {
+            String sourceNodeId = entry.getKey();
+            Map<String, Object> values = entry.getValue();
+            // 全局输入/环境变量走对应容器,其余作为上游节点输出注入
+            if ("inputs".equalsIgnoreCase(sourceNodeId) || "start".equalsIgnoreCase(sourceNodeId)) {
+                ctx.getGlobalInputs().putAll(values);
+            } else if ("env".equalsIgnoreCase(sourceNodeId)) {
+                ctx.getEnvVars().putAll(values);
+            } else {
+                ctx.putOutput(new NodeOutput(sourceNodeId, values));
+            }
+        }
     }
 
     /** 引擎节点状态 → 落库状态码。 */

@@ -1,8 +1,7 @@
 package com.iusofts.agentplus.aiflow.vo.workflow.data.llm;
 
-import com.iusofts.agentplus.aiflow.vo.workflow.data.NodeData;
+import com.iusofts.agentplus.aiflow.vo.workflow.data.InputParamNodeData;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.common.OutputParam;
-import com.iusofts.agentplus.aiflow.vo.workflow.data.common.InputParam;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -23,7 +22,7 @@ import java.util.List;
 @Data
 @EqualsAndHashCode(callSuper = true)
 @Schema(description = "LLM节点数据")
-public class LLMNodeData extends NodeData {
+public class LLMNodeData extends InputParamNodeData {
 
     @NotNull(message = "模型不能为空")
     @Schema(description = "模型ID")
@@ -42,10 +41,6 @@ public class LLMNodeData extends NodeData {
     @NotBlank(message = "用户提示词不能为空")
     @Schema(description = "用户提示词")
     private String userPrompt;
-
-    @Valid
-    @Schema(description = "输入参数列表")
-    private List<InputParam> inputParams;
 
     @Valid
     @Schema(description = "输出参数列表")

@@ -1,6 +1,5 @@
 package com.iusofts.agentplus.aiflow.vo.workflow.data;
 
-import com.iusofts.agentplus.aiflow.vo.workflow.data.common.InputParam;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.common.OutputParam;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
@@ -21,15 +20,10 @@ import java.util.List;
 @Data
 @EqualsAndHashCode(callSuper = true)
 @Schema(description = "批处理节点数据")
-public class BatchNodeData extends NodeData {
+public class BatchNodeData extends InputParamNodeData {
 
     @Schema(description = "最大并行数")
     private Integer maxParallel;
-
-    @Valid
-    @NotEmpty(message = "输入参数不能为空")
-    @Schema(description = "输入参数列表")
-    private List<InputParam> inputParams;
 
     @Valid
     @NotEmpty(message = "输出参数不能为空")
