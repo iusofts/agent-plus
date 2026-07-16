@@ -48,7 +48,10 @@
               "type": "String"
             }
           }
-        ]
+        ],
+        "answerMode": "variable",
+        "answerContent": "",
+        "streamOutput": false
       }
     },
     {
@@ -63,7 +66,7 @@
       "data": {
         "label": "知识库",
         "description": "",
-        "knowledgeId": 1,
+        "knowledgeIds": [1],
         "topK": 3,
         "inputParams": [
           {
@@ -91,7 +94,7 @@
       "data": {
         "label": "大模型",
         "description": "",
-        "model": 1,
+        "modelId": 1,
         "temperature": 0.7,
         "systemPrompt": "你是一个智能客服",
         "userPrompt": "用户说了：{{query}}\n------------------------------\n参考资料是：{{FAQ}}",
