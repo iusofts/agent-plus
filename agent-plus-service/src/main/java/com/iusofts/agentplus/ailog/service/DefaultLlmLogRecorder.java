@@ -246,9 +246,10 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
         }
 
         @Override
-        public KnowledgeRetrievalRecorder fromFlow(Long flowId) {
+        public KnowledgeRetrievalRecorder fromFlow(Long flowId, String nodeId) {
             entity.setCallSource("FLOW");
             entity.setSourceId(flowId);
+            entity.setSourceNodeId(nodeId);
             return this;
         }
 

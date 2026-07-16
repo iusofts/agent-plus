@@ -124,7 +124,7 @@ public interface LlmLogRecorder {
 
         KnowledgeRetrievalRecorder fromChat(Long conversationId);
 
-        KnowledgeRetrievalRecorder fromFlow(Long flowId);
+        KnowledgeRetrievalRecorder fromFlow(Long flowId, String nodeId);
 
         KnowledgeRetrievalRecorder fromApi();
 

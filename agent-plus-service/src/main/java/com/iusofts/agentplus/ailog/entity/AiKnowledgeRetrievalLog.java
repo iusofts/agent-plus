@@ -43,6 +43,9 @@ public class AiKnowledgeRetrievalLog implements Serializable {
     @Schema(description = "来源ID(智能体ID/会话ID/流程ID)")
     private Long sourceId;
 
+    @Schema(description = "来源节点ID(工作流节点ID)")
+    private String sourceNodeId;
+
     @Schema(description = "知识库ID")
     private Long knowledgeBaseId;
 

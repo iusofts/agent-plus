@@ -331,6 +331,7 @@ CREATE TABLE `ai_knowledge_retrieval_log`  (
   `trace_id` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '链路追踪ID(关联llm调用)',
   `call_source` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '调用来源(AGENT/CHAT/FLOW/API)',
   `source_id` bigint(20) NULL DEFAULT NULL COMMENT '来源ID(智能体ID/会话ID/流程ID)',
+  `source_node_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '来源节点ID(工作流节点ID)',
   `knowledge_base_id` bigint(20) NOT NULL COMMENT '知识库ID',
   `knowledge_base_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '知识库名称',
   `query` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '检索查询内容',
