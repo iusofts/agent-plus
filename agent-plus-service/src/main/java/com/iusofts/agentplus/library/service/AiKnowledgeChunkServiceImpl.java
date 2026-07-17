@@ -18,6 +18,7 @@ import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeChunkEditReqVo;
 import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeChunkQueryPageReqVo;
 import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeChunkStatusReqVo;
 import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeChunkVo;
+import com.iusofts.agentplus.llm.log.LlmLogRecorder;
 import com.iusofts.agentplus.plugin.vectorstore.KnowledgeMetadata;
 import com.iusofts.agentplus.plugin.vectorstore.KnowledgeStoreService;
 import com.iusofts.agentplus.plugin.vectorstore.RedisVectorStoreManager;
@@ -66,6 +67,9 @@ public class AiKnowledgeChunkServiceImpl extends ServiceImpl<AiKnowledgeChunkMap
 
     @Resource
     private IdService idService;
+
+    @Resource
+    private LlmLogRecorder llmLogRecorder;
 
     @Override
     public PageResult<AiKnowledgeChunkVo> queryPage(AiKnowledgeChunkQueryPageReqVo reqVo) {
@@ -123,9 +127,10 @@ public class AiKnowledgeChunkServiceImpl extends ServiceImpl<AiKnowledgeChunkMap
         chunk.setOrgId(doc.getOrgId());
 
         // 先向量化写入向量库,再落库
+        int embeddingTokens;
         try {
             List<Map<String, Object>> metadatas = List.of(buildChunkMetadata(chunkId, doc));
-            knowledgeStoreService.batchEmbedAndStore(
+            embeddingTokens = knowledgeStoreService.batchEmbedAndStore(
                     kb.getCollectionName(),
                     List.of(vectorId),
                     List.of(reqVo.getContent()),
@@ -133,10 +138,16 @@ public class AiKnowledgeChunkServiceImpl extends ServiceImpl<AiKnowledgeChunkMap
                     kb.getEmbeddingModelId()
             );
         } catch (Exception e) {
+            recordChunkLogSafely(kb, doc, reqVo.getOperatorId(), reqVo.getOrgId(),
+                    LogAction.ADD, null, null, e.getMessage());
             throw new SystemBusinessException("写入向量数据失败:" + e.getMessage());
         }
         super.save(chunk);
         incrementChunkCount(doc);
+        recordChunkLogSafely(kb, doc, reqVo.getOperatorId(), reqVo.getOrgId(),
+                LogAction.ADD,
+                reqVo.getContent() == null ? 0 : reqVo.getContent().length(),
+                embeddingTokens, null);
         return chunk.getId();
     }
 
@@ -156,9 +167,10 @@ public class AiKnowledgeChunkServiceImpl extends ServiceImpl<AiKnowledgeChunkMap
         }
 
         // 以相同 vectorId 重新向量化并覆盖向量库中的向量
+        int embeddingTokens;
         try {
             List<Map<String, Object>> metadatas = List.of(buildChunkMetadata(chunk.getId(), doc));
-            knowledgeStoreService.batchEmbedAndStore(
+            embeddingTokens = knowledgeStoreService.batchEmbedAndStore(
                     kb.getCollectionName(),
                     List.of(chunk.getVectorId()),
                     List.of(reqVo.getContent()),
@@ -166,6 +178,8 @@ public class AiKnowledgeChunkServiceImpl extends ServiceImpl<AiKnowledgeChunkMap
                     kb.getEmbeddingModelId()
             );
         } catch (Exception e) {
+            recordChunkLogSafely(kb, doc, reqVo.getOperatorId(), reqVo.getOrgId(),
+                    LogAction.UPDATE, null, null, e.getMessage());
             throw new SystemBusinessException("更新向量数据失败:" + e.getMessage());
         }
 
@@ -174,6 +188,11 @@ public class AiKnowledgeChunkServiceImpl extends ServiceImpl<AiKnowledgeChunkMap
         update.setContent(reqVo.getContent());
         update.setUpdateBy(reqVo.getOperatorId());
         super.updateById(update);
+
+        recordChunkLogSafely(kb, doc, reqVo.getOperatorId(), reqVo.getOrgId(),
+                LogAction.UPDATE,
+                reqVo.getContent() == null ? 0 : reqVo.getContent().length(),
+                embeddingTokens, null);
     }
 
     @Override
@@ -218,9 +237,10 @@ public class AiKnowledgeChunkServiceImpl extends ServiceImpl<AiKnowledgeChunkMap
                 throw new SystemBusinessException("分块内容为空,无法重建向量");
             }
             AiKnowledgeDocument doc = aiKnowledgeDocumentMapper.selectById(chunk.getDocumentId());
+            int embeddingTokens;
             try {
                 List<Map<String, Object>> metadatas = List.of(buildChunkMetadata(chunk.getId(), doc));
-                knowledgeStoreService.batchEmbedAndStore(
+                embeddingTokens = knowledgeStoreService.batchEmbedAndStore(
                         kb.getCollectionName(),
                         List.of(chunk.getVectorId()),
                         List.of(chunk.getContent()),
@@ -229,8 +249,14 @@ public class AiKnowledgeChunkServiceImpl extends ServiceImpl<AiKnowledgeChunkMap
                 );
             } catch (Exception e) {
                 log.error("重建向量数据失败", e);
+                recordChunkLogSafely(kb, doc, reqVo.getOperatorId(), reqVo.getOrgId(),
+                        LogAction.UPDATE, null, null, e.getMessage());
                 throw new SystemBusinessException("重建向量数据失败:" + e.getMessage());
             }
+            recordChunkLogSafely(kb, doc, reqVo.getOperatorId(), reqVo.getOrgId(),
+                    LogAction.UPDATE,
+                    chunk.getContent().length(),
+                    embeddingTokens, null);
         } else {
             // 停用:从向量库删除该分块向量
             if (StringUtils.isNotBlank(chunk.getVectorId())) {
@@ -302,6 +328,39 @@ public class AiKnowledgeChunkServiceImpl extends ServiceImpl<AiKnowledgeChunkMap
 
     private Map<String, Object> buildChunkMetadata(Long chunkId, AiKnowledgeDocument doc) {
         return KnowledgeMetadata.build(chunkId, doc.getId(), doc.getName(), doc.getDocUrl());
+    }
+
+    /**
+     * 单分块粒度的处理日志。以 chunkCount=1 表达分块级别的向量重建/新增。
+     * 日志记录失败不影响主流程。errorMessage 非空表示失败;为空表示成功。
+     */
+    private void recordChunkLogSafely(AiKnowledgeBase kb, AiKnowledgeDocument doc,
+                                       Long operatorId, Integer orgId,
+                                       LogAction action, Integer totalChars,
+                                       Integer embeddingTokens, String errorMessage) {
+        try {
+            LlmLogRecorder.KnowledgeDocRecorder recorder = llmLogRecorder.recordKnowledgeDoc()
+                    .knowledgeBase(kb == null ? null : kb.getId(), kb == null ? null : kb.getName())
+                    .document(doc == null ? null : doc.getId(), doc == null ? null : doc.getName())
+                    .operator(operatorId, orgId);
+            switch (action) {
+                case ADD -> recorder.add();
+                case UPDATE -> recorder.update();
+                case DELETE -> recorder.delete();
+            }
+            if (errorMessage != null) {
+                recorder.error(errorMessage);
+            } else {
+                recorder.chunks(1, totalChars, embeddingTokens).success();
+            }
+            recorder.record();
+        } catch (Exception logEx) {
+            log.warn("记录分块处理日志失败", logEx);
+        }
+    }
+
+    private enum LogAction {
+        ADD, UPDATE, DELETE
     }
 
 }
