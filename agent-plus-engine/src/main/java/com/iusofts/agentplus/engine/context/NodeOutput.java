@@ -2,6 +2,7 @@ package com.iusofts.agentplus.engine.context;
 
 import lombok.Getter;
 
+import java.io.Serializable;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -18,7 +19,7 @@ import java.util.Map;
  * @author Ivan
  */
 @Getter
-public class NodeOutput {
+public class NodeOutput implements Serializable {
 
     private final String nodeId;
     private final Map<String, Object> outputs;

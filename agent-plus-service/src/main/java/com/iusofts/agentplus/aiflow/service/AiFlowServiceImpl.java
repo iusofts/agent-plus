@@ -11,7 +11,7 @@ import com.iusofts.agentplus.aiflow.enums.FlowStatusEnum;
 import com.iusofts.agentplus.aiflow.mapper.AiFlowMapper;
 import com.iusofts.agentplus.aiflow.vo.*;
 import com.iusofts.agentplus.basic.exception.SystemBusinessException;
-import com.iusofts.agentplus.basic.page.PageResult;
+import com.iusofts.agentplus.basic.web.vo.page.PageResult;
 import com.iusofts.agentplus.basic.utils.ModelMapperUtil;
 import com.iusofts.agentplus.basic.utils.StringUtils;
 import com.iusofts.agentplus.common.vo.IdReqVo;
@@ -20,6 +20,7 @@ import com.iusofts.agentplus.id.service.IdService.UidTypeEnum;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -50,6 +51,7 @@ public class AiFlowServiceImpl extends ServiceImpl<AiFlowMapper, AiFlow> impleme
         aiFlow.setId(uid.longValue());
         aiFlow.setCreateBy(reqVo.getOperatorId());
         aiFlow.setStatus(FlowStatusEnum.ENABLED.getCode());
+        aiFlow.setPublishStatus(0);
         aiFlow.setLatestVersion("v1.0.0");
         aiFlow.setOnlineVersion("");
         save(aiFlow);
@@ -80,6 +82,9 @@ public class AiFlowServiceImpl extends ServiceImpl<AiFlowMapper, AiFlow> impleme
         }
         if (reqVo.getStatus() != null) {
             wrapper.eq(AiFlow::getStatus, reqVo.getStatus());
+        }
+        if (reqVo.getPublishStatus() != null) {
+            wrapper.eq(AiFlow::getPublishStatus, reqVo.getPublishStatus());
         }
 
         wrapper.orderByDesc(AiFlow::getId);
@@ -133,6 +138,24 @@ public class AiFlowServiceImpl extends ServiceImpl<AiFlowMapper, AiFlow> impleme
         aiFlow.setStatus(reqVo.getStatus());
         aiFlow.setUpdateBy(reqVo.getOperatorId());
         updateById(aiFlow);
+    }
+
+    @Override
+    public List<AiFlowVo> listByIds(List<Long> flowIds) {
+        if (flowIds == null || flowIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        LambdaQueryWrapper<AiFlow> wrapper = Wrappers.lambdaQuery();
+        wrapper.in(AiFlow::getId, flowIds);
+        wrapper.select(AiFlow::getId, AiFlow::getType, AiFlow::getName, AiFlow::getCode,
+                AiFlow::getDescription, AiFlow::getIcon, AiFlow::getStatus,
+                AiFlow::getLatestVersion, AiFlow::getOnlineVersion,
+                AiFlow::getCreateTime, AiFlow::getUpdateTime);
+        List<AiFlow> list = super.list(wrapper);
+        return list.stream()
+                .map(item -> ModelMapperUtil.strictMap(item, AiFlowVo.class))
+                .toList();
     }
 
 }

@@ -11,7 +11,7 @@
  Target Server Version : 50744 (5.7.44)
  File Encoding         : 65001
 
- Date: 03/07/2026 15:47:05
+ Date: 15/07/2026 16:10:21
 */
 
 SET NAMES utf8mb4;
@@ -216,41 +216,6 @@ INSERT INTO `sys_menu` VALUES (1004, '重置密码', 100, 0, '', NULL, NULL, '',
 INSERT INTO `sys_menu` VALUES (1005, '门店员工导入', 100, 0, '', NULL, NULL, '', 1, 0, 'F', '0', '0', 'system:user:importShopUser', NULL, 'admin', '2026-06-04 11:23:01', '', NULL, '', 0);
 
 -- ----------------------------
--- Table structure for sys_oper_log_2026_07_03
--- ----------------------------
-DROP TABLE IF EXISTS `sys_oper_log_2026_07_03`;
-CREATE TABLE `sys_oper_log_2026_07_03`  (
-  `id` int(11) NOT NULL AUTO_INCREMENT COMMENT '日志主键',
-  `title` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT '' COMMENT '模块标题',
-  `business_type` int(2) NOT NULL DEFAULT 0 COMMENT '业务类型（0其它 1新增 2修改 3删除）',
-  `method` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '' COMMENT '方法名称',
-  `request_method` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '' COMMENT '请求方式',
-  `operator_type` int(1) NOT NULL DEFAULT 0 COMMENT '操作类别（0其它 1后台用户 2客户端用户）',
-  `oper_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT '' COMMENT '操作人员',
-  `dept_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT '' COMMENT '部门名称',
-  `oper_url` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT '' COMMENT '请求URL',
-  `user_id` bigint(20) NULL DEFAULT NULL COMMENT '用户ID',
-  `token` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '用户身份令牌',
-  `oper_ip` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT '' COMMENT '主机地址',
-  `oper_location` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT '' COMMENT '操作地点',
-  `oper_param` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL COMMENT '请求参数',
-  `json_result` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL COMMENT '返回参数',
-  `status` int(1) NULL DEFAULT 0 COMMENT '操作状态（0正常 1异常）',
-  `error_msg` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL COMMENT '错误消息',
-  `oper_time` datetime NULL DEFAULT NULL COMMENT '操作时间',
-  `execute_time` int(11) NULL DEFAULT NULL COMMENT '执行时间(单位毫秒)',
-  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `update_time` datetime NULL DEFAULT NULL COMMENT '更新时间',
-  `delete_flag` int(11) NOT NULL DEFAULT 0 COMMENT '软删除标记（0：未删除；1：已删除）',
-  PRIMARY KEY (`id`) USING BTREE,
-  INDEX `idx_user_id`(`user_id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '操作日志记录' ROW_FORMAT = Dynamic;
-
--- ----------------------------
--- Records of sys_oper_log_2026_07_03
--- ----------------------------
-
--- ----------------------------
 -- Table structure for sys_role
 -- ----------------------------
 DROP TABLE IF EXISTS `sys_role`;
@@ -450,7 +415,7 @@ CREATE TABLE `sys_user`  (
 -- ----------------------------
 -- Records of sys_user
 -- ----------------------------
-INSERT INTO `sys_user` VALUES (1, 103, 'admin', '管理员', 'ry@163.com', '15888888888', '1', '', '21232f297a57a5a743894a0e4a801fc3', '0', 1, '127.0.0.1', '2026-07-02 21:40:54', 'admin', '2025-02-18 21:35:13', '', '2026-07-02 21:40:53', '管理员', 0);
+INSERT INTO `sys_user` VALUES (1, 103, 'admin', '管理员', 'ry@163.com', '15888888888', '1', 'f-07.png', '21232f297a57a5a743894a0e4a801fc3', '0', 1, '127.0.0.1', '2026-07-15 10:54:06', 'admin', '2025-02-18 21:35:13', '', '2026-07-15 10:54:08', '管理员', 0);
 INSERT INTO `sys_user` VALUES (2, 103, 'ry', '测试', '', '15666666666', '0', '', 'e10adc3949ba59abbe56e057f20f883e', '0', 1, '127.0.0.1', '2026-06-29 15:51:38', 'admin', '2025-02-18 21:35:13', 'admin', '2026-07-01 16:59:08', '测试员', 1);
 INSERT INTO `sys_user` VALUES (14, 103, 'test', '测试', '', '13888888888', NULL, '', 'e10adc3949ba59abbe56e057f20f883e', '0', 1, '127.0.0.1', '2026-07-02 00:44:39', 'admin', '2026-07-01 22:42:38', '', '2026-07-02 00:44:38', NULL, 0);
 

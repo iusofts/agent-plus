@@ -2,30 +2,59 @@ package com.iusofts.agentplus.basic.thread;
 
 import com.iusofts.agentplus.basic.enums.AsyncTaskGroup;
 import com.iusofts.agentplus.basic.enums.ExecutionStrategy;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Map;
-import java.util.concurrent.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
- * 异步任务管理器 - 使用JDK21虚拟线程，支持按分组设置最大并发数和执行策略
+ * 异步任务管理器 - 使用 JDK21 虚拟线程，支持按分组设置最大并发数、在途上限和执行策略。
+ *
+ * <h3>并发模型（两级限流）</h3>
+ * <ol>
+ *   <li><b>准入闸门(admissionGate)</b>：在<em>提交端非阻塞</em> {@code tryAcquire}，限制单个分组
+ *       「等待中+执行中」的在途任务总数。闸门满则立即拒绝(记日志、返回 false)，避免瞬时洪峰创建
+ *       无上限的虚拟线程而 OOM。这是真正的准入/背压控制。</li>
+ *   <li><b>并发信号量(concurrencyControls)</b>：在虚拟线程内按策略获取，限制<em>同时执行</em>的任务数。
+ *       未抢到的任务在虚拟线程上廉价 park(数量已被准入闸门约束)。</li>
+ * </ol>
+ *
+ * <p>提交动作本身不阻塞调用方(如 Web 请求线程),保持 fire-and-forget 语义;拒绝与执行异常均通过
+ * SLF4J 记录,不再静默丢弃。信号量使用公平模式,避免高压下饥饿。</p>
  *
  * @author
  */
 public class AsyncManager {
+
+    private static final Logger log = LoggerFactory.getLogger(AsyncManager.class);
+
     /**
      * 操作延迟10毫秒
      */
     private final int OPERATE_DELAY_TIME = 10;
 
     /**
-     * 异步操作任务调度线程池（虚拟线程版本）
+     * 定时触发调度器(平台守护线程,仅负责计时);实际任务派发到虚拟线程执行。
      */
-    private final ScheduledExecutorService virtualExecutor;
+    private final ScheduledExecutorService scheduler;
 
     /**
-     * 不同任务类型的并发控制映射表
+     * 不同任务类型的并发控制映射表(限制同时执行数)
      */
     private final Map<String, Semaphore> concurrencyControls;
+
+    /**
+     * 不同任务类型的准入闸门映射表(限制在途任务总数 = 等待中 + 执行中)
+     */
+    private final Map<String, Semaphore> admissionGates;
 
     /**
      * 不同任务类型的执行策略映射表
@@ -43,6 +72,12 @@ public class AsyncManager {
     private static final int DEFAULT_CONCURRENT_LIMIT = 50;
 
     /**
+     * 默认在途任务上限(准入闸门大小)。虚拟线程 park 成本低,故给出较大默认值以容纳突发,
+     * 同时对无限堆积形成硬上限,防止 OOM。可按分组覆盖。
+     */
+    private static final int DEFAULT_MAX_IN_FLIGHT = 10_000;
+
+    /**
      * 默认执行策略
      */
     private static final ExecutionStrategy DEFAULT_EXECUTION_STRATEGY = ExecutionStrategy.TRY_ACQUIRE_TIMEOUT;
@@ -56,16 +91,19 @@ public class AsyncManager {
      * 单例模式
      */
     private AsyncManager() {
-        // 创建使用虚拟线程的调度执行器
-        ThreadFactory virtualThreadFactory = Thread.ofVirtual()
-            .name("virtual-async-task-")
-            .factory();
-        this.virtualExecutor = Executors.newScheduledThreadPool(0, virtualThreadFactory);
+        // 定时调度用平台守护线程(仅计时),避免用虚拟线程做池化 worker
+        ThreadFactory schedulerFactory = r -> {
+            Thread t = new Thread(r, "async-scheduler");
+            t.setDaemon(true);
+            return t;
+        };
+        this.scheduler = Executors.newScheduledThreadPool(1, schedulerFactory);
 
-        // 初始化并发控制映射表
-        this.concurrencyControls = new ConcurrentHashMap<>();
-        this.executionStrategies = new ConcurrentHashMap<>();
-        this.timeoutSeconds = new ConcurrentHashMap<>();
+        // 初始化映射表
+        this.concurrencyControls = new java.util.concurrent.ConcurrentHashMap<>();
+        this.admissionGates = new java.util.concurrent.ConcurrentHashMap<>();
+        this.executionStrategies = new java.util.concurrent.ConcurrentHashMap<>();
+        this.timeoutSeconds = new java.util.concurrent.ConcurrentHashMap<>();
 
         // 根据枚举初始化默认的并发限制和执行策略
         for (AsyncTaskGroup group : AsyncTaskGroup.values()) {
@@ -84,13 +122,13 @@ public class AsyncManager {
     }
 
     /**
-     * 为指定任务类型设置最大并发数限制
+     * 为指定任务类型设置最大并发数限制(同时执行数)。使用公平信号量。
      *
      * @param taskType 任务类型标识
-     * @param limit 并发数限制
+     * @param limit    并发数限制
      */
     public void setConcurrentLimit(String taskType, int limit) {
-        concurrencyControls.put(taskType, new Semaphore(limit));
+        concurrencyControls.put(taskType, new Semaphore(limit, true));
     }
 
     /**
@@ -100,7 +138,27 @@ public class AsyncManager {
      * @param limit 并发数限制
      */
     public void setConcurrentLimit(AsyncTaskGroup taskGroup, int limit) {
-        concurrencyControls.put(taskGroup.getGroupName(), new Semaphore(limit));
+        setConcurrentLimit(taskGroup.getGroupName(), limit);
+    }
+
+    /**
+     * 为指定任务类型设置在途任务上限(准入闸门大小)。
+     *
+     * @param taskType    任务类型标识
+     * @param maxInFlight 在途任务上限(等待中 + 执行中)
+     */
+    public void setMaxInFlight(String taskType, int maxInFlight) {
+        admissionGates.put(taskType, new Semaphore(maxInFlight, true));
+    }
+
+    /**
+     * 为指定任务枚举设置在途任务上限
+     *
+     * @param taskGroup   任务分组枚举
+     * @param maxInFlight 在途任务上限
+     */
+    public void setMaxInFlight(AsyncTaskGroup taskGroup, int maxInFlight) {
+        setMaxInFlight(taskGroup.getGroupName(), maxInFlight);
     }
 
     /**
@@ -144,14 +202,19 @@ public class AsyncManager {
     }
 
     /**
-     * 获取当前任务类型的信号量
-     *
-     * @param taskType 任务类型
-     * @return 信号量，如果未定义则返回默认限制的信号量
+     * 获取当前任务类型的并发信号量。未定义则按默认限制惰性创建(每种类型独立,互不影响)。
      */
     private Semaphore getSemaphore(String taskType) {
-        return concurrencyControls.getOrDefault(taskType,
-            concurrencyControls.computeIfAbsent("DEFAULT", k -> new Semaphore(DEFAULT_CONCURRENT_LIMIT)));
+        return concurrencyControls.computeIfAbsent(taskType,
+                k -> new Semaphore(DEFAULT_CONCURRENT_LIMIT, true));
+    }
+
+    /**
+     * 获取当前任务类型的准入闸门。未定义则按默认在途上限惰性创建。
+     */
+    private Semaphore getAdmissionGate(String taskType) {
+        return admissionGates.computeIfAbsent(taskType,
+                k -> new Semaphore(DEFAULT_MAX_IN_FLIGHT, true));
     }
 
     /**
@@ -179,11 +242,12 @@ public class AsyncManager {
      *
      * @param taskGroup 任务分组枚举
      * @param task 任务
+     * @return 是否被受理(false 表示在途上限已满而被拒绝)
      */
-    public void executeVirtualTask(AsyncTaskGroup taskGroup, Runnable task) {
-        executeVirtualTask(taskGroup.getGroupName(), task,
-                         getExecutionStrategy(taskGroup.getGroupName()),
-                         getTimeoutSeconds(taskGroup.getGroupName()));
+    public boolean executeVirtualTask(AsyncTaskGroup taskGroup, Runnable task) {
+        return executeVirtualTask(taskGroup.getGroupName(), task,
+                getExecutionStrategy(taskGroup.getGroupName()),
+                getTimeoutSeconds(taskGroup.getGroupName()));
     }
 
     /**
@@ -191,9 +255,10 @@ public class AsyncManager {
      *
      * @param taskType 任务类型标识
      * @param task 任务
+     * @return 是否被受理
      */
-    public void executeVirtualTask(String taskType, Runnable task) {
-        executeVirtualTask(taskType, task, getExecutionStrategy(taskType), getTimeoutSeconds(taskType));
+    public boolean executeVirtualTask(String taskType, Runnable task) {
+        return executeVirtualTask(taskType, task, getExecutionStrategy(taskType), getTimeoutSeconds(taskType));
     }
 
     /**
@@ -203,50 +268,97 @@ public class AsyncManager {
      * @param task 任务
      * @param strategy 执行策略
      * @param timeoutSeconds 超时时间（秒）
+     * @return 是否被受理
      */
-    public void executeVirtualTask(AsyncTaskGroup taskGroup, Runnable task, ExecutionStrategy strategy, int timeoutSeconds) {
-        executeVirtualTask(taskGroup.getGroupName(), task, strategy, timeoutSeconds);
+    public boolean executeVirtualTask(AsyncTaskGroup taskGroup, Runnable task, ExecutionStrategy strategy, int timeoutSeconds) {
+        return executeVirtualTask(taskGroup.getGroupName(), task, strategy, timeoutSeconds);
     }
 
     /**
-     * 使用虚拟线程执行任务（带分组字符串、执行策略和超时时间）
+     * 使用虚拟线程执行任务（带分组字符串、执行策略和超时时间）。
+     *
+     * <p>提交端非阻塞:先尝试占用准入名额,占不到即拒绝(返回 false 并记日志),不会创建虚拟线程;
+     * 占到名额后交由虚拟线程按策略获取并发许可并执行。</p>
      *
      * @param taskType 任务类型标识
      * @param task 任务
      * @param strategy 执行策略
      * @param timeoutSeconds 超时时间（秒）
+     * @return 是否被受理
      */
-    public void executeVirtualTask(String taskType, Runnable task, ExecutionStrategy strategy, int timeoutSeconds) {
-        Semaphore semaphore = getSemaphore(taskType);
+    public boolean executeVirtualTask(String taskType, Runnable task, ExecutionStrategy strategy, int timeoutSeconds) {
+        return dispatch(taskType, task, strategy, timeoutSeconds, null);
+    }
 
+    /**
+     * 派发核心。准入闸门在提交端把关,并发信号量在虚拟线程内把关。
+     *
+     * @param completion 可选的完成回调 future:任务成功 complete,失败/拒绝/超时 completeExceptionally;
+     *                   fire-and-forget 场景传 null。
+     * @return 是否通过准入(被受理)
+     */
+    private boolean dispatch(String taskType, Runnable task, ExecutionStrategy strategy,
+                             int timeoutSeconds, CompletableFuture<Void> completion) {
+        if (task == null) {
+            throw new IllegalArgumentException("task 不能为空");
+        }
+        Semaphore gate = getAdmissionGate(taskType);
+        // 提交端非阻塞占用在途名额;占不到即拒绝,避免无上限创建虚拟线程
+        if (!gate.tryAcquire()) {
+            log.warn("异步任务[{}]被拒绝:在途任务已达上限,请调大 maxInFlight 或降低提交速率", taskType);
+            if (completion != null) {
+                completion.completeExceptionally(
+                        new RejectedExecutionException("Task [" + taskType + "] rejected: in-flight limit reached"));
+            }
+            return false;
+        }
+
+        Semaphore concurrency = getSemaphore(taskType);
         Thread.startVirtualThread(() -> {
+            boolean concurrencyAcquired = false;
             try {
                 if (strategy == ExecutionStrategy.BLOCKING) {
-                    // 阻塞模式：等待获取许可（无限等待）
-                    semaphore.acquire();
-                    try {
-                        task.run();
-                    } finally {
-                        semaphore.release();
+                    concurrency.acquire();
+                    concurrencyAcquired = true;
+                } else {
+                    concurrencyAcquired = concurrency.tryAcquire(timeoutSeconds, TimeUnit.SECONDS);
+                }
+
+                if (!concurrencyAcquired) {
+                    log.warn("异步任务[{}]跳过:{}s 内未获得并发许可(策略 TRY_ACQUIRE_TIMEOUT)",
+                            taskType, timeoutSeconds);
+                    if (completion != null) {
+                        completion.completeExceptionally(new TimeoutException(
+                                "Task [" + taskType + "] skipped: no permit within " + timeoutSeconds + "s"));
                     }
-                } else if (strategy == ExecutionStrategy.TRY_ACQUIRE_TIMEOUT) {
-                    // 超时获取模式：在指定时间内尝试获取许可
-                    if (semaphore.tryAcquire(timeoutSeconds, TimeUnit.SECONDS)) {
-                        try {
-                            task.run();
-                        } finally {
-                            semaphore.release();
-                        }
-                    } else {
-                        // 如果获取许可超时，跳过任务并记录日志
-                        System.err.println("Task " + taskType + " execution skipped due to concurrency limit exceeded after " + timeoutSeconds + " seconds.");
+                    return;
+                }
+
+                try {
+                    task.run();
+                    if (completion != null) {
+                        completion.complete(null);
+                    }
+                } catch (Throwable t) {
+                    log.error("异步任务[{}]执行异常", taskType, t);
+                    if (completion != null) {
+                        completion.completeExceptionally(t);
                     }
                 }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                System.err.println("Task " + taskType + " execution interrupted: " + e.getMessage());
+                log.warn("异步任务[{}]等待并发许可时被中断", taskType, e);
+                if (completion != null) {
+                    completion.completeExceptionally(e);
+                }
+            } finally {
+                if (concurrencyAcquired) {
+                    concurrency.release();
+                }
+                gate.release();
             }
         });
+        return true;
     }
 
     /**
@@ -255,8 +367,8 @@ public class AsyncManager {
      * @param task 任务
      */
     public void executeVirtualTask(Runnable task) {
-        // 在虚拟线程中直接运行任务
-        Thread.startVirtualThread(task);
+        // 无分组:直接在虚拟线程运行,并兜底记录异常
+        Thread.startVirtualThread(() -> runSafely(task, "no-group"));
     }
 
     /**
@@ -265,23 +377,26 @@ public class AsyncManager {
      * @param task 任务
      */
     public void executeVirtual(java.util.TimerTask task) {
-        virtualExecutor.schedule(task, OPERATE_DELAY_TIME, TimeUnit.MILLISECONDS);
+        scheduler.schedule(() -> Thread.startVirtualThread(() -> runSafely(task, "timer")),
+                OPERATE_DELAY_TIME, TimeUnit.MILLISECONDS);
     }
 
     /**
-     * 执行延迟的虚拟线程任务 (按分组字符串限制和策略)
+     * 执行延迟的虚拟线程任务 (按分组字符串限制和策略)。
      *
      * @param taskType 任务类型
      * @param task 任务
      * @param delay 延迟时间
      * @param unit 时间单位
+     * @return 代表<em>任务本身</em>执行结果的 future:任务完成时 complete,拒绝/超时/异常时 completeExceptionally
      */
-    public ScheduledFuture<?> scheduleVirtualTask(String taskType, Runnable task, long delay, TimeUnit unit) {
-        return virtualExecutor.schedule(() -> executeVirtualTask(taskType, task), delay, unit);
+    public CompletableFuture<Void> scheduleVirtualTask(String taskType, Runnable task, long delay, TimeUnit unit) {
+        return scheduleVirtualTask(taskType, task, delay, unit,
+                getExecutionStrategy(taskType), getTimeoutSeconds(taskType));
     }
 
     /**
-     * 执行延迟的虚拟线程任务 (按分组字符串、执行策略和超时时间限制)
+     * 执行延迟的虚拟线程任务 (按分组字符串、执行策略和超时时间限制)。
      *
      * @param taskType 任务类型
      * @param task 任务
@@ -289,10 +404,14 @@ public class AsyncManager {
      * @param unit 时间单位
      * @param strategy 执行策略
      * @param timeoutSeconds 超时时间（秒）
+     * @return 代表任务执行结果的 future
      */
-    public ScheduledFuture<?> scheduleVirtualTask(String taskType, Runnable task, long delay, TimeUnit unit,
-                                               ExecutionStrategy strategy, int timeoutSeconds) {
-        return virtualExecutor.schedule(() -> executeVirtualTask(taskType, task, strategy, timeoutSeconds), delay, unit);
+    public CompletableFuture<Void> scheduleVirtualTask(String taskType, Runnable task, long delay, TimeUnit unit,
+                                                       ExecutionStrategy strategy, int timeoutSeconds) {
+        CompletableFuture<Void> result = new CompletableFuture<>();
+        scheduler.schedule(() -> dispatch(taskType, task, strategy, timeoutSeconds, result),
+                delay, unit);
+        return result;
     }
 
     /**
@@ -301,9 +420,31 @@ public class AsyncManager {
      * @param task 任务
      * @param delay 延迟时间
      * @param unit 时间单位
+     * @return 代表任务执行结果的 future
      */
-    public ScheduledFuture<?> scheduleVirtualTask(Runnable task, long delay, TimeUnit unit) {
-        return virtualExecutor.schedule(() -> Thread.startVirtualThread(task), delay, unit);
+    public CompletableFuture<Void> scheduleVirtualTask(Runnable task, long delay, TimeUnit unit) {
+        CompletableFuture<Void> result = new CompletableFuture<>();
+        scheduler.schedule(() -> Thread.startVirtualThread(() -> {
+            try {
+                task.run();
+                result.complete(null);
+            } catch (Throwable t) {
+                log.error("延迟异步任务执行异常", t);
+                result.completeExceptionally(t);
+            }
+        }), delay, unit);
+        return result;
+    }
+
+    /**
+     * 在虚拟线程内安全执行任务,兜底记录异常。
+     */
+    private void runSafely(Runnable task, String tag) {
+        try {
+            task.run();
+        } catch (Throwable t) {
+            log.error("异步任务[{}]执行异常", tag, t);
+        }
     }
 
     /**
@@ -325,6 +466,17 @@ public class AsyncManager {
      */
     public int getAvailablePermits(AsyncTaskGroup taskGroup) {
         return getAvailablePermits(taskGroup.getGroupName());
+    }
+
+    /**
+     * 获取当前任务类型可用的在途名额(准入闸门剩余许可)。
+     *
+     * @param taskType 任务类型
+     * @return 剩余在途名额,未定义返回 -1
+     */
+    public int getAvailableInFlight(String taskType) {
+        Semaphore gate = admissionGates.get(taskType);
+        return gate != null ? gate.availablePermits() : -1;
     }
 
     /**
@@ -368,9 +520,9 @@ public class AsyncManager {
     }
 
     /**
-     * 停止任务线程池
+     * 停止调度线程池。在途虚拟线程不属于池化资源,随任务自然结束。
      */
     public void shutdown() {
-        Threads.shutdownAndAwaitTermination(virtualExecutor);
+        Threads.shutdownAndAwaitTermination(scheduler);
     }
 }

@@ -6,7 +6,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.iusofts.agentplus.basic.exception.SystemBusinessException;
 import com.iusofts.agentplus.basic.mybatis.Query2Wrapper;
-import com.iusofts.agentplus.basic.page.PageResult;
+import com.iusofts.agentplus.basic.web.vo.page.PageResult;
 import com.iusofts.agentplus.basic.utils.ModelMapperUtil;
 import com.iusofts.agentplus.system.dao.OperLogMapper;
 import com.iusofts.agentplus.system.dto.OperLogAddParam;

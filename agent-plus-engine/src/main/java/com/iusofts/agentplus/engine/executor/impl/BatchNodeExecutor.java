@@ -1,16 +1,15 @@
 package com.iusofts.agentplus.engine.executor.impl;
 
 import com.iusofts.agentplus.aiflow.enums.FlowNodeType;
-import com.iusofts.agentplus.aiflow.vo.workflow.Edge;
 import com.iusofts.agentplus.aiflow.vo.workflow.Node;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.BatchNodeData;
 import com.iusofts.agentplus.engine.context.ExecutionContext;
 import com.iusofts.agentplus.engine.context.NodeOutput;
-import com.iusofts.agentplus.engine.dag.DagGraph;
-import com.iusofts.agentplus.engine.dag.TopologicalScheduler;
 import com.iusofts.agentplus.engine.executor.NodeExecutor;
-import com.iusofts.agentplus.engine.executor.NodeExecutorRegistry;
+import com.iusofts.agentplus.engine.graph.ExecutionContextTracker;
+import com.iusofts.agentplus.engine.graph.WorkflowState;
 import com.iusofts.agentplus.engine.util.ParamResolver;
+import org.bsc.langgraph4j.CompiledGraph;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,10 +17,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -30,19 +27,16 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * 批处理节点执行器。
  *
- * <p>接管 {@code parentNode == batchId} 的子节点组成的子图,按 {@code maxParallel}
- * 对每个 item 并行跑一遍子图,聚合默认输出:</p>
- * <ul>
- *   <li>{@code results} - List,每项是本轮迭代内所有子节点 outputs 的 {@code Map<nodeId, outputs>};失败位为 null</li>
- *   <li>{@code total}   - items 数量</li>
- *   <li>{@code success} - 成功迭代数</li>
- *   <li>{@code failed}  - total - success</li>
- * </ul>
+ * <p>由 {@code WorkflowGraphCompiler} 为每个 batch 节点预编译一份子图 {@link CompiledGraph},
+ * 并注册到 {@link ExecutionContext}。本执行器每次迭代:</p>
+ * <ol>
+ *   <li>用 {@link ExecutionContext#newScope(String)} 生成隔离作用域,写入 {@code item/index/items};</li>
+ *   <li>通过共享同一份 {@link CompiledGraph} 的 {@code invoke} 驱动子图迭代;</li>
+ *   <li>抓取作用域内所有 sub-node 的 outputs 组合为一条 result;</li>
+ * </ol>
  *
- * <p>子作用域内,batch 节点自身的输出会被覆盖为 {@code {item, index, items}},
- * 供子图节点通过 {@code {{<batchId>.item}}} 引用当前项。</p>
- *
- * <p>若子图为空(未挂子节点)则退化为旧行为,仅输出 {@code items/size} 便于下游消费集合。</p>
+ * <p>并行由 {@code Executors.newFixedThreadPool(maxParallel)} 拉起,失败位置在 {@code results}
+ * 中为 {@code null},不影响其他 iteration。若 batch 未挂子节点则退化为仅输出 {@code items/size}。</p>
  *
  * @author Ivan
  */
@@ -50,12 +44,6 @@ public class BatchNodeExecutor implements NodeExecutor {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(BatchNodeExecutor.class);
     private static final int DEFAULT_PARALLEL = 4;
-
-    private final NodeExecutorRegistry registry;
-
-    public BatchNodeExecutor(NodeExecutorRegistry registry) {
-        this.registry = registry;
-    }
 
     @Override
     public FlowNodeType type() {
@@ -68,10 +56,9 @@ public class BatchNodeExecutor implements NodeExecutor {
         Map<String, Object> inputs = ParamResolver.resolveInputs(data == null ? null : data.getInputParams(), ctx);
         List<Object> items = extractCollection(inputs);
 
-        DagGraph mainGraph = ctx.getGraph();
-        DagGraph.BatchSubgraph sub = mainGraph == null ? null : mainGraph.subgraphOf(node.getId());
-
-        if (sub == null || sub.subNodes().isEmpty()) {
+        @SuppressWarnings("unchecked")
+        CompiledGraph<WorkflowState> subGraph = (CompiledGraph<WorkflowState>) ctx.getBatchSubGraph(node.getId());
+        if (subGraph == null) {
             LOGGER.debug("batch node={} 无子图,退化为集合输出 size={}", node.getId(), items.size());
             return degradedOutput(node.getId(), items);
         }
@@ -83,10 +70,8 @@ public class BatchNodeExecutor implements NodeExecutor {
         AtomicInteger success = new AtomicInteger();
 
         if (items.isEmpty()) {
-            return finalOutput(node.getId(), items, results, 0);
+            return finalOutput(node.getId(), items, results, 0, data);
         }
-
-        DagGraph subGraph = buildSubGraph(mainGraph, sub);
 
         ExecutorService pool = Executors.newFixedThreadPool(parallel);
         try {
@@ -96,7 +81,7 @@ public class BatchNodeExecutor implements NodeExecutor {
                 final Object item = items.get(i);
                 futures.add(CompletableFuture.runAsync(() -> {
                     Map<String, Map<String, Object>> iterationResult = runIteration(
-                            node.getId(), item, index, items, inputs, subGraph, ctx, sub);
+                            node.getId(), item, index, items, inputs, subGraph, ctx);
                     if (iterationResult != null) {
                         results.set(index, iterationResult);
                         success.incrementAndGet();
@@ -108,7 +93,7 @@ public class BatchNodeExecutor implements NodeExecutor {
             pool.shutdown();
         }
 
-        return finalOutput(node.getId(), items, results, success.get());
+        return finalOutput(node.getId(), items, results, success.get(), data);
     }
 
     private Map<String, Map<String, Object>> runIteration(String batchId,
@@ -116,9 +101,8 @@ public class BatchNodeExecutor implements NodeExecutor {
                                                           int index,
                                                           List<Object> items,
                                                           Map<String, Object> resolvedInputs,
-                                                          DagGraph subGraph,
-                                                          ExecutionContext parentCtx,
-                                                          DagGraph.BatchSubgraph sub) {
+                                                          CompiledGraph<WorkflowState> subGraph,
+                                                          ExecutionContext parentCtx) {
         ExecutionContext scoped = parentCtx.newScope(batchId + "#" + index);
         Map<String, Object> batchLocal = new LinkedHashMap<>();
         batchLocal.put("item", item);
@@ -127,57 +111,33 @@ public class BatchNodeExecutor implements NodeExecutor {
         batchLocal.putAll(resolvedInputs);
         scoped.putOutput(new NodeOutput(batchId, batchLocal));
 
+        LOGGER.debug("batch iteration starting batchId={} index={} item={} inputs={}", batchId, index, item, resolvedInputs);
+
+        // 为 scoped ctx 创建 tracker，避免 langgraph4j 克隆问题
+        ExecutionContextTracker tracker = new ExecutionContextTracker(scoped);
         try {
-            new TopologicalScheduler(subGraph, registry).run(scoped);
+            subGraph.invoke(Map.of(WorkflowState.CTX_KEY, tracker));
         } catch (Exception e) {
-            LOGGER.warn("batch iteration failed batchId={} index={} err={}", batchId, index, e.getMessage());
+            LOGGER.warn("batch iteration failed batchId={} index={} err={}", batchId, index, e.getMessage(), e);
             return null;
+        } finally {
+            // 精确清理该 scope 的 tracker（不能用前缀，否则并行时会误删 index 互为前缀的其他轮次）
+            ExecutionContextTracker.removeKey(
+                    ExecutionContextTracker.keyOf(scoped.getRunId(), scoped.getScopeKey()));
         }
 
         Map<String, Map<String, Object>> collected = new LinkedHashMap<>();
-        for (String subNodeId : sub.subNodes()) {
-            NodeOutput out = scoped.getOutput(subNodeId);
-            if (out != null && out.getOutputs() != null && !out.getOutputs().isEmpty()) {
-                collected.put(subNodeId, new LinkedHashMap<>(out.getOutputs()));
+        for (Map.Entry<String, NodeOutput> entry : scoped.getNodeOutputs().entrySet()) {
+            if (entry.getKey().equals(batchId)) {
+                continue;
+            }
+            Map<String, Object> outs = entry.getValue().getOutputs();
+            if (outs != null && !outs.isEmpty()) {
+                collected.put(entry.getKey(), new LinkedHashMap<>(outs));
             }
         }
+        LOGGER.debug("batch iteration collected batchId={} index={} outputs={}", batchId, index, collected);
         return collected;
-    }
-
-    private DagGraph buildSubGraph(DagGraph mainGraph, DagGraph.BatchSubgraph sub) {
-        Set<String> subNodes = sub.subNodes();
-        Map<String, Node> subNodesMap = new LinkedHashMap<>();
-        for (String id : subNodes) {
-            subNodesMap.put(id, mainGraph.node(id));
-        }
-        Map<String, List<Edge>> outgoing = new LinkedHashMap<>();
-        Map<String, List<Edge>> incoming = new LinkedHashMap<>();
-        for (String id : subNodes) {
-            for (Edge e : mainGraph.outgoingOf(id)) {
-                if (subNodes.contains(e.getTarget())) {
-                    outgoing.computeIfAbsent(id, k -> new ArrayList<>()).add(e);
-                }
-            }
-            for (Edge e : mainGraph.incomingOf(id)) {
-                if (subNodes.contains(e.getSource())) {
-                    incoming.computeIfAbsent(id, k -> new ArrayList<>()).add(e);
-                }
-            }
-        }
-        Set<String> starts = sub.entryTargets().isEmpty()
-                ? findRoots(subNodes, incoming)
-                : new LinkedHashSet<>(sub.entryTargets());
-        return new DagGraph(subNodesMap, outgoing, incoming, starts, Collections.emptyMap(), Collections.emptySet());
-    }
-
-    private Set<String> findRoots(Set<String> subNodes, Map<String, List<Edge>> incoming) {
-        Set<String> roots = new LinkedHashSet<>();
-        for (String id : subNodes) {
-            if (incoming.getOrDefault(id, List.of()).isEmpty()) {
-                roots.add(id);
-            }
-        }
-        return roots;
     }
 
     private int resolveParallel(BatchNodeData data) {
@@ -189,9 +149,8 @@ public class BatchNodeExecutor implements NodeExecutor {
 
     private NodeOutput degradedOutput(String nodeId, List<Object> items) {
         Map<String, Object> outputs = new LinkedHashMap<>();
-        outputs.put("items", items);
-        outputs.put("size", items.size());
-        outputs.put("results", Collections.emptyList());
+        // 无张子图时，默认输出 "output" = items
+        outputs.put("output", items);
         outputs.put("total", items.size());
         outputs.put("success", 0);
         outputs.put("failed", 0);
@@ -201,13 +160,55 @@ public class BatchNodeExecutor implements NodeExecutor {
     private NodeOutput finalOutput(String nodeId,
                                    List<Object> items,
                                    List<Map<String, Map<String, Object>>> results,
-                                   int success) {
-        int total = items.size();
+                                   int success,
+                                   BatchNodeData data) {
         Map<String, Object> outputs = new LinkedHashMap<>();
-        outputs.put("results", results);
-        outputs.put("total", total);
+        List<com.iusofts.agentplus.aiflow.vo.workflow.data.common.OutputParam> outputParams =
+                data != null ? data.getOutputParams() : null;
+
+        if (outputParams != null && !outputParams.isEmpty()) {
+            // 有自定义输出参数时，按参数名聚合每轮结果
+            LOGGER.debug("batch node={} outputParams={}, results={}", nodeId, outputParams, results);
+            for (com.iusofts.agentplus.aiflow.vo.workflow.data.common.OutputParam param : outputParams) {
+                String paramName = param.getName();
+                if (paramName == null || paramName.isEmpty()) {
+                    continue;
+                }
+                List<Object> paramResults = new ArrayList<>();
+                for (int i = 0; i < results.size(); i++) {
+                    Map<String, Map<String, Object>> round = results.get(i);
+                    if (round == null) {
+                        paramResults.add(null);
+                        continue;
+                    }
+                    // 从本轮结果中查找该参数
+                    Object value = null;
+                    if (param.getParamMapKey() != null) {
+                        String sourceNodeId = param.getParamMapKey().getNodeId();
+                        String sourceParamName = param.getParamMapKey().getName();
+                        LOGGER.debug("looking for node={} param={} in round={} data={}",
+                                sourceNodeId, sourceParamName, i, round);
+                        if (sourceNodeId != null && round.containsKey(sourceNodeId)) {
+                            Map<String, Object> nodeOut = round.get(sourceNodeId);
+                            if (nodeOut != null) {
+                                value = nodeOut.get(sourceParamName);
+                            }
+                        }
+                    }
+                    LOGGER.debug("round={} value={}", i, value);
+                    paramResults.add(value);
+                }
+                outputs.put(paramName, paramResults);
+            }
+        } else {
+            // 无自定义输出时，使用默认 "output" 数组
+            outputs.put("output", results);
+        }
+
+        // 始终包含统计信息（补充字段，非约定但有用）
+        outputs.put("total", items.size());
         outputs.put("success", success);
-        outputs.put("failed", total - success);
+        outputs.put("failed", items.size() - success);
         return new NodeOutput(nodeId, outputs);
     }
 

@@ -63,8 +63,11 @@ public class LLMNodeExecutor implements NodeExecutor {
         }
 
         Map<String, Object> inputs = ParamResolver.resolveInputs(data.getInputParams(), ctx);
-        String systemPrompt = ParamResolver.renderTemplate(data.getSystemPrompt(), ctx);
-        String userPrompt = buildUserPrompt(inputs);
+        String systemPrompt = ParamResolver.renderTemplate(data.getSystemPrompt(), ctx, inputs);
+        String userPromptTemplate = data.getUserPrompt();
+        String userPrompt = userPromptTemplate != null
+                ? ParamResolver.renderTemplate(userPromptTemplate, ctx, inputs)
+                : buildUserPrompt(inputs);
 
         List<ChatMessage> messages = new ArrayList<>();
         if (systemPrompt != null && !systemPrompt.isBlank()) {
@@ -73,13 +76,16 @@ public class LLMNodeExecutor implements NodeExecutor {
         messages.add(UserMessage.from(userPrompt));
 
         String text;
+        String reasoningContent = null;
+        Map<String, Object> usage = null;
         try {
+            // 注：当前LangChain4j ChatResponse仅返回text，后续如需支持reasoning/usage需扩展ChatModelProvider
             text = invokeWithRetry(data, messages);
         } catch (Exception e) {
             text = handleFailure(node, data, e);
         }
 
-        return new NodeOutput(node.getId(), mapOutputs(text, data.getOutputParams()));
+        return new NodeOutput(node.getId(), mapOutputs(text, reasoningContent, usage, data.getOutputParams()));
     }
 
     private String invokeWithRetry(LLMNodeData data, List<ChatMessage> messages) throws Exception {
@@ -122,28 +128,46 @@ public class LLMNodeExecutor implements NodeExecutor {
         return sb.toString();
     }
 
-    private Map<String, Object> mapOutputs(String text, List<OutputParam> outputParams) {
+    private Map<String, Object> mapOutputs(String text, String reasoningContent, Map<String, Object> usage, List<OutputParam> outputParams) {
         Map<String, Object> out = new LinkedHashMap<>();
+        // 始终包含前端约定的三个默认输出
+        out.put("text", text);
+        out.put("reasoningContent", reasoningContent);
+        out.put("usage", usage);
+
         if (outputParams == null || outputParams.isEmpty()) {
-            out.put("text", text);
             return out;
         }
+
+        // 追加自定义输出参数
         if (outputParams.size() == 1) {
-            out.put(outputParams.get(0).getName(), text);
+            // 只有一个自定义输出时，也尝试先解析 JSON，如果不是 JSON 则用原始 text
+            String customName = outputParams.get(0).getName();
+            if (!"text".equals(customName) && !"reasoningContent".equals(customName) && !"usage".equals(customName)) {
+                Object value = text;
+                try {
+                    value = JSON.readValue(text, Object.class);
+                } catch (Exception ignore) {
+                    // 解析失败，保持原始字符串
+                }
+                out.put(customName, value);
+            }
             return out;
         }
+
         // 多输出参数: 尝试将模型返回作为 JSON 解析
         try {
             Map<String, Object> parsed = JSON.readValue(text, Map.class);
             for (OutputParam p : outputParams) {
-                out.put(p.getName(), parsed.get(p.getName()));
+                String name = p.getName();
+                // 避免覆盖默认输出
+                if (!"text".equals(name) && !"reasoningContent".equals(name) && !"usage".equals(name)) {
+                    out.put(name, parsed.get(name));
+                }
             }
             return out;
         } catch (Exception ignore) {
-            LOGGER.debug("LLM 输出非 JSON,退化为写入首个字段");
-            for (int i = 0; i < outputParams.size(); i++) {
-                out.put(outputParams.get(i).getName(), i == 0 ? text : null);
-            }
+            LOGGER.debug("LLM 输出非 JSON,仅默认输出可用");
             return out;
         }
     }

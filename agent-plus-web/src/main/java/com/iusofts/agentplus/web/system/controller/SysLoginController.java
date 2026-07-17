@@ -1,7 +1,7 @@
 package com.iusofts.agentplus.web.system.controller;
 
-import com.iusofts.agentplus.basic.annotation.BLoginUser;
-import com.iusofts.agentplus.basic.ip.IpUtils;
+import com.iusofts.agentplus.basic.web.annotation.BLoginUser;
+import com.iusofts.agentplus.basic.web.ip.IpUtils;
 import com.iusofts.agentplus.system.interfaces.ILoginService;
 import com.iusofts.agentplus.system.vo.BLoginUserVo;
 import com.iusofts.agentplus.system.vo.ImageVerifyCodeVO;

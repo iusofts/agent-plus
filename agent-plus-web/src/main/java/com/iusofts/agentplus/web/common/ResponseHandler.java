@@ -2,11 +2,11 @@ package com.iusofts.agentplus.web.common;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.iusofts.agentplus.basic.annotation.OriginResponseBody;
+import com.iusofts.agentplus.basic.web.annotation.OriginResponseBody;
 import com.iusofts.agentplus.basic.exception.AbstractBusinessException;
 import com.iusofts.agentplus.basic.exception.ExceptionTypeEnum;
-import com.iusofts.agentplus.basic.response.BasicResponse;
-import com.iusofts.agentplus.basic.response.BasicResponseEnums;
+import com.iusofts.agentplus.basic.web.response.BasicResponse;
+import com.iusofts.agentplus.basic.web.response.BasicResponseEnums;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;

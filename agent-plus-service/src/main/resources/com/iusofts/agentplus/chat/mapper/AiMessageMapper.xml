@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.iusofts.agentplus.chat.mapper.AiMessageMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="com.iusofts.agentplus.chat.entity.AiMessage">
+        <id column="id" property="id" />
+        <result column="conversation_id" property="conversationId" />
+        <result column="role" property="role" />
+        <result column="content" property="content" />
+        <result column="input_tokens" property="inputTokens" />
+        <result column="output_tokens" property="outputTokens" />
+        <result column="total_tokens" property="totalTokens" />
+        <result column="create_by" property="createBy" />
+        <result column="create_time" property="createTime" />
+        <result column="update_by" property="updateBy" />
+        <result column="update_time" property="updateTime" />
+        <result column="delete_flag" property="deleteFlag" />
+        <result column="org_id" property="orgId" />
+    </resultMap>
+
+    <!-- 通用查询结果列 -->
+    <sql id="Base_Column_List">
+        id, conversation_id, role, content, input_tokens, output_tokens, total_tokens, create_by, create_time, update_by, update_time, delete_flag, org_id
+    </sql>
+
+</mapper>

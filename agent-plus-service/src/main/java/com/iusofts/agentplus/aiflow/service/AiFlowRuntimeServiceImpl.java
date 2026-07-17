@@ -13,7 +13,7 @@ import com.iusofts.agentplus.aiflow.mapper.AiFlowMapper;
 import com.iusofts.agentplus.aiflow.mapper.AiFlowRuntimeMapper;
 import com.iusofts.agentplus.aiflow.vo.*;
 import com.iusofts.agentplus.basic.exception.SystemBusinessException;
-import com.iusofts.agentplus.basic.page.PageResult;
+import com.iusofts.agentplus.basic.web.vo.page.PageResult;
 import com.iusofts.agentplus.basic.utils.ModelMapperUtil;
 import com.iusofts.agentplus.common.vo.IdReqVo;
 import jakarta.annotation.Resource;

@@ -42,7 +42,7 @@
         <dynamic-datasource.version>4.5.0</dynamic-datasource.version>
         <redisson.version>3.24.3</redisson.version>
         <mysql-connector.version>8.0.33</mysql-connector.version>
-        <hibernate-validator.version>7.0.5.Final</hibernate-validator.version>
+        <hibernate-validator.version>8.0.1.Final</hibernate-validator.version>
         <tomcat-embed.version>10.1.39</tomcat-embed.version>
 
         <!-- Web / API 文档 / 工具 -->
@@ -59,7 +59,7 @@
         <commons-collections.version>3.2.1</commons-collections.version>
         <commons-collections4.version>4.3</commons-collections4.version>
         <commons-beanutils.version>1.9.2</commons-beanutils.version>
-        <commons-io.version>2.6</commons-io.version>
+        <commons-io.version>2.16.1</commons-io.version>
         <commons-net.version>3.6</commons-net.version>
 
         <!-- 三方 SDK / 工具 -->
@@ -68,7 +68,7 @@
         <aliyun-sdk-sts.version>3.0.0</aliyun-sdk-sts.version>
         <aliyun-sdk-oss.version>3.7.0</aliyun-sdk-oss.version>
         <dashscope-sdk.version>2.22.13</dashscope-sdk.version>
-        <easyexcel.version>3.3.2</easyexcel.version>
+        <easyexcel.version>4.0.3</easyexcel.version>
         <okhttp.version>4.12.0</okhttp.version>
         <freemarker.version>2.3.23</freemarker.version>
         <pinyin4j.version>2.5.1</pinyin4j.version>
@@ -84,6 +84,16 @@
 
         <!-- AI / LangChain4j -->
         <langchain4j.version>1.17.1</langchain4j.version>
+        <langchain4j-community.version>1.13.0-beta23</langchain4j-community.version>
+        <!-- Redis 向量库集成(社区版,单独版本) -->
+        <langchain4j-community-redis.version>1.17.2-beta27</langchain4j-community-redis.version>
+        <!-- 覆盖 Spring Boot BOM 管理的 Jedis 版本(默认6.0.0)。
+             langchain4j-community-redis 编译于 Jedis 7.2.1,其 UnifiedJedis.pipelined()
+             返回 AbstractPipeline,6.0.0 无此签名会抛 NoSuchMethodError -->
+        <jedis.version>7.2.1</jedis.version>
+        <langgraph4j.version>1.8.20</langgraph4j.version>
+        <!-- 文档解析 -->
+        <tika.version>2.9.2</tika.version>
     </properties>
 
     <dependencyManagement>
@@ -159,7 +169,7 @@
 
             <!-- ================= 校验 / Web 容器 ================= -->
             <dependency>
-                <groupId>org.hibernate</groupId>
+                <groupId>org.hibernate.validator</groupId>
                 <artifactId>hibernate-validator</artifactId>
                 <version>${hibernate-validator.version}</version>
             </dependency>
@@ -333,6 +343,41 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+
+            <!-- LangChain4j 社区版：千问(DashScope)专用 ChatModel -->
+            <dependency>
+                <groupId>dev.langchain4j</groupId>
+                <artifactId>langchain4j-community-dashscope</artifactId>
+                <version>${langchain4j-community.version}</version>
+            </dependency>
+
+            <!-- LangChain4j 社区版：Redis 向量库(RedisEmbeddingStore) -->
+            <dependency>
+                <groupId>dev.langchain4j</groupId>
+                <artifactId>langchain4j-community-redis</artifactId>
+                <version>${langchain4j-community-redis.version}</version>
+            </dependency>
+
+            <!-- ================= 文档解析 (Apache Tika) ================= -->
+            <dependency>
+                <groupId>org.apache.tika</groupId>
+                <artifactId>tika-core</artifactId>
+                <version>${tika.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.tika</groupId>
+                <artifactId>tika-parsers-standard-package</artifactId>
+                <version>${tika.version}</version>
+            </dependency>
+
+            <!-- ================= LangGraph4j ================= -->
+            <dependency>
+                <groupId>org.bsc.langgraph4j</groupId>
+                <artifactId>langgraph4j-bom</artifactId>
+                <version>${langgraph4j.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -341,12 +386,6 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.hibernate</groupId>
-                    <artifactId>hibernate-validator</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -399,7 +438,7 @@
             <artifactId>caffeine</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.hibernate</groupId>
+            <groupId>org.hibernate.validator</groupId>
             <artifactId>hibernate-validator</artifactId>
         </dependency>
         <dependency>

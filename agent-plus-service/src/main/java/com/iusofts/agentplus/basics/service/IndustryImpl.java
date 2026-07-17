@@ -6,7 +6,7 @@ import com.baomidou.mybatisplus.core.toolkit.StringUtils;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.iusofts.agentplus.basic.page.PageResult;
+import com.iusofts.agentplus.basic.web.vo.page.PageResult;
 import com.iusofts.agentplus.basic.utils.ModelMapperUtil;
 import com.iusofts.agentplus.basics.entity.Industry;
 import com.iusofts.agentplus.basics.interfaces.IIndustryService;

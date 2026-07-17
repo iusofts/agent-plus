@@ -1,7 +1,7 @@
 package com.iusofts.agentplus.basic.wk.processor;
 
 import com.iusofts.agentplus.basic.wk.WkProperties;
-import com.iusofts.agentplus.basic.dto.CookieParam;
+import com.iusofts.agentplus.basic.web.vo.CookieParam;
 import com.iusofts.agentplus.basic.exception.SystemBusinessException;
 import com.iusofts.agentplus.basic.wk.interceptor.HtmlToPdfInterceptor;
 import org.apache.commons.collections4.CollectionUtils;

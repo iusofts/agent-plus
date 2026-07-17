@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.iusofts.agentplus.aiflow.vo.workflow.style.EdgeStyle;
 import com.iusofts.agentplus.aiflow.vo.workflow.style.LabelBgStyle;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 /**
@@ -18,12 +19,15 @@ import lombok.Data;
 @Schema(description = "边")
 public class Edge {
 
+    @NotBlank(message = "边ID不能为空")
     @Schema(description = "边ID")
     private String id;
 
+    @NotBlank(message = "源节点ID不能为空")
     @Schema(description = "源节点ID")
     private String source;
 
+    @NotBlank(message = "目标节点ID不能为空")
     @Schema(description = "目标节点ID")
     private String target;
 

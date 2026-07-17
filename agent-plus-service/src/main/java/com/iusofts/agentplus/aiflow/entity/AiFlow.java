@@ -48,6 +48,9 @@ public class AiFlow implements Serializable {
     @Schema(description = "启用状态 0:禁用 1:启用")
     private Integer status;
 
+    @Schema(description = "发布状态 0:未发布 1:已发布")
+    private Integer publishStatus;
+
     @Schema(description = "当前最新版本号(v1.0.0格式)")
     private String latestVersion;
 

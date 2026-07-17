@@ -1,9 +1,9 @@
 package com.iusofts.agentplus.web.system.controller;
 
-import com.iusofts.agentplus.basic.annotation.OperationLogExclude;
-import com.iusofts.agentplus.basic.dto.StringDto;
+import com.iusofts.agentplus.basic.web.annotation.OperationLogExclude;
+import com.iusofts.agentplus.basic.web.vo.StringDto;
 import com.iusofts.agentplus.basic.exception.SystemBusinessException;
-import com.iusofts.agentplus.basic.page.PageResult;
+import com.iusofts.agentplus.basic.web.vo.page.PageResult;
 import com.iusofts.agentplus.basic.web.annotation.Permission;
 import com.iusofts.agentplus.system.dto.SysConfigDto;
 import com.iusofts.agentplus.system.interfaces.ISysConfigService;

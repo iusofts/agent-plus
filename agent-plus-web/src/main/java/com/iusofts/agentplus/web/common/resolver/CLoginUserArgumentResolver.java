@@ -1,7 +1,7 @@
 package com.iusofts.agentplus.web.common.resolver;
 
 import com.iusofts.agentplus.basic.web.ApiUtil;
-import com.iusofts.agentplus.basic.annotation.CLoginUser;
+import com.iusofts.agentplus.basic.web.annotation.CLoginUser;
 import com.iusofts.agentplus.basic.web.vo.CLoginUserVo;
 import org.springframework.core.MethodParameter;
 import org.springframework.web.bind.support.WebDataBinderFactory;

@@ -1,6 +1,6 @@
 package com.iusofts.agentplus.basics.interfaces;
 
-import com.iusofts.agentplus.basic.page.PageResult;
+import com.iusofts.agentplus.basic.web.vo.page.PageResult;
 import com.iusofts.agentplus.basics.vo.IndustryAddReqVo;
 import com.iusofts.agentplus.basics.vo.IndustryChangeStatusVo;
 import com.iusofts.agentplus.basics.vo.IndustryEditVo;

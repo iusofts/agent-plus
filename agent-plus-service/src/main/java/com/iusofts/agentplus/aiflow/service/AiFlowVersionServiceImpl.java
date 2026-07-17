@@ -7,6 +7,10 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.iusofts.agentplus.library.interfaces.IAiKnowledgeBaseService;
+import com.iusofts.agentplus.library.interfaces.IAiModelService;
+import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeBaseVo;
+import com.iusofts.agentplus.library.vo.model.AiModelVo;
 import com.iusofts.agentplus.aiflow.interfaces.IAiFlowVersionService;
 import com.iusofts.agentplus.aiflow.entity.AiFlow;
 import com.iusofts.agentplus.aiflow.entity.AiFlowVersion;
@@ -14,14 +18,16 @@ import com.iusofts.agentplus.aiflow.enums.PublishingStatusEnum;
 import com.iusofts.agentplus.aiflow.mapper.AiFlowMapper;
 import com.iusofts.agentplus.aiflow.mapper.AiFlowVersionMapper;
 import com.iusofts.agentplus.aiflow.utils.AiFlowVersionUtil;
+import com.iusofts.agentplus.aiflow.utils.WorkflowValidator;
 import com.iusofts.agentplus.aiflow.vo.*;
 import com.iusofts.agentplus.aiflow.vo.workflow.Workflow;
 import com.iusofts.agentplus.aiflow.vo.workflow.config.Knowledge;
 import com.iusofts.agentplus.aiflow.vo.workflow.config.Model;
 import com.iusofts.agentplus.aiflow.vo.workflow.config.WorkflowConfig;
 import com.iusofts.agentplus.basic.exception.SystemBusinessException;
-import com.iusofts.agentplus.basic.page.PageResult;
+import com.iusofts.agentplus.basic.web.vo.page.PageResult;
 import com.iusofts.agentplus.basic.utils.ModelMapperUtil;
+import com.iusofts.agentplus.common.constants.SysConstant;
 import com.iusofts.agentplus.common.vo.IdReqVo;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
@@ -45,6 +51,10 @@ public class AiFlowVersionServiceImpl extends ServiceImpl<AiFlowVersionMapper, A
     private AiFlowMapper aiFlowMapper;
     @Resource
     private ObjectMapper objectMapper;
+    @Resource
+    private IAiModelService aiModelService;
+    @Resource
+    private IAiKnowledgeBaseService aiKnowledgeBaseService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -178,6 +188,9 @@ public class AiFlowVersionServiceImpl extends ServiceImpl<AiFlowVersionMapper, A
             throw new SystemBusinessException("流程不存在");
         }
 
+        // 发布前先对工作流数据做完整性校验
+        WorkflowValidator.validate(deserializeWorkflow(version.getFlowJson()));
+
         // 更新版本状态
         version.setPublishingStatus(PublishingStatusEnum.PUBLISHED.getCode());
         version.setPublishingTime(LocalDateTime.now());
@@ -185,8 +198,9 @@ public class AiFlowVersionServiceImpl extends ServiceImpl<AiFlowVersionMapper, A
         version.setUpdateBy(reqVo.getOperatorId());
         updateById(version);
 
-        // 更新流程的线上版本号
+        // 更新流程的线上版本号和发布状态
         aiFlow.setOnlineVersion(version.getVersionNo());
+        aiFlow.setPublishStatus(PublishingStatusEnum.PUBLISHED.getCode());
         aiFlow.setUpdateBy(reqVo.getOperatorId());
         aiFlowMapper.updateById(aiFlow);
     }
@@ -201,7 +215,7 @@ public class AiFlowVersionServiceImpl extends ServiceImpl<AiFlowVersionMapper, A
         AiFlowVersion latestVersion = getOne(wrapper);
 
         if (latestVersion == null) {
-            // 没有版本，仅返回写死的模型/知识库配置
+            // 没有版本，返回空详情
             AiFlowVersionDetailVo detailVo = new AiFlowVersionDetailVo();
             detailVo.setFlowId(flowId);
             detailVo.setConfig(deserializeWorkflowConfig(null));
@@ -218,6 +232,22 @@ public class AiFlowVersionServiceImpl extends ServiceImpl<AiFlowVersionMapper, A
         }
 
         return detailVo;
+    }
+
+    @Override
+    public List<Model> queryModelList() {
+        // 查询当前组织下启用的 LLM 模型(modelType=1)
+        return aiModelService.queryEnabled(SysConstant.SYSCODE, 1).stream()
+                .map(this::buildModel)
+                .toList();
+    }
+
+    @Override
+    public List<Knowledge> queryKnowledgeList() {
+        // 查询当前组织下的全部知识库
+        return aiKnowledgeBaseService.queryAll(SysConstant.SYSCODE).stream()
+                .map(this::buildKnowledge)
+                .toList();
     }
 
     private String serializeWorkflow(Workflow workflow) {
@@ -254,50 +284,28 @@ public class AiFlowVersionServiceImpl extends ServiceImpl<AiFlowVersionMapper, A
     }
 
     private WorkflowConfig deserializeWorkflowConfig(String configJson) {
-        WorkflowConfig config = new WorkflowConfig();
-        // 模型/知识库暂时写死，未来改为查询各自独立的数据库表
-        config.setModelList(buildDefaultModelList());
-        config.setKnowledgeList(buildDefaultKnowledgeList());
-
-        if (configJson != null && !configJson.isBlank()) {
-            try {
-                WorkflowConfig saved = objectMapper.readValue(configJson, WorkflowConfig.class);
-                config.setEnvVars(saved.getEnvVars());
-            } catch (JsonProcessingException e) {
-                throw new SystemBusinessException("流程配置数据解析失败");
-            }
+        if (configJson == null || configJson.isBlank()) {
+            return new WorkflowConfig();
         }
-        return config;
+        try {
+            return objectMapper.readValue(configJson, WorkflowConfig.class);
+        } catch (JsonProcessingException e) {
+            throw new SystemBusinessException("流程配置数据解析失败");
+        }
     }
 
-    private List<Model> buildDefaultModelList() {
-        return List.of(
-                buildModel(1L, "GPT-4o"),
-                buildModel(2L, "GPT-4 Turbo"),
-                buildModel(3L, "GPT-3.5 Turbo"),
-                buildModel(4L, "Claude 3.5 Sonnet")
-        );
-    }
-
-    private Model buildModel(Long id, String modelName) {
+    private Model buildModel(AiModelVo modelVo) {
         Model model = new Model();
-        model.setId(id);
-        model.setModelName(modelName);
+        model.setId(modelVo.getId());
+        // 优先使用显示名称
+        model.setModelName(modelVo.getDisplayName() != null ? modelVo.getDisplayName() : modelVo.getModelName());
         return model;
     }
 
-    private List<Knowledge> buildDefaultKnowledgeList() {
-        return List.of(
-                buildKnowledge(1L, "知识库1"),
-                buildKnowledge(2L, "知识库2"),
-                buildKnowledge(3L, "知识库3")
-        );
-    }
-
-    private Knowledge buildKnowledge(Long id, String name) {
+    private Knowledge buildKnowledge(AiKnowledgeBaseVo baseVo) {
         Knowledge knowledge = new Knowledge();
-        knowledge.setId(id);
-        knowledge.setName(name);
+        knowledge.setId(baseVo.getId());
+        knowledge.setName(baseVo.getName());
         return knowledge;
     }
 

@@ -117,8 +117,8 @@ web ──► service ──► interface ──► engine ──► plugin ─�
 - JDK 21
 - Spring Boot 3.5.2
 - LangChain4j
-- MySQL 8 + MyBatis / MyBatis-Plus
-- 向量库：Milvus / PgVector（可切换）
+- MySQL 5.7/8 + MyBatis / MyBatis-Plus
+- 向量库：Redis 8.8
 - SpringDoc OpenAPI、Fastjson2、Caffeine、Hibernate Validator
 
 ## 启动

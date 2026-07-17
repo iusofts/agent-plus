@@ -42,7 +42,12 @@ public enum AsyncTaskGroup {
     /**
      * 自定义任务组
      */
-    CUSTOM("CUSTOM", 15, ExecutionStrategy.TRY_ACQUIRE_TIMEOUT, 5);
+    CUSTOM("CUSTOM", 15, ExecutionStrategy.TRY_ACQUIRE_TIMEOUT, 5),
+
+    /**
+     * 知识库文档处理任务组
+     */
+    KNOWLEDGE_INGEST("KNOWLEDGE_INGEST", 10, ExecutionStrategy.BLOCKING, 300);
 
     private final String groupName;
     private final int defaultLimit;

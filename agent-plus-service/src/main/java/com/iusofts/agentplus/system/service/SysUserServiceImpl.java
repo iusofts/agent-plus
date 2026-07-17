@@ -6,7 +6,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.iusofts.agentplus.basic.constants.UserConstants;
 import com.iusofts.agentplus.basic.exception.SystemBusinessException;
-import com.iusofts.agentplus.basic.page.PageResult;
+import com.iusofts.agentplus.basic.web.vo.page.PageResult;
 import com.iusofts.agentplus.basic.security.MD5Util;
 import com.iusofts.agentplus.basic.utils.ModelMapperUtil;
 import com.iusofts.agentplus.basic.utils.StringUtils;
@@ -20,6 +20,7 @@ import com.iusofts.agentplus.system.entity.SysRole;
 import com.iusofts.agentplus.system.entity.SysUser;
 import com.iusofts.agentplus.system.interfaces.ISysUserService;
 import com.iusofts.agentplus.system.vo.EditPasswordReqVo;
+import com.iusofts.agentplus.system.vo.UpdateAvatarReqVo;
 import org.apache.commons.collections4.CollectionUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -327,6 +328,19 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
     @Override
     public boolean updateUserAvatar(String userName, String avatar) {
         return userMapper.updateUserAvatar(userName, avatar) > 0;
+    }
+
+    /**
+     * 根据用户ID修改用户头像
+     *
+     * @param reqVo 修改头像参数
+     */
+    @Override
+    public void updateUserAvatar(UpdateAvatarReqVo reqVo) {
+        SysUserDto user = new SysUserDto();
+        user.setUserId(reqVo.getUserId());
+        user.setAvatar(reqVo.getAvatar());
+        userMapper.updateUser(user);
     }
 
     /**

@@ -31,6 +31,7 @@ import java.util.regex.Pattern;
 public final class ParamResolver {
 
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{\\{\\s*([\\w.\\-]+)\\.([\\w\\-]+)\\s*}}");
+    private static final Pattern SIMPLE_PLACEHOLDER = Pattern.compile("\\{\\{\\s*([\\w\\-]+)\\s*}}");
 
     private ParamResolver() {
     }
@@ -58,13 +59,46 @@ public final class ParamResolver {
 
     /** 对字符串中的 {@code {{node.name}}} 占位进行替换。 */
     public static String renderTemplate(String template, ExecutionContext ctx) {
+        return renderTemplate(template, ctx, null);
+    }
+
+    /**
+     * 对字符串中的占位进行替换。
+     *
+     * <p>支持两种格式:</p>
+     * <ul>
+     *   <li>{@code {{node.name}}} - 从上下文查找</li>
+     *   <li>{@code {{name}}} - 优先从 {@code localContext} 查找,未命中时从 {@code inputs/start} 查找</li>
+     * </ul>
+     */
+    public static String renderTemplate(String template, ExecutionContext ctx, Map<String, Object> localContext) {
         if (template == null || template.isEmpty()) {
             return template;
         }
-        Matcher m = PLACEHOLDER.matcher(template);
+        String result = template;
+
+        // 先替换 {{node.name}} 格式
+        Matcher m = PLACEHOLDER.matcher(result);
         StringBuilder sb = new StringBuilder();
         while (m.find()) {
             Object val = lookup(m.group(1), m.group(2), ctx);
+            m.appendReplacement(sb, Matcher.quoteReplacement(val == null ? "" : String.valueOf(val)));
+        }
+        m.appendTail(sb);
+        result = sb.toString();
+
+        // 再替换 {{name}} 格式
+        m = SIMPLE_PLACEHOLDER.matcher(result);
+        sb = new StringBuilder();
+        while (m.find()) {
+            String name = m.group(1);
+            Object val = null;
+            if (localContext != null) {
+                val = localContext.get(name);
+            }
+            if (val == null) {
+                val = lookup("inputs", name, ctx);
+            }
             m.appendReplacement(sb, Matcher.quoteReplacement(val == null ? "" : String.valueOf(val)));
         }
         m.appendTail(sb);

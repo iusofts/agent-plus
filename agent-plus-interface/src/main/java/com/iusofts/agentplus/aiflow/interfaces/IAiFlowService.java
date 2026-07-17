@@ -1,7 +1,7 @@
 package com.iusofts.agentplus.aiflow.interfaces;
 
 import com.iusofts.agentplus.aiflow.vo.*;
-import com.iusofts.agentplus.basic.page.PageResult;
+import com.iusofts.agentplus.basic.web.vo.page.PageResult;
 import com.iusofts.agentplus.common.vo.IdReqVo;
 
 import java.util.List;
@@ -29,5 +29,13 @@ public interface IAiFlowService {
     AiFlowDetailVo getById(IdReqVo reqVo);
 
     void setStatus(AiFlowSetStatusReqVo reqVo);
+
+    /**
+     * 根据流程ID列表批量查询流程信息
+     *
+     * @param flowIds 流程ID列表
+     * @return 流程信息列表
+     */
+    List<AiFlowVo> listByIds(List<Long> flowIds);
 
 }

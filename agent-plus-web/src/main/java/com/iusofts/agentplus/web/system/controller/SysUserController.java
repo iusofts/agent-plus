@@ -1,8 +1,8 @@
 package com.iusofts.agentplus.web.system.controller;
 
-import com.iusofts.agentplus.basic.annotation.OperationLogExclude;
+import com.iusofts.agentplus.basic.web.annotation.OperationLogExclude;
 import com.iusofts.agentplus.basic.exception.SystemBusinessException;
-import com.iusofts.agentplus.basic.page.PageResult;
+import com.iusofts.agentplus.basic.web.vo.page.PageResult;
 import com.iusofts.agentplus.basic.utils.StringUtils;
 import com.iusofts.agentplus.basic.validation.ValidationUtils;
 import com.iusofts.agentplus.basic.web.annotation.Permission;
@@ -15,8 +15,10 @@ import com.iusofts.agentplus.system.interfaces.ISysDeptService;
 import com.iusofts.agentplus.system.interfaces.ISysRoleService;
 import com.iusofts.agentplus.system.interfaces.ISysUserExpandService;
 import com.iusofts.agentplus.system.interfaces.ISysUserService;
+import com.iusofts.agentplus.system.interfaces.ILoginService;
 import com.iusofts.agentplus.system.vo.BLoginUserVo;
 import com.iusofts.agentplus.system.vo.EditPasswordReqVo;
+import com.iusofts.agentplus.system.vo.UpdateAvatarReqVo;
 import com.iusofts.agentplus.web.common.controller.BApiController;
 import com.iusofts.agentplus.web.common.util.SessionUtil;
 import io.swagger.v3.oas.annotations.Operation;
@@ -46,6 +48,10 @@ public class SysUserController extends BApiController {
 
     @Autowired
     private ISysDeptService deptService;
+
+    @Autowired
+    private ILoginService loginService;
+
     @Resource
     private ISysUserExpandService userExpandService;
 
@@ -129,6 +135,19 @@ public class SysUserController extends BApiController {
     public void editPassword(@RequestBody EditPasswordReqVo reqVo) {
         reqVo.setOperatorId(getUserId());
         userService.editPassword(reqVo);
+    }
+
+    @Operation(summary = "修改头像")
+    @PostMapping("/updateAvatar")
+    public void updateAvatar(@Validated @RequestBody UpdateAvatarReqVo reqVo) {
+        Long userId = getUserId();
+        reqVo.setUserId(userId);
+        userService.updateUserAvatar(reqVo);
+        // 刷新登录缓存
+        String token = SessionUtil.getToken();
+        if (StringUtils.isNotBlank(token)) {
+            loginService.refreshLoginUserCache(userId, token);
+        }
     }
 
     @Operation(summary = "状态修改")

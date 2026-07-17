@@ -15,12 +15,19 @@ import java.util.List;
  * @author Ivan Shen
  */
 public interface ILoginService {
-    
+
     String login(LoginParam param);
 
     ImageVerifyCodeVO getImageVerifyCode();
 
     boolean verifyImageCode(String imageId, String code);
-    
+
     List<Long> getMenuIds(Long userId);
+
+    /**
+     * 刷新用户登录缓存
+     * @param userId 用户ID
+     * @param token 当前token
+     */
+    void refreshLoginUserCache(Long userId, String token);
 }

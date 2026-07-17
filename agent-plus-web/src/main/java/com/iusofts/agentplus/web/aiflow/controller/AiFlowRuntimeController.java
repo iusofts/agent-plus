@@ -2,9 +2,9 @@ package com.iusofts.agentplus.web.aiflow.controller;
 
 import com.iusofts.agentplus.aiflow.interfaces.IAiFlowRuntimeService;
 import com.iusofts.agentplus.aiflow.vo.*;
-import com.iusofts.agentplus.basic.annotation.BLoginUser;
-import com.iusofts.agentplus.basic.annotation.OperationLogExclude;
-import com.iusofts.agentplus.basic.page.PageResult;
+import com.iusofts.agentplus.basic.web.annotation.BLoginUser;
+import com.iusofts.agentplus.basic.web.annotation.OperationLogExclude;
+import com.iusofts.agentplus.basic.web.vo.page.PageResult;
 import com.iusofts.agentplus.common.vo.IdReqVo;
 import com.iusofts.agentplus.system.vo.BLoginUserVo;
 import com.iusofts.agentplus.web.common.controller.BApiController;
@@ -28,7 +28,7 @@ import static com.iusofts.agentplus.basic.enums.OperationLogExcludeTypeEnums.RES
  */
 @Tag(name = "流程运行实例")
 @RestController
-@RequestMapping("/bapi/aiFlowRuntime")
+@RequestMapping("/bapi/ai/flowRuntime")
 public class AiFlowRuntimeController extends BApiController {
 
     @Resource

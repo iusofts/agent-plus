@@ -1,6 +1,6 @@
 package com.iusofts.agentplus.web.common.resolver;
 
-import com.iusofts.agentplus.basic.annotation.BLoginUser;
+import com.iusofts.agentplus.basic.web.annotation.BLoginUser;
 import com.iusofts.agentplus.system.vo.BLoginUserVo;
 import com.iusofts.agentplus.web.common.util.SessionUtil;
 import org.springframework.core.MethodParameter;

@@ -1,6 +1,6 @@
 package com.iusofts.agentplus.aiflow.vo;
 
-import com.iusofts.agentplus.basic.page.PageQuery;
+import com.iusofts.agentplus.basic.web.vo.page.PageQuery;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
@@ -23,5 +23,8 @@ public class AiFlowQueryPageReqVo extends PageQuery {
 
     @Schema(description = "启用状态 0:禁用 1:启用")
     private Integer status;
+
+    @Schema(description = "发布状态 0:未发布 1:已发布")
+    private Integer publishStatus;
 
 }

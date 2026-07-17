@@ -4,37 +4,67 @@ import com.iusofts.agentplus.engine.WorkflowEngine;
 import com.iusofts.agentplus.engine.knowledge.KnowledgeRetriever;
 import com.iusofts.agentplus.engine.knowledge.NoopKnowledgeRetriever;
 import com.iusofts.agentplus.engine.llm.ChatModelProvider;
+import com.iusofts.agentplus.engine.llm.DefaultChatModelProvider;
+import com.iusofts.agentplus.engine.llm.DoubaoProperties;
+import com.iusofts.agentplus.engine.llm.QwenProperties;
+import com.iusofts.agentplus.engine.tool.ToolRegistry;
+import com.iusofts.agentplus.tool.Tool;
+import com.iusofts.agentplus.tool.ToolQueryProvider;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import java.util.List;
 
 /**
  * 工作流引擎 Spring 自动装配。
  *
- * <p>业务模块只需提供 {@link ChatModelProvider} Bean(可选注入
- * {@link KnowledgeRetriever}),即可获得就绪的 {@link WorkflowEngine}。</p>
+ * <p>业务模块只需配置千问/豆包 API Key，即可获得就绪的 {@link WorkflowEngine}。</p>
+ *
+ * <p>知识库检索默认走 {@link NoopKnowledgeRetriever}（返回空）。业务模块(agent-plus-service)
+ * 接入向量库后会提供 {@code @Primary} 的 {@link KnowledgeRetriever} 覆盖之。</p>
  *
  * @author Ivan
  */
 @Configuration(proxyBeanMethods = false)
+@EnableConfigurationProperties({QwenProperties.class, DoubaoProperties.class})
 public class WorkflowEngineAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public KnowledgeRetriever knowledgeRetriever() {
+    public ChatModelProvider chatModelProvider(QwenProperties qwenProperties, DoubaoProperties doubaoProperties) {
+        return new DefaultChatModelProvider(qwenProperties, doubaoProperties);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public KnowledgeRetriever noopKnowledgeRetriever() {
         return new NoopKnowledgeRetriever();
     }
 
     @Bean
-    @ConditionalOnBean(ChatModelProvider.class)
+    @ConditionalOnMissingBean
+    public ToolRegistry toolRegistry(ObjectProvider<Tool> tools, ToolQueryProvider toolQueryProvider) {
+        ToolRegistry registry = new ToolRegistry(toolQueryProvider);
+        tools.orderedStream().forEach(registry::register);
+        return registry;
+    }
+
+    @Bean
     @ConditionalOnMissingBean
     public WorkflowEngine workflowEngine(ChatModelProvider chatModelProvider,
-                                         ObjectProvider<KnowledgeRetriever> retriever) {
-        return WorkflowEngine.builder()
+                                         ObjectProvider<KnowledgeRetriever> retriever,
+                                         ObjectProvider<ToolRegistry> toolRegistry,
+                                         ObjectProvider<ToolQueryProvider> toolQueryProvider) {
+        WorkflowEngine.Builder builder = WorkflowEngine.builder()
                 .chatModelProvider(chatModelProvider)
-                .knowledgeRetriever(retriever.getIfAvailable(NoopKnowledgeRetriever::new))
-                .build();
+                .knowledgeRetriever(retriever.getIfAvailable(NoopKnowledgeRetriever::new));
+
+        toolRegistry.ifAvailable(builder::toolRegistry);
+        toolQueryProvider.ifAvailable(builder::toolQueryProvider);
+
+        return builder.build();
     }
 }

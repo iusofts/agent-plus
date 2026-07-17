@@ -6,9 +6,6 @@ import com.iusofts.agentplus.aiflow.vo.workflow.config.WorkflowConfig;
 import com.iusofts.agentplus.engine.context.ExecutionContext;
 import com.iusofts.agentplus.engine.context.NodeExecutionStatus;
 import com.iusofts.agentplus.engine.context.NodeOutput;
-import com.iusofts.agentplus.engine.dag.DagBuilder;
-import com.iusofts.agentplus.engine.dag.DagGraph;
-import com.iusofts.agentplus.engine.dag.TopologicalScheduler;
 import com.iusofts.agentplus.engine.exception.WorkflowExecutionException;
 import com.iusofts.agentplus.engine.executor.NodeExecutor;
 import com.iusofts.agentplus.engine.executor.NodeExecutorRegistry;
@@ -19,9 +16,16 @@ import com.iusofts.agentplus.engine.executor.impl.EndNodeExecutor;
 import com.iusofts.agentplus.engine.executor.impl.KnowledgeNodeExecutor;
 import com.iusofts.agentplus.engine.executor.impl.LLMNodeExecutor;
 import com.iusofts.agentplus.engine.executor.impl.StartNodeExecutor;
+import com.iusofts.agentplus.engine.executor.impl.ToolNodeExecutor;
+import com.iusofts.agentplus.engine.tool.ToolRegistry;
+import com.iusofts.agentplus.tool.ToolQueryProvider;
+import com.iusofts.agentplus.engine.graph.ExecutionContextTracker;
+import com.iusofts.agentplus.engine.graph.WorkflowGraphCompiler;
+import com.iusofts.agentplus.engine.graph.WorkflowState;
 import com.iusofts.agentplus.engine.knowledge.KnowledgeRetriever;
 import com.iusofts.agentplus.engine.knowledge.NoopKnowledgeRetriever;
 import com.iusofts.agentplus.engine.llm.ChatModelProvider;
+import org.bsc.langgraph4j.CompiledGraph;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -30,21 +34,13 @@ import java.util.UUID;
 /**
  * 工作流执行引擎入口。
  *
- * <p>使用方式:</p>
- * <pre>{@code
- * WorkflowEngine engine = WorkflowEngine.builder()
- *         .chatModelProvider(myChatModelProvider)
- *         .knowledgeRetriever(myRetriever)
- *         .build();
- * WorkflowExecutionResult result = engine.execute(workflow, config, inputs);
- * }</pre>
- *
- * <p>整个执行流程:</p>
+ * <p>底层由 <a href="https://github.com/bsorrentino/langgraph4j">langgraph4j</a>
+ * 的 {@code StateGraph} 编排。执行时序:</p>
  * <ol>
- *   <li>{@link DagBuilder} 编译 {@link Workflow} 为 {@link DagGraph},做环检测。</li>
- *   <li>创建 {@link ExecutionContext} 装入全局输入与环境变量。</li>
- *   <li>{@link TopologicalScheduler} 按 Kahn 拓扑序调度,遇条件节点执行分支剪枝。</li>
- *   <li>汇总所有 End 节点的输出作为最终结果。</li>
+ *   <li>{@link WorkflowGraphCompiler} 把 {@link Workflow} 编译为主图 + 各批处理节点的子图。</li>
+ *   <li>创建共享的 {@link ExecutionContext},注册子图供 {@code BatchNodeExecutor} 复用。</li>
+ *   <li>{@code CompiledGraph#invoke} 驱动主图,节点动作内部委托给对应 {@link NodeExecutor}。</li>
+ *   <li>汇总所有 End 节点的输出为最终结果,未被访问的节点填 {@code SKIPPED} 状态。</li>
  * </ol>
  *
  * @author Ivan
@@ -52,9 +48,11 @@ import java.util.UUID;
 public class WorkflowEngine {
 
     private final NodeExecutorRegistry registry;
+    private final WorkflowGraphCompiler compiler;
 
     private WorkflowEngine(NodeExecutorRegistry registry) {
         this.registry = registry;
+        this.compiler = new WorkflowGraphCompiler(registry);
     }
 
     public static Builder builder() {
@@ -71,27 +69,50 @@ public class WorkflowEngine {
                                            WorkflowConfig config,
                                            Map<String, Object> inputs,
                                            String runId) {
-        DagGraph graph = DagBuilder.build(workflow);
+        WorkflowGraphCompiler.Compiled compiled = compiler.compile(workflow);
         ExecutionContext ctx = new ExecutionContext(runId, config, inputs);
+        compiled.batchSubGraphs().forEach(ctx::registerBatchSubGraph);
 
-        TopologicalScheduler scheduler = new TopologicalScheduler(graph, registry);
-        scheduler.run(ctx);
+        CompiledGraph<WorkflowState> mainGraph = compiled.mainGraph();
+        try {
+            // 将 ctx 注册到 tracker 中
+            ExecutionContextTracker tracker = new ExecutionContextTracker(ctx);
+            mainGraph.invoke(Map.of(WorkflowState.CTX_KEY, tracker));
+        } catch (WorkflowExecutionException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new WorkflowExecutionException("工作流执行失败: " + e.getMessage(), e);
+        } finally {
+            // 执行完毕清理 tracker，防止内存泄漏
+            ExecutionContextTracker.removeRun(runId);
+        }
 
-        Map<String, Object> finalOutput = collectEndOutputs(graph, ctx);
+        fillSkipped(compiled.nodeIds(), ctx);
+        Map<String, Object> finalOutput = collectEndOutputs(compiled.endNodeIds(), workflow, ctx);
         return new WorkflowExecutionResult(runId, finalOutput, ctx.snapshotOutputs(), ctx.getNodeStatus());
     }
 
-    private Map<String, Object> collectEndOutputs(DagGraph graph, ExecutionContext ctx) {
+    private void fillSkipped(java.util.Set<String> allNodeIds, ExecutionContext ctx) {
+        for (String id : allNodeIds) {
+            if (ctx.getStatus(id) == NodeExecutionStatus.PENDING) {
+                ctx.updateStatus(id, NodeExecutionStatus.SKIPPED);
+                ctx.putOutput(NodeOutput.empty(id));
+            }
+        }
+    }
+
+    private Map<String, Object> collectEndOutputs(java.util.Set<String> endNodeIds,
+                                                  Workflow workflow,
+                                                  ExecutionContext ctx) {
         Map<String, Object> merged = new LinkedHashMap<>();
-        for (Map.Entry<String, Node> e : graph.getNodes().entrySet()) {
-            if (!"End".equalsIgnoreCase(e.getValue().getType())) {
+        for (Node n : workflow.getNodes()) {
+            if (!endNodeIds.contains(n.getId())) {
                 continue;
             }
-            NodeExecutionStatus st = ctx.getStatus(e.getKey());
-            if (st != NodeExecutionStatus.SUCCESS) {
+            if (ctx.getStatus(n.getId()) != NodeExecutionStatus.SUCCESS) {
                 continue;
             }
-            NodeOutput out = ctx.getOutput(e.getKey());
+            NodeOutput out = ctx.getOutput(n.getId());
             if (out != null) {
                 merged.putAll(out.getOutputs());
             }
@@ -107,6 +128,8 @@ public class WorkflowEngine {
 
         private ChatModelProvider chatModelProvider;
         private KnowledgeRetriever knowledgeRetriever;
+        private ToolRegistry toolRegistry;
+        private ToolQueryProvider toolQueryProvider;
         private final NodeExecutorRegistry registry = new NodeExecutorRegistry();
 
         public Builder chatModelProvider(ChatModelProvider provider) {
@@ -116,6 +139,16 @@ public class WorkflowEngine {
 
         public Builder knowledgeRetriever(KnowledgeRetriever retriever) {
             this.knowledgeRetriever = retriever;
+            return this;
+        }
+
+        public Builder toolRegistry(ToolRegistry toolRegistry) {
+            this.toolRegistry = toolRegistry;
+            return this;
+        }
+
+        public Builder toolQueryProvider(ToolQueryProvider toolQueryProvider) {
+            this.toolQueryProvider = toolQueryProvider;
             return this;
         }
 
@@ -137,9 +170,13 @@ public class WorkflowEngine {
                     .register(new EndNodeExecutor())
                     .register(new ConditionNodeExecutor())
                     .register(new AggregatorNodeExecutor())
-                    .register(new BatchNodeExecutor(registry))
+                    .register(new BatchNodeExecutor())
                     .register(new KnowledgeNodeExecutor(retriever))
                     .register(new LLMNodeExecutor(chatModelProvider));
+
+            if (toolRegistry != null && toolQueryProvider != null) {
+                registry.register(new ToolNodeExecutor(toolRegistry, toolQueryProvider));
+            }
 
             return new WorkflowEngine(registry);
         }

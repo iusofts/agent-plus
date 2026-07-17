@@ -24,16 +24,15 @@
             <groupId>com.iusofts</groupId>
             <artifactId>agent-plus-interface</artifactId>
         </dependency>
-        <!-- 阿里云 通义千问 官方SDK -->
+        <!-- 工作流引擎：提供 ChatModelProvider SPI 与 WorkflowEngine -->
         <dependency>
-            <groupId>com.alibaba</groupId>
-            <artifactId>dashscope-sdk-java</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>slf4j-simple</artifactId>
-                </exclusion>
-            </exclusions>
+            <groupId>com.iusofts</groupId>
+            <artifactId>agent-plus-engine</artifactId>
+        </dependency>
+        <!-- 插件模块：LLM/向量库/文档处理等三方集成 -->
+        <dependency>
+            <groupId>com.iusofts</groupId>
+            <artifactId>agent-plus-plugin</artifactId>
         </dependency>
     </dependencies>
 </project>

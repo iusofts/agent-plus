@@ -1,7 +1,9 @@
 package com.iusofts.agentplus.aiflow.interfaces;
 
 import com.iusofts.agentplus.aiflow.vo.*;
-import com.iusofts.agentplus.basic.page.PageResult;
+import com.iusofts.agentplus.aiflow.vo.workflow.config.Knowledge;
+import com.iusofts.agentplus.aiflow.vo.workflow.config.Model;
+import com.iusofts.agentplus.basic.web.vo.page.PageResult;
 import com.iusofts.agentplus.common.vo.IdReqVo;
 
 import java.util.List;
@@ -31,5 +33,9 @@ public interface IAiFlowVersionService {
     void publish(AiFlowVersionPublishReqVo reqVo);
 
     AiFlowVersionDetailVo getWorkflowEditDetailByFlowId(Long flowId);
+
+    List<Model> queryModelList();
+
+    List<Knowledge> queryKnowledgeList();
 
 }

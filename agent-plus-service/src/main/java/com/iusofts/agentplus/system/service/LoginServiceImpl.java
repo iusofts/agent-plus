@@ -8,8 +8,8 @@ package com.iusofts.agentplus.system.service;
 
 import com.baomidou.dynamic.datasource.annotation.DS;
 import com.iusofts.agentplus.basic.exception.SystemBusinessException;
-import com.iusofts.agentplus.basic.image.EasyCaptchaImgCodeUtil;
-import com.iusofts.agentplus.basic.image.ImgIdentifyingCodeVO;
+import com.iusofts.agentplus.basic.web.captcha.EasyCaptchaImgCodeUtil;
+import com.iusofts.agentplus.basic.web.captcha.ImgIdentifyingCodeVO;
 import com.iusofts.agentplus.basic.utils.JsonUtils;
 import com.iusofts.agentplus.basic.security.MD5Util;
 import com.iusofts.agentplus.system.dao.SysRoleMenuMapper;
@@ -176,6 +176,21 @@ public class LoginServiceImpl implements ILoginService {
         sysUser.setLoginIp(ip);
         sysUser.setLoginDate(LocalDateTime.now());
         sysUserService.updateUserProfile(sysUser);
+    }
+
+    @Override
+    public void refreshLoginUserCache(Long userId, String token) {
+        SysUserDto user = sysUserService.selectUserById(userId);
+        if (user != null) {
+            user.setPassword(null);
+            BLoginUserVo bLoginUserVo = new BLoginUserVo();
+            bLoginUserVo.setUser(user);
+            bLoginUserVo.setRoles(sysPermissionService.getRolePermission(user));
+            bLoginUserVo.setPermissions(sysPermissionService.getMenuPermission(user));
+            // 保存到redis
+            redissonClient.getBucket(LOGIN_TOKEN_KEY + token, StringCodec.INSTANCE)
+                    .set(JsonUtils.obj2json(bLoginUserVo), Duration.ofSeconds(60 * 60 * 24 * 3));
+        }
     }
 
 }

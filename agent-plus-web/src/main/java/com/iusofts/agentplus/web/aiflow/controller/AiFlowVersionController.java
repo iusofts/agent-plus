@@ -2,9 +2,11 @@ package com.iusofts.agentplus.web.aiflow.controller;
 
 import com.iusofts.agentplus.aiflow.interfaces.IAiFlowVersionService;
 import com.iusofts.agentplus.aiflow.vo.*;
-import com.iusofts.agentplus.basic.annotation.BLoginUser;
-import com.iusofts.agentplus.basic.annotation.OperationLogExclude;
-import com.iusofts.agentplus.basic.page.PageResult;
+import com.iusofts.agentplus.aiflow.vo.workflow.config.Knowledge;
+import com.iusofts.agentplus.aiflow.vo.workflow.config.Model;
+import com.iusofts.agentplus.basic.web.annotation.BLoginUser;
+import com.iusofts.agentplus.basic.web.annotation.OperationLogExclude;
+import com.iusofts.agentplus.basic.web.vo.page.PageResult;
 import com.iusofts.agentplus.common.vo.IdReqVo;
 import com.iusofts.agentplus.system.vo.BLoginUserVo;
 import com.iusofts.agentplus.web.common.controller.BApiController;
@@ -30,7 +32,7 @@ import static com.iusofts.agentplus.basic.enums.OperationLogExcludeTypeEnums.RES
  */
 @Tag(name = "AI流程版本")
 @RestController
-@RequestMapping("/bapi/aiFlowVersion")
+@RequestMapping("/bapi/ai/flowVersion")
 public class AiFlowVersionController extends BApiController {
 
     @Resource
@@ -88,6 +90,20 @@ public class AiFlowVersionController extends BApiController {
     @PostMapping("/getWorkflowEditDetailByFlowId")
     public AiFlowVersionDetailVo getWorkflowEditDetailByFlowId(@RequestBody IdReqVo reqVo) {
         return aiFlowVersionService.getWorkflowEditDetailByFlowId(reqVo.getId());
+    }
+
+    @Operation(description = "查询可选模型列表")
+    @OperationLogExclude(type = RES)
+    @PostMapping("/queryModelList")
+    public List<Model> queryModelList() {
+        return aiFlowVersionService.queryModelList();
+    }
+
+    @Operation(description = "查询可选知识库列表")
+    @OperationLogExclude(type = RES)
+    @PostMapping("/queryKnowledgeList")
+    public List<Knowledge> queryKnowledgeList() {
+        return aiFlowVersionService.queryKnowledgeList();
     }
 
 }

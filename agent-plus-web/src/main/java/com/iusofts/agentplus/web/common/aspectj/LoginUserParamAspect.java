@@ -1,8 +1,8 @@
 package com.iusofts.agentplus.web.common.aspectj;
 
 import com.iusofts.agentplus.basic.web.ApiUtil;
-import com.iusofts.agentplus.basic.annotation.BLoginUser;
-import com.iusofts.agentplus.basic.annotation.CLoginUser;
+import com.iusofts.agentplus.basic.web.annotation.BLoginUser;
+import com.iusofts.agentplus.basic.web.annotation.CLoginUser;
 import com.iusofts.agentplus.web.common.util.SessionUtil;
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.annotation.Aspect;
@@ -20,7 +20,7 @@ import java.lang.reflect.Parameter;
 @Component
 public class LoginUserParamAspect {
 
-    @Before("execution(* *(.., @com.iusofts.agentplus.basic.annotation.CLoginUser (*), ..))")
+    @Before("execution(* *(.., @com.iusofts.agentplus.basic.web.annotation.CLoginUser (*), ..))")
     public void cLoginUserParam(JoinPoint joinPoint) {
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
         Method method = signature.getMethod();
@@ -37,7 +37,7 @@ public class LoginUserParamAspect {
         }
     }
 
-    @Before("execution(* *(.., @com.iusofts.agentplus.basic.annotation.BLoginUser (*), ..))")
+    @Before("execution(* *(.., @com.iusofts.agentplus.basic.web.annotation.BLoginUser (*), ..))")
     public void bLoginUserParam(JoinPoint joinPoint) {
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
         Method method = signature.getMethod();

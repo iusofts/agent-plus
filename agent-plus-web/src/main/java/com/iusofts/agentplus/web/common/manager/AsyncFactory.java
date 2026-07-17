@@ -1,6 +1,6 @@
 package com.iusofts.agentplus.web.common.manager;
 
-import com.iusofts.agentplus.basic.ip.AddressUtils;
+import com.iusofts.agentplus.basic.web.ip.AddressUtils;
 import com.iusofts.agentplus.basic.web.BeanLocatorUtil;
 import com.iusofts.agentplus.system.dto.OperLogAddParam;
 import com.iusofts.agentplus.system.interfaces.IOperLogService;

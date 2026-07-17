@@ -2,6 +2,8 @@ package com.iusofts.agentplus.aiflow.vo.workflow.data;
 
 import com.iusofts.agentplus.aiflow.vo.workflow.data.aggregator.OutputGroup;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
@@ -20,6 +22,8 @@ import java.util.List;
 @Schema(description = "变量聚合节点数据")
 public class AggregatorNodeData extends NodeData {
 
+    @Valid
+    @NotEmpty(message = "输出分组不能为空")
     @Schema(description = "输出分组列表")
     private List<OutputGroup> outputGroups;
 

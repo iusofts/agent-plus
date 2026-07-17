@@ -4,7 +4,7 @@ import com.iusofts.agentplus.aiflow.interfaces.IAiFlowRuntimeNodeService;
 import com.iusofts.agentplus.aiflow.vo.AiFlowRuntimeNodeDetailVo;
 import com.iusofts.agentplus.aiflow.vo.AiFlowRuntimeNodeQueryReqVo;
 import com.iusofts.agentplus.aiflow.vo.AiFlowRuntimeNodeVo;
-import com.iusofts.agentplus.basic.annotation.OperationLogExclude;
+import com.iusofts.agentplus.basic.web.annotation.OperationLogExclude;
 import com.iusofts.agentplus.common.vo.IdReqVo;
 import com.iusofts.agentplus.web.common.controller.BApiController;
 import io.swagger.v3.oas.annotations.Operation;
@@ -29,7 +29,7 @@ import static com.iusofts.agentplus.basic.enums.OperationLogExcludeTypeEnums.RES
  */
 @Tag(name = "运行节点明细")
 @RestController
-@RequestMapping("/bapi/aiFlowRuntimeNode")
+@RequestMapping("/bapi/ai/flowRuntimeNode")
 public class AiFlowRuntimeNodeController extends BApiController {
 
     @Resource
