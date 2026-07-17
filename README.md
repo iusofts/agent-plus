@@ -8,8 +8,8 @@
   <img src="https://img.shields.io/badge/version-1.0.0-blue" alt="version">
   <img src="https://img.shields.io/badge/vue-3.5%2B-orange" alt="rust">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="license">
-    <a href="https://gitcode.com/iusoft/agent-plus" target="_blank">
-    <img src="https://gitcode.com/iusoft/agent-plus/star/badge.svg" alt="AtomGit Star"/>
+    <a href="https://gitcode.com/iusofts/agent-plus" target="_blank">
+    <img src="https://gitcode.com/iusofts/agent-plus/star/badge.svg" alt="AtomGit Star"/>
   </a>
 </p>
 
