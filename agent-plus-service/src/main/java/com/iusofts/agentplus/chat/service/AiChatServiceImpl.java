@@ -121,6 +121,7 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
             AiMessageVo userMsg = new AiMessageVo();
             userMsg.setRole("user");
             userMsg.setContent(reqVo.getContent());
+            userMsg.setFileList(reqVo.getFileList());
             requestMsgs.add(userMsg);
         }
         dialog.addAll(requestMsgs);

@@ -416,6 +416,7 @@ CREATE TABLE `ai_message`  (
   `conversation_id` bigint(20) NOT NULL COMMENT '会话id',
   `role` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT '角色(user/assistant)',
   `content` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL COMMENT '消息内容',
+  `file_list` json NULL COMMENT '文件列表(JSON数组)',
   `struct_res` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL COMMENT '结构返回值',
   `agent_id` bigint(20) NULL DEFAULT NULL COMMENT '智能体ID',
   `input_tokens` int(11) NULL DEFAULT 0 COMMENT '输入消耗token数',
