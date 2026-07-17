@@ -69,8 +69,22 @@ public class WorkflowEngine {
                                            WorkflowConfig config,
                                            Map<String, Object> inputs,
                                            String runId) {
+        return execute(workflow, config, inputs, runId, null, null, null);
+    }
+
+    /**
+     * 带运行元数据的执行入口。元数据(flowId/operatorId/orgId)会传递给
+     * LLM / 知识库等执行器,用于 AI 日志的 fromFlow / operator 记录。
+     */
+    public WorkflowExecutionResult execute(Workflow workflow,
+                                           WorkflowConfig config,
+                                           Map<String, Object> inputs,
+                                           String runId,
+                                           Long flowId,
+                                           Long operatorId,
+                                           Integer orgId) {
         WorkflowGraphCompiler.Compiled compiled = compiler.compile(workflow);
-        ExecutionContext ctx = new ExecutionContext(runId, config, inputs);
+        ExecutionContext ctx = new ExecutionContext(runId, config, inputs, flowId, operatorId, orgId);
         compiled.batchSubGraphs().forEach(ctx::registerBatchSubGraph);
 
         CompiledGraph<WorkflowState> mainGraph = compiled.mainGraph();
@@ -89,7 +103,8 @@ public class WorkflowEngine {
 
         fillSkipped(compiled.nodeIds(), ctx);
         Map<String, Object> finalOutput = collectEndOutputs(compiled.endNodeIds(), workflow, ctx);
-        return new WorkflowExecutionResult(runId, finalOutput, ctx.snapshotOutputs(), ctx.getNodeStatus());
+        return new WorkflowExecutionResult(runId, finalOutput,
+                ctx.snapshotOutputs(), ctx.getNodeStatus(), ctx.snapshotTimings());
     }
 
     private void fillSkipped(java.util.Set<String> allNodeIds, ExecutionContext ctx) {
@@ -130,6 +145,8 @@ public class WorkflowEngine {
         private KnowledgeRetriever knowledgeRetriever;
         private ToolRegistry toolRegistry;
         private ToolQueryProvider toolQueryProvider;
+        private com.iusofts.agentplus.llm.log.LlmLogRecorder llmLogRecorder;
+        private com.iusofts.agentplus.llm.LlmModelQueryProvider llmModelQueryProvider;
         private final NodeExecutorRegistry registry = new NodeExecutorRegistry();
 
         public Builder chatModelProvider(ChatModelProvider provider) {
@@ -152,6 +169,18 @@ public class WorkflowEngine {
             return this;
         }
 
+        /** 可选:注入 AI 日志记录器,LLM/知识库节点会自动写日志。 */
+        public Builder llmLogRecorder(com.iusofts.agentplus.llm.log.LlmLogRecorder recorder) {
+            this.llmLogRecorder = recorder;
+            return this;
+        }
+
+        /** 可选:注入 LLM 模型查询,日志会带上模型名/厂商等详情。 */
+        public Builder llmModelQueryProvider(com.iusofts.agentplus.llm.LlmModelQueryProvider provider) {
+            this.llmModelQueryProvider = provider;
+            return this;
+        }
+
         /** 追加/覆盖自定义节点执行器,类型冲突时后注册者胜出。 */
         public Builder registerExecutor(NodeExecutor executor) {
             registry.register(executor);
@@ -171,8 +200,8 @@ public class WorkflowEngine {
                     .register(new ConditionNodeExecutor())
                     .register(new AggregatorNodeExecutor())
                     .register(new BatchNodeExecutor())
-                    .register(new KnowledgeNodeExecutor(retriever))
-                    .register(new LLMNodeExecutor(chatModelProvider));
+                    .register(new KnowledgeNodeExecutor(retriever, llmLogRecorder))
+                    .register(new LLMNodeExecutor(chatModelProvider, llmLogRecorder, llmModelQueryProvider));
 
             if (toolRegistry != null && toolQueryProvider != null) {
                 registry.register(new ToolNodeExecutor(toolRegistry, toolQueryProvider));

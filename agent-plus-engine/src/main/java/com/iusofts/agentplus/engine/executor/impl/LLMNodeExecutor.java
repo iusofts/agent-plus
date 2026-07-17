@@ -11,12 +11,17 @@ import com.iusofts.agentplus.engine.exception.WorkflowExecutionException;
 import com.iusofts.agentplus.engine.executor.NodeExecutor;
 import com.iusofts.agentplus.engine.llm.ChatModelProvider;
 import com.iusofts.agentplus.engine.util.ParamResolver;
+import com.iusofts.agentplus.llm.LlmModelQueryProvider;
+import com.iusofts.agentplus.llm.dto.LlmModelConfigDTO;
+import com.iusofts.agentplus.llm.dto.LlmModelDTO;
+import com.iusofts.agentplus.llm.log.LlmLogRecorder;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.response.ChatResponse;
+import dev.langchain4j.model.output.TokenUsage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,6 +42,9 @@ import java.util.Map;
  *   <li>输出映射: 单输出直接放模型文本;多输出尝试解析 JSON,失败则全部放同一 key。</li>
  * </ol>
  *
+ * <p>若引擎构造时提供了 {@link LlmLogRecorder} 与 {@link LlmModelQueryProvider},
+ * 每次模型调用后会写一条 {@code ai_llm_call_log},含消息体与 token 使用量。</p>
+ *
  * @author Ivan
  */
 public class LLMNodeExecutor implements NodeExecutor {
@@ -45,9 +53,19 @@ public class LLMNodeExecutor implements NodeExecutor {
     private static final ObjectMapper JSON = new ObjectMapper();
 
     private final ChatModelProvider chatModelProvider;
+    private final LlmLogRecorder llmLogRecorder;
+    private final LlmModelQueryProvider modelQueryProvider;
 
     public LLMNodeExecutor(ChatModelProvider chatModelProvider) {
+        this(chatModelProvider, null, null);
+    }
+
+    public LLMNodeExecutor(ChatModelProvider chatModelProvider,
+                           LlmLogRecorder llmLogRecorder,
+                           LlmModelQueryProvider modelQueryProvider) {
         this.chatModelProvider = chatModelProvider;
+        this.llmLogRecorder = llmLogRecorder;
+        this.modelQueryProvider = modelQueryProvider;
     }
 
     @Override
@@ -78,30 +96,87 @@ public class LLMNodeExecutor implements NodeExecutor {
         String text;
         String reasoningContent = null;
         Map<String, Object> usage = null;
+        InvokeOutcome outcome = null;
         try {
-            // 注：当前LangChain4j ChatResponse仅返回text，后续如需支持reasoning/usage需扩展ChatModelProvider
-            text = invokeWithRetry(data, messages);
+            outcome = invokeWithRetry(data, messages);
+            text = outcome.text;
+            if (outcome.tokenUsage != null) {
+                usage = new LinkedHashMap<>();
+                usage.put("inputTokens", outcome.tokenUsage.inputTokenCount());
+                usage.put("outputTokens", outcome.tokenUsage.outputTokenCount());
+                usage.put("totalTokens", outcome.tokenUsage.totalTokenCount());
+            }
+            recordLlmLog(node, data, ctx, systemPrompt, userPrompt, text, outcome.tokenUsage, null);
         } catch (Exception e) {
+            recordLlmLog(node, data, ctx, systemPrompt, userPrompt, null, null, e);
             text = handleFailure(node, data, e);
         }
 
         return new NodeOutput(node.getId(), mapOutputs(text, reasoningContent, usage, data.getOutputParams()));
     }
 
-    private String invokeWithRetry(LLMNodeData data, List<ChatMessage> messages) throws Exception {
+    private InvokeOutcome invokeWithRetry(LLMNodeData data, List<ChatMessage> messages) throws Exception {
         int maxAttempts = 1 + Math.max(0, data.getRetryCount() == null ? 0 : data.getRetryCount());
         ChatModel model = chatModelProvider.provide(data);
         Exception last = null;
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
                 ChatResponse resp = model.chat(ChatRequest.builder().messages(messages).build());
-                return resp.aiMessage().text();
+                return new InvokeOutcome(resp.aiMessage().text(), resp.tokenUsage());
             } catch (Exception e) {
                 last = e;
                 LOGGER.warn("LLM 调用失败 attempt={}/{} err={}", attempt, maxAttempts, e.getMessage());
             }
         }
         throw last;
+    }
+
+    /** 记录一次 LLM 调用日志。recorder 或 modelQueryProvider 缺失时静默跳过。 */
+    private void recordLlmLog(Node node, LLMNodeData data, ExecutionContext ctx,
+                              String systemPrompt, String userPrompt,
+                              String output, TokenUsage tokenUsage, Exception error) {
+        if (llmLogRecorder == null) {
+            return;
+        }
+        try {
+            LlmModelDTO modelDTO = null;
+            if (modelQueryProvider != null && data.getModelId() != null) {
+                try {
+                    modelDTO = modelQueryProvider.getModel(data.getModelId());
+                } catch (Exception e) {
+                    LOGGER.debug("查询 LLM 模型信息失败,日志将不带模型详情", e);
+                }
+            }
+            LlmModelConfigDTO config = new LlmModelConfigDTO();
+            config.setTemperature(data.getTemperature());
+
+            List<com.iusofts.agentplus.llm.dto.ChatMessage> logMessages = new ArrayList<>();
+            if (systemPrompt != null && !systemPrompt.isBlank()) {
+                logMessages.add(com.iusofts.agentplus.llm.dto.ChatMessage.builder()
+                        .role("system").content(systemPrompt).build());
+            }
+            logMessages.add(com.iusofts.agentplus.llm.dto.ChatMessage.builder()
+                    .role("user").content(userPrompt).build());
+
+            LlmLogRecorder.LlmCallRecorder recorder = llmLogRecorder.recordLlmCall()
+                    .traceId(ctx.getRunId())
+                    .fromFlow(ctx.getFlowId(), node.getId())
+                    .model(modelDTO)
+                    .config(config)
+                    .inputMessages(logMessages)
+                    .operator(ctx.getOperatorId(), ctx.getOrgId());
+
+            if (error != null) {
+                recorder.error(null, error.getMessage());
+            } else {
+                Integer inputTokens = tokenUsage != null ? tokenUsage.inputTokenCount() : null;
+                Integer outputTokens = tokenUsage != null ? tokenUsage.outputTokenCount() : null;
+                recorder.output(output, inputTokens, outputTokens).success();
+            }
+            recorder.record();
+        } catch (Exception e) {
+            LOGGER.warn("写 LLM 日志失败", e);
+        }
     }
 
     private String handleFailure(Node node, LLMNodeData data, Exception e) {
@@ -170,5 +245,9 @@ public class LLMNodeExecutor implements NodeExecutor {
             LOGGER.debug("LLM 输出非 JSON,仅默认输出可用");
             return out;
         }
+    }
+
+    /** 内部结构:一次成功调用的返回文本 + token 使用量。 */
+    private record InvokeOutcome(String text, TokenUsage tokenUsage) {
     }
 }

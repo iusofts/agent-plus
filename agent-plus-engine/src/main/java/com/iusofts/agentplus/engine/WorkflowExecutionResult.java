@@ -2,6 +2,7 @@ package com.iusofts.agentplus.engine;
 
 import com.iusofts.agentplus.engine.context.NodeExecutionStatus;
 import com.iusofts.agentplus.engine.context.NodeOutput;
+import com.iusofts.agentplus.engine.context.NodeTiming;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
@@ -20,4 +21,5 @@ public class WorkflowExecutionResult {
     private final Map<String, Object> output;
     private final Map<String, NodeOutput> nodeOutputs;
     private final Map<String, NodeExecutionStatus> nodeStatus;
+    private final Map<String, NodeTiming> nodeTimings;
 }

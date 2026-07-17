@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import static com.iusofts.agentplus.basic.enums.OperationLogExcludeTypeEnums.RES;
+import static com.iusofts.agentplus.common.constants.SysConstant.SYSCODE;
 
 /**
  * <p>
@@ -39,6 +40,7 @@ public class AiFlowTrialController extends BApiController {
     @PostMapping("/runFlow")
     public AiFlowTrialRunResultVo runFlow(@RequestBody AiFlowTrialRunFlowReqVo reqVo, @BLoginUser BLoginUserVo loginUserVo) {
         reqVo.setOperatorId(loginUserVo.getUser().getUserId());
+        reqVo.setOrgId(SYSCODE);
         return aiFlowTrialService.runFlow(reqVo);
     }
 
@@ -47,6 +49,7 @@ public class AiFlowTrialController extends BApiController {
     @PostMapping("/runNode")
     public AiFlowTrialRunResultVo runNode(@RequestBody AiFlowTrialRunNodeReqVo reqVo, @BLoginUser BLoginUserVo loginUserVo) {
         reqVo.setOperatorId(loginUserVo.getUser().getUserId());
+        reqVo.setOrgId(SYSCODE);
         return aiFlowTrialService.runNode(reqVo);
     }
 

@@ -33,6 +33,7 @@ import com.iusofts.agentplus.engine.WorkflowExecutionResult;
 import com.iusofts.agentplus.engine.context.ExecutionContext;
 import com.iusofts.agentplus.engine.context.NodeExecutionStatus;
 import com.iusofts.agentplus.engine.context.NodeOutput;
+import com.iusofts.agentplus.engine.context.NodeTiming;
 import com.iusofts.agentplus.engine.executor.NodeExecutor;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
@@ -93,21 +94,27 @@ public class AiFlowTrialServiceImpl implements IAiFlowTrialService {
         result.setTraceId(traceId);
 
         try {
-            WorkflowExecutionResult execResult = workflowEngine.execute(workflow, config, inputs, traceId);
+            WorkflowExecutionResult execResult = workflowEngine.execute(workflow, config, inputs, traceId,
+                    version.getFlowId(), reqVo.getOperatorId(), reqVo.getOrgId());
 
             List<AiFlowRuntimeNode> nodeEntities = new ArrayList<>();
             List<AiFlowTrialNodeResultVo> nodeResults = new ArrayList<>();
             Map<String, String> nodeTypeMap = buildNodeTypeMap(workflow);
+            Map<String, NodeTiming> timings = execResult.getNodeTimings();
             for (Map.Entry<String, NodeExecutionStatus> entry : execResult.getNodeStatus().entrySet()) {
                 String nodeId = entry.getKey();
                 String nodeType = nodeTypeMap.getOrDefault(nodeId, "");
                 NodeOutput output = execResult.getNodeOutputs().get(nodeId);
                 Map<String, Object> outputs = output == null ? null : output.getOutputs();
                 int nodeStatus = mapNodeStatus(entry.getValue());
+                NodeTiming timing = timings == null ? null : timings.get(nodeId);
+                LocalDateTime nodeStart = timing == null ? null : timing.getStartTime();
+                LocalDateTime nodeEnd = timing == null ? null : timing.getEndTime();
+                Long nodeCost = timing == null ? null : timing.getCostMs();
 
                 nodeEntities.add(buildRuntimeNode(runtime.getId(), nodeId, nodeType, nodeStatus,
-                        null, outputs, null, reqVo.getOperatorId()));
-                nodeResults.add(buildNodeResultVo(nodeId, nodeType, nodeStatus, outputs, null, null));
+                        null, outputs, null, reqVo.getOperatorId(), nodeStart, nodeEnd, nodeCost));
+                nodeResults.add(buildNodeResultVo(nodeId, nodeType, nodeStatus, outputs, nodeCost, null));
             }
             for (AiFlowRuntimeNode nodeEntity : nodeEntities) {
                 aiFlowRuntimeNodeMapper.insert(nodeEntity);
@@ -160,20 +167,23 @@ public class AiFlowTrialServiceImpl implements IAiFlowTrialService {
         result.setTraceId(traceId);
 
         try {
-            ExecutionContext ctx = new ExecutionContext(traceId, config, new LinkedHashMap<>());
+            ExecutionContext ctx = new ExecutionContext(traceId, config, new LinkedHashMap<>(),
+                    version.getFlowId(), reqVo.getOperatorId(), reqVo.getOrgId());
             // 按参数名直接赋值:把用户给的值回填到各输入参数 paramMapKey 指向的位置,不走真实上游
             applyDirectInputs(inputParams, inputs, ctx);
 
             NodeExecutor executor = workflowEngine.registry().get(target.getType());
+            LocalDateTime nodeStart = LocalDateTime.now();
             NodeOutput output = executor.execute(target, ctx);
+            LocalDateTime nodeEnd = LocalDateTime.now();
             Map<String, Object> outputs = output == null ? null : output.getOutputs();
 
-            long costMs = Duration.between(start, LocalDateTime.now()).toMillis();
+            long costMs = Duration.between(nodeStart, nodeEnd).toMillis();
             int nodeStatus = NodeRunStatusEnum.SUCCESS.getCode();
 
             AiFlowRuntimeNode nodeEntity = buildRuntimeNode(runtime.getId(), target.getId(), target.getType(),
-                    nodeStatus, serialize(inputs), outputs, null, reqVo.getOperatorId());
-            nodeEntity.setCostMs(costMs);
+                    nodeStatus, serialize(inputs), outputs, null, reqVo.getOperatorId(),
+                    nodeStart, nodeEnd, costMs);
             aiFlowRuntimeNodeMapper.insert(nodeEntity);
 
             finishRuntime(runtime, RunStatusEnum.SUCCESS.getCode(), costMs, serialize(outputs), null);
@@ -186,12 +196,13 @@ public class AiFlowTrialServiceImpl implements IAiFlowTrialService {
             result.setNodeResults(nodeResults);
             return result;
         } catch (Exception e) {
-            long costMs = Duration.between(start, LocalDateTime.now()).toMillis();
+            LocalDateTime nodeEnd = LocalDateTime.now();
+            long costMs = Duration.between(start, nodeEnd).toMillis();
             String errorStack = truncate(e.toString());
 
             AiFlowRuntimeNode nodeEntity = buildRuntimeNode(runtime.getId(), target.getId(), target.getType(),
-                    NodeRunStatusEnum.FAILED.getCode(), serialize(inputs), null, errorStack, reqVo.getOperatorId());
-            nodeEntity.setCostMs(costMs);
+                    NodeRunStatusEnum.FAILED.getCode(), serialize(inputs), null, errorStack, reqVo.getOperatorId(),
+                    start, nodeEnd, costMs);
             aiFlowRuntimeNodeMapper.insert(nodeEntity);
 
             finishRuntime(runtime, RunStatusEnum.FAILED.getCode(), costMs, null, truncate(e.getMessage()));
@@ -265,7 +276,8 @@ public class AiFlowTrialServiceImpl implements IAiFlowTrialService {
 
     private AiFlowRuntimeNode buildRuntimeNode(Long runtimeId, String nodeId, String nodeType, int runStatus,
                                                String nodeInput, Map<String, Object> outputs, String errorStack,
-                                               Long operatorId) {
+                                               Long operatorId, LocalDateTime startTime, LocalDateTime endTime,
+                                               Long costMs) {
         AiFlowRuntimeNode node = new AiFlowRuntimeNode();
         node.setRuntimeId(runtimeId);
         node.setNodeId(nodeId);
@@ -274,6 +286,9 @@ public class AiFlowTrialServiceImpl implements IAiFlowTrialService {
         node.setNodeInput(nodeInput);
         node.setNodeOutput(outputs == null ? null : serialize(outputs));
         node.setErrorStack(errorStack);
+        node.setStartTime(startTime);
+        node.setEndTime(endTime);
+        node.setCostMs(costMs);
         node.setCreateBy(operatorId);
         return node;
     }

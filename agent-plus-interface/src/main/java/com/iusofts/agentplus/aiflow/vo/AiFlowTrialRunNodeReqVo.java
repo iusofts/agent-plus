@@ -32,4 +32,7 @@ public class AiFlowTrialRunNodeReqVo {
     @Schema(description = "操作人ID", hidden = true)
     private Long operatorId;
 
+    @Schema(description = "组织ID", hidden = true)
+    private Integer orgId;
+
 }

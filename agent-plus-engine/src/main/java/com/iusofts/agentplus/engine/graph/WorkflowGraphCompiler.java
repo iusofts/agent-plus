@@ -253,6 +253,7 @@ public class WorkflowGraphCompiler {
         return state -> {
             ExecutionContext ctx = state.ctx();
             ctx.updateStatus(node.getId(), NodeExecutionStatus.RUNNING);
+            java.time.LocalDateTime startTime = java.time.LocalDateTime.now();
             try {
                 LOGGER.debug("execute node id={} type={}", node.getId(), node.getType());
                 NodeOutput out = executor.execute(node, ctx);
@@ -264,6 +265,8 @@ public class WorkflowGraphCompiler {
             } catch (Exception e) {
                 ctx.updateStatus(node.getId(), NodeExecutionStatus.FAILED);
                 throw new WorkflowExecutionException(node.getId(), "节点执行异常", e);
+            } finally {
+                ctx.recordTiming(node.getId(), startTime, java.time.LocalDateTime.now());
             }
             return CompletableFuture.completedFuture(Collections.emptyMap());
         };

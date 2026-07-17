@@ -10,8 +10,12 @@ import com.iusofts.agentplus.engine.executor.NodeExecutor;
 import com.iusofts.agentplus.engine.knowledge.KnowledgeRetriever;
 import com.iusofts.agentplus.engine.util.ParamResolver;
 import com.iusofts.agentplus.knowledge.dto.KnowledgeRetrieveResult;
+import com.iusofts.agentplus.llm.log.LlmLogRecorder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -20,14 +24,25 @@ import java.util.Map;
  * <p>把 inputParams 中的所有输入拼接为查询语句，委托 {@link KnowledgeRetriever} 召回。
  * 结果按第一个 outputParam(默认名 chunks/documents/text)输出，便于下游 LLM 节点直接引用。</p>
  *
+ * <p>若引擎构造时提供了 {@link LlmLogRecorder},每次检索按传入的知识库逐条记录
+ * {@code ai_knowledge_retrieval_log},含召回结果与向量化 token。</p>
+ *
  * @author Ivan
  */
 public class KnowledgeNodeExecutor implements NodeExecutor {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(KnowledgeNodeExecutor.class);
+
     private final KnowledgeRetriever retriever;
+    private final LlmLogRecorder llmLogRecorder;
 
     public KnowledgeNodeExecutor(KnowledgeRetriever retriever) {
+        this(retriever, null);
+    }
+
+    public KnowledgeNodeExecutor(KnowledgeRetriever retriever, LlmLogRecorder llmLogRecorder) {
         this.retriever = retriever;
+        this.llmLogRecorder = llmLogRecorder;
     }
 
     @Override
@@ -46,7 +61,17 @@ public class KnowledgeNodeExecutor implements NodeExecutor {
                 .orElse("");
 
         int topK = data.getTopK() == null ? 3 : data.getTopK();
-        KnowledgeRetrieveResult result = retriever.retrieve(data.getKnowledgeIds(), query, topK);
+        KnowledgeRetrieveResult result;
+        Exception failure = null;
+        try {
+            result = retriever.retrieve(data.getKnowledgeIds(), query, topK);
+        } catch (Exception e) {
+            failure = e;
+            result = null;
+            recordRetrievalLog(node, data, ctx, query, topK, null, e);
+            throw e;
+        }
+        recordRetrievalLog(node, data, ctx, query, topK, result, null);
 
         Map<String, Object> outputs = new LinkedHashMap<>();
         String outName = "documents";
@@ -58,5 +83,43 @@ public class KnowledgeNodeExecutor implements NodeExecutor {
         }
         outputs.put(outName, result);
         return new NodeOutput(node.getId(), outputs);
+    }
+
+    /** 按节点上配置的每个知识库记录一条检索日志。 */
+    private void recordRetrievalLog(Node node, KnowledgeNodeData data, ExecutionContext ctx,
+                                    String query, int topK,
+                                    KnowledgeRetrieveResult result, Exception error) {
+        if (llmLogRecorder == null) {
+            return;
+        }
+        List<Long> kbIds = data.getKnowledgeIds();
+        if (kbIds == null || kbIds.isEmpty()) {
+            return;
+        }
+        List<String> kbNames = data.getKnowledgeNames();
+        for (int i = 0; i < kbIds.size(); i++) {
+            Long kbId = kbIds.get(i);
+            String kbName = kbNames != null && i < kbNames.size() ? kbNames.get(i) : null;
+            try {
+                LlmLogRecorder.KnowledgeRetrievalRecorder recorder = llmLogRecorder.recordKnowledgeRetrieval()
+                        .traceId(ctx.getRunId())
+                        .fromFlow(ctx.getFlowId(), node.getId())
+                        .knowledgeBase(kbId, kbName)
+                        .query(query)
+                        .topK(topK)
+                        .operator(ctx.getOperatorId(), ctx.getOrgId());
+                if (error != null) {
+                    recorder.error(error.getMessage());
+                } else if (result != null) {
+                    // 多知识库合并结果时,单条日志的召回明细复用整体 result
+                    recorder.retrievedResult(result).success();
+                } else {
+                    recorder.success();
+                }
+                recorder.record();
+            } catch (Exception e) {
+                LOGGER.warn("写知识库检索日志失败 kbId={}", kbId, e);
+            }
+        }
     }
 }
