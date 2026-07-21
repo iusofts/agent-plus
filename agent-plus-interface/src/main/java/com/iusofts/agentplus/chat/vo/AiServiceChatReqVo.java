@@ -34,4 +34,7 @@ public class AiServiceChatReqVo {
     @Schema(description = "操作人ID")
     private Long operatorId;
 
+    @Schema(description = "智能体类型 1:自主规划 2:对话流")
+    private Integer agentType;
+
 }
