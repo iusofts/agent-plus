@@ -1,10 +1,17 @@
 package com.iusofts.agentplus.engine.llm;
 
 import com.iusofts.agentplus.aiflow.vo.workflow.data.llm.LLMNodeData;
+import com.iusofts.agentplus.llm.dto.ChatMessage;
+import com.iusofts.agentplus.llm.dto.LlmModelConfigDTO;
+import com.iusofts.agentplus.llm.dto.ToolDefinition;
+import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.openai.OpenAiChatModel;
+import dev.langchain4j.model.output.TokenUsage;
 import org.springframework.util.StringUtils;
 
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -60,6 +67,45 @@ public class DefaultChatModelProvider implements ChatModelProvider {
             return defaultModel;
         }
         return modelCache.computeIfAbsent(temperature, this::createChatModel);
+    }
+
+    @Override
+    public com.iusofts.agentplus.llm.dto.ChatResponse chat(Long modelId, List<ChatMessage> messages,
+                                                            LlmModelConfigDTO config, List<ToolDefinition> tools) {
+        // 兜底实现：将消息转换为 LangChain4j 格式调用
+        ChatModel model = provide(null);
+        List<dev.langchain4j.data.message.ChatMessage> lcMessages = convertToLangChain4j(messages);
+        ChatRequest request = ChatRequest.builder().messages(lcMessages).build();
+        dev.langchain4j.model.chat.response.ChatResponse response = model.chat(request);
+        AiMessage aiMessage = response.aiMessage();
+        TokenUsage tokenUsage = response.tokenUsage();
+
+        return com.iusofts.agentplus.llm.dto.ChatResponse.builder()
+                .content(aiMessage.text())
+                .inputTokens(tokenUsage != null ? tokenUsage.inputTokenCount() : null)
+                .outputTokens(tokenUsage != null ? tokenUsage.outputTokenCount() : null)
+                .build();
+    }
+
+    private List<dev.langchain4j.data.message.ChatMessage> convertToLangChain4j(List<ChatMessage> messages) {
+        List<dev.langchain4j.data.message.ChatMessage> result = new java.util.ArrayList<>();
+        for (ChatMessage msg : messages) {
+            switch (msg.getRole().toLowerCase()) {
+                case "system":
+                    result.add(dev.langchain4j.data.message.SystemMessage.from(msg.getContent()));
+                    break;
+                case "user":
+                    result.add(dev.langchain4j.data.message.UserMessage.from(msg.getContent()));
+                    break;
+                case "assistant":
+                    result.add(dev.langchain4j.data.message.AiMessage.from(msg.getContent()));
+                    break;
+                // tool messages in tool call are handled by AiChatService in the primary implementation
+                default:
+                    result.add(dev.langchain4j.data.message.UserMessage.from(msg.getContent()));
+            }
+        }
+        return result;
     }
 
     private ChatModel createChatModel(Double temperature) {

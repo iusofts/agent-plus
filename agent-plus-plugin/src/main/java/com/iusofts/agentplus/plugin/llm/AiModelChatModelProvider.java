@@ -2,13 +2,19 @@ package com.iusofts.agentplus.plugin.llm;
 
 import com.iusofts.agentplus.aiflow.vo.workflow.data.llm.LLMNodeData;
 import com.iusofts.agentplus.engine.llm.ChatModelProvider;
+import com.iusofts.agentplus.llm.AiChatService;
+import com.iusofts.agentplus.llm.dto.ChatMessage;
+import com.iusofts.agentplus.llm.dto.ChatResponse;
 import com.iusofts.agentplus.llm.dto.LlmModelConfigDTO;
 import com.iusofts.agentplus.llm.dto.LlmModelDTO;
+import com.iusofts.agentplus.llm.dto.ToolDefinition;
 import com.iusofts.agentplus.llm.LlmModelQueryProvider;
 import dev.langchain4j.model.chat.ChatModel;
+import jakarta.annotation.Resource;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -24,6 +30,8 @@ import java.util.concurrent.ConcurrentMap;
 public class AiModelChatModelProvider implements ChatModelProvider {
 
     private final LlmModelQueryProvider modelQueryProvider;
+    @Resource
+    private AiChatService aiChatService;
 
     /**
      * 缓存 key = modelId + "@" + temperature，避免每次调用重建 ChatModel。
@@ -50,5 +58,11 @@ public class AiModelChatModelProvider implements ChatModelProvider {
             config.setTemperature(temperature);
             return LlmModelFactory.createChatModel(modelDTO, config);
         });
+    }
+
+    @Override
+    public ChatResponse chat(Long modelId, List<ChatMessage> messages,
+                              LlmModelConfigDTO config, List<ToolDefinition> tools) {
+        return aiChatService.chat(messages, modelId, config, tools);
     }
 }

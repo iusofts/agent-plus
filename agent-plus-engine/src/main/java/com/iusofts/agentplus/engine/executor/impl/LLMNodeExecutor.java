@@ -1,5 +1,6 @@
 package com.iusofts.agentplus.engine.executor.impl;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.iusofts.agentplus.aiflow.enums.FlowNodeType;
 import com.iusofts.agentplus.aiflow.vo.workflow.Node;
@@ -10,22 +11,27 @@ import com.iusofts.agentplus.engine.context.NodeOutput;
 import com.iusofts.agentplus.engine.exception.WorkflowExecutionException;
 import com.iusofts.agentplus.engine.executor.NodeExecutor;
 import com.iusofts.agentplus.engine.llm.ChatModelProvider;
+import com.iusofts.agentplus.engine.tool.ToolRegistry;
 import com.iusofts.agentplus.engine.util.ParamResolver;
 import com.iusofts.agentplus.llm.LlmModelQueryProvider;
+import com.iusofts.agentplus.llm.dto.ChatMessage;
+import com.iusofts.agentplus.llm.dto.ChatResponse;
 import com.iusofts.agentplus.llm.dto.LlmModelConfigDTO;
 import com.iusofts.agentplus.llm.dto.LlmModelDTO;
+import com.iusofts.agentplus.llm.dto.ToolCall;
+import com.iusofts.agentplus.llm.dto.ToolDefinition;
 import com.iusofts.agentplus.llm.log.LlmLogRecorder;
-import dev.langchain4j.data.message.ChatMessage;
-import dev.langchain4j.data.message.SystemMessage;
-import dev.langchain4j.data.message.UserMessage;
-import dev.langchain4j.model.chat.ChatModel;
-import dev.langchain4j.model.chat.request.ChatRequest;
-import dev.langchain4j.model.chat.response.ChatResponse;
+import com.iusofts.agentplus.tool.dto.ToolDTO;
+import com.iusofts.agentplus.tool.dto.ToolExecuteRequest;
+import com.iusofts.agentplus.tool.dto.ToolExecuteResult;
+import com.iusofts.agentplus.tool.ToolQueryProvider;
 import dev.langchain4j.model.output.TokenUsage;
+import org.apache.commons.collections4.CollectionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -51,21 +57,29 @@ public class LLMNodeExecutor implements NodeExecutor {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(LLMNodeExecutor.class);
     private static final ObjectMapper JSON = new ObjectMapper();
+    /** 单轮执行中工具调用的最大迭代次数，防止模型陷入无限调用 */
+    private static final int MAX_TOOL_ITERATIONS = 5;
 
     private final ChatModelProvider chatModelProvider;
     private final LlmLogRecorder llmLogRecorder;
     private final LlmModelQueryProvider modelQueryProvider;
+    private final ToolQueryProvider toolQueryProvider;
+    private final ToolRegistry toolRegistry;
 
     public LLMNodeExecutor(ChatModelProvider chatModelProvider) {
-        this(chatModelProvider, null, null);
+        this(chatModelProvider, null, null, null, null);
     }
 
     public LLMNodeExecutor(ChatModelProvider chatModelProvider,
                            LlmLogRecorder llmLogRecorder,
-                           LlmModelQueryProvider modelQueryProvider) {
+                           LlmModelQueryProvider modelQueryProvider,
+                           ToolQueryProvider toolQueryProvider,
+                           ToolRegistry toolRegistry) {
         this.chatModelProvider = chatModelProvider;
         this.llmLogRecorder = llmLogRecorder;
         this.modelQueryProvider = modelQueryProvider;
+        this.toolQueryProvider = toolQueryProvider;
+        this.toolRegistry = toolRegistry;
     }
 
     @Override
@@ -87,26 +101,64 @@ public class LLMNodeExecutor implements NodeExecutor {
                 ? ParamResolver.renderTemplate(userPromptTemplate, ctx, inputs)
                 : buildUserPrompt(inputs);
 
-        List<ChatMessage> messages = new ArrayList<>();
+        // 构建消息列表
+        List<ChatMessage> msgList = new ArrayList<>();
         if (systemPrompt != null && !systemPrompt.isBlank()) {
-            messages.add(SystemMessage.from(systemPrompt));
+            msgList.add(ChatMessage.builder().role("system").content(systemPrompt).build());
         }
-        messages.add(UserMessage.from(userPrompt));
+        msgList.add(ChatMessage.builder().role("user").content(userPrompt).build());
 
-        String text;
+        // 构建工具定义
+        List<ToolDefinition> toolDefinitions = buildToolDefinitions(data);
+        Map<String, Long> toolNameToId = buildToolNameToIdMap(data);
+
+        String text = null;
         String reasoningContent = null;
-        Map<String, Object> usage = null;
-        InvokeOutcome outcome = null;
+        Map<String, Object> usage = new LinkedHashMap<>();
+        int totalInputTokens = 0;
+        int totalOutputTokens = 0;
+
         try {
-            outcome = invokeWithRetry(data, messages);
-            text = outcome.text;
-            if (outcome.tokenUsage != null) {
-                usage = new LinkedHashMap<>();
-                usage.put("inputTokens", outcome.tokenUsage.inputTokenCount());
-                usage.put("outputTokens", outcome.tokenUsage.outputTokenCount());
-                usage.put("totalTokens", outcome.tokenUsage.totalTokenCount());
+            // 工具调用循环: 调用 LLM -> 执行工具 -> 回填结果 -> 再次推理
+            ChatResponse response = null;
+            for (int iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
+                response = invokeWithTools(data, msgList, toolDefinitions);
+
+                // 累加 token 消耗
+                if (response.getInputTokens() != null) {
+                    totalInputTokens += response.getInputTokens();
+                }
+                if (response.getOutputTokens() != null) {
+                    totalOutputTokens += response.getOutputTokens();
+                }
+
+                // 记录本次 LLM 调用日志
+                recordLlmLogIteration(node, data, ctx, systemPrompt, userPrompt, response, iteration, ctx.getRunId(), msgList);
+
+                // 模型未请求工具调用，得到最终回答，结束循环
+                if (CollectionUtils.isEmpty(response.getToolCalls())) {
+                    text = response.getContent();
+                    break;
+                }
+
+                // 将本轮 assistant 的工具调用请求追加到上下文
+                msgList.add(ChatMessage.builder()
+                        .role("assistant")
+                        .content(response.getContent())
+                        .toolCalls(response.getToolCalls())
+                        .build());
+
+                // 逐个执行工具，并把结果作为 tool 消息回填
+                for (ToolCall toolCall : response.getToolCalls()) {
+                    executeToolCall(toolCall, toolNameToId, msgList);
+                }
             }
-            recordLlmLog(node, data, ctx, systemPrompt, userPrompt, text, outcome.tokenUsage, null);
+
+            // 汇总 token 使用量
+            usage.put("inputTokens", totalInputTokens);
+            usage.put("outputTokens", totalOutputTokens);
+            usage.put("totalTokens", totalInputTokens + totalOutputTokens);
+
         } catch (Exception e) {
             recordLlmLog(node, data, ctx, systemPrompt, userPrompt, null, null, e);
             text = handleFailure(node, data, e);
@@ -115,23 +167,153 @@ public class LLMNodeExecutor implements NodeExecutor {
         return new NodeOutput(node.getId(), mapOutputs(text, reasoningContent, usage, data.getOutputParams()));
     }
 
-    private InvokeOutcome invokeWithRetry(LLMNodeData data, List<ChatMessage> messages) throws Exception {
-        int maxAttempts = 1 + Math.max(0, data.getRetryCount() == null ? 0 : data.getRetryCount());
-        ChatModel model = chatModelProvider.provide(data);
-        Exception last = null;
-        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
-            try {
-                ChatResponse resp = model.chat(ChatRequest.builder().messages(messages).build());
-                return new InvokeOutcome(resp.aiMessage().text(), resp.tokenUsage());
-            } catch (Exception e) {
-                last = e;
-                LOGGER.warn("LLM 调用失败 attempt={}/{} err={}", attempt, maxAttempts, e.getMessage());
-            }
-        }
-        throw last;
+    private ChatResponse invokeWithTools(LLMNodeData data, List<ChatMessage> messages, List<ToolDefinition> tools) throws Exception {
+        // 由内部 AiChatService 统一处理，包括工具调用
+        LlmModelConfigDTO config = new LlmModelConfigDTO();
+        config.setTemperature(data.getTemperature());
+        return chatModelProvider.chat(data.getModelId(), messages, config, tools);
     }
 
-    /** 记录一次 LLM 调用日志。recorder 或 modelQueryProvider 缺失时静默跳过。 */
+    /**
+     * 根据节点绑定的 toolIds 构建下发给模型的工具规格列表（过滤禁用工具）。
+     */
+    private List<ToolDefinition> buildToolDefinitions(LLMNodeData data) {
+        if (toolQueryProvider == null || CollectionUtils.isEmpty(data.getToolIds())) {
+            return null;
+        }
+        List<ToolDefinition> definitions = new ArrayList<>();
+        for (Long toolId : data.getToolIds()) {
+            if (toolId == null) {
+                continue;
+            }
+            ToolDTO tool = toolQueryProvider.getById(toolId);
+            if (tool == null || tool.getStatus() == null || tool.getStatus() != 1) {
+                continue;
+            }
+            definitions.add(ToolDefinition.builder()
+                    .name(tool.getName())
+                    .description(tool.getDescription())
+                    .parameters(tool.getParamsSchema())
+                    .build());
+        }
+        return definitions.isEmpty() ? null : definitions;
+    }
+
+    /**
+     * 构建工具名称到工具 ID 的映射，用于将模型返回的工具名解析回 toolId 以便执行。
+     */
+    private Map<String, Long> buildToolNameToIdMap(LLMNodeData data) {
+        Map<String, Long> map = new HashMap<>();
+        if (toolQueryProvider == null || CollectionUtils.isEmpty(data.getToolIds())) {
+            return map;
+        }
+        for (Long toolId : data.getToolIds()) {
+            if (toolId == null) {
+                continue;
+            }
+            ToolDTO tool = toolQueryProvider.getById(toolId);
+            if (tool == null || tool.getStatus() == null || tool.getStatus() != 1) {
+                continue;
+            }
+            map.put(tool.getName(), toolId);
+        }
+        return map;
+    }
+
+    /**
+     * 执行一次模型请求的工具调用，将结果作为 tool 消息追加到上下文。
+     */
+    private void executeToolCall(ToolCall toolCall, Map<String, Long> toolNameToId, List<ChatMessage> msgList) {
+        Map<String, Object> params = parseArguments(toolCall.getArguments());
+
+        Long toolId = toolNameToId.get(toolCall.getName());
+        ToolExecuteResult result;
+        if (toolId == null) {
+            result = ToolExecuteResult.error("未找到工具: " + toolCall.getName());
+        } else {
+            result = toolRegistry.execute(ToolExecuteRequest.builder()
+                    .toolId(toolId)
+                    .params(params)
+                    .build());
+        }
+
+        // 回填工具执行结果，供模型下一轮推理
+        msgList.add(ChatMessage.builder()
+                .role("tool")
+                .toolCallId(toolCall.getId())
+                .name(toolCall.getName())
+                .content(serializeToolResult(result))
+                .build());
+    }
+
+    /**
+     * 解析模型返回的工具调用参数（JSON 字符串）为 Map。
+     */
+    private Map<String, Object> parseArguments(String arguments) {
+        if (org.apache.commons.lang3.StringUtils.isBlank(arguments)) {
+            return new HashMap<>();
+        }
+        try {
+            return JSON.readValue(arguments, new TypeReference<Map<String, Object>>() {});
+        } catch (Exception e) {
+            LOGGER.warn("解析工具调用参数失败, arguments={}", arguments, e);
+            return new HashMap<>();
+        }
+    }
+
+    /**
+     * 将工具执行结果序列化为回填给模型的文本。
+     */
+    private String serializeToolResult(ToolExecuteResult result) {
+        try {
+            if (result.isSuccess()) {
+                return JSON.writeValueAsString(result.getData());
+            }
+            return "工具执行失败: " + result.getErrorMessage();
+        } catch (Exception e) {
+            LOGGER.warn("序列化工具执行结果失败", e);
+            return String.valueOf(result.getData());
+        }
+    }
+
+    /** 记录一次迭代的 LLM 调用日志。 */
+    private void recordLlmLogIteration(Node node, LLMNodeData data, ExecutionContext ctx,
+                                       String systemPrompt, String userPrompt, ChatResponse response,
+                                       int iteration, String traceId, List<ChatMessage> msgList) {
+        if (llmLogRecorder == null) {
+            return;
+        }
+        try {
+            LlmModelDTO modelDTO = null;
+            if (modelQueryProvider != null && data.getModelId() != null) {
+                try {
+                    modelDTO = modelQueryProvider.getModel(data.getModelId());
+                } catch (Exception e) {
+                    LOGGER.debug("查询 LLM 模型信息失败,日志将不带模型详情", e);
+                }
+            }
+            LlmModelConfigDTO config = new LlmModelConfigDTO();
+            config.setTemperature(data.getTemperature());
+
+            // 记录当前消息列表用于日志
+            List<com.iusofts.agentplus.llm.dto.ChatMessage> logMessages = new ArrayList<>(msgList);
+
+            LlmLogRecorder.LlmCallRecorder recorder = llmLogRecorder.recordLlmCall()
+                    .traceId(traceId)
+                    .fromFlow(ctx.getFlowId(), node.getId())
+                    .model(modelDTO)
+                    .config(config)
+                    .inputMessages(logMessages)
+                    .operator(ctx.getOperatorId(), ctx.getOrgId());
+
+            recorder.output(response.getContent(), response.getInputTokens(), response.getOutputTokens()).success();
+            recorder.record();
+        } catch (Exception e) {
+            LOGGER.warn("写 LLM 日志失败", e);
+        }
+    }
+
+    /** 记录初始 LLM 调用日志（兼容原有逻辑）。recorder 或 modelQueryProvider 缺失时静默跳过。 */
     private void recordLlmLog(Node node, LLMNodeData data, ExecutionContext ctx,
                               String systemPrompt, String userPrompt,
                               String output, TokenUsage tokenUsage, Exception error) {
@@ -247,7 +429,4 @@ public class LLMNodeExecutor implements NodeExecutor {
         }
     }
 
-    /** 内部结构:一次成功调用的返回文本 + token 使用量。 */
-    private record InvokeOutcome(String text, TokenUsage tokenUsage) {
-    }
 }

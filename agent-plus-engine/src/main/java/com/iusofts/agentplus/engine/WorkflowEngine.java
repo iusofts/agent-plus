@@ -201,7 +201,7 @@ public class WorkflowEngine {
                     .register(new AggregatorNodeExecutor())
                     .register(new BatchNodeExecutor())
                     .register(new KnowledgeNodeExecutor(retriever, llmLogRecorder))
-                    .register(new LLMNodeExecutor(chatModelProvider, llmLogRecorder, llmModelQueryProvider));
+                    .register(new LLMNodeExecutor(chatModelProvider, llmLogRecorder, llmModelQueryProvider, toolQueryProvider, toolRegistry));
 
             if (toolRegistry != null && toolQueryProvider != null) {
                 registry.register(new ToolNodeExecutor(toolRegistry, toolQueryProvider));
