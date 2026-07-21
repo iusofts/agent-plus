@@ -2,6 +2,8 @@ package com.iusofts.agentplus.aiflow.utils;
 
 import com.iusofts.agentplus.aiflow.vo.workflow.Node;
 import com.iusofts.agentplus.aiflow.vo.workflow.Workflow;
+import com.iusofts.agentplus.aiflow.vo.workflow.data.EndNodeData;
+import com.iusofts.agentplus.aiflow.vo.workflow.data.common.OutputParam;
 import com.iusofts.agentplus.basic.exception.InvalidParamException;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
@@ -47,10 +49,6 @@ public class WorkflowValidator {
         }
 
         Set<ConstraintViolation<Workflow>> violations = VALIDATOR.validate(workflow);
-        if (violations.isEmpty()) {
-            return;
-        }
-
         List<Node> nodes = workflow.getNodes();
         List<String> messages = new ArrayList<>(violations.size());
         for (ConstraintViolation<Workflow> v : violations) {
@@ -61,7 +59,27 @@ public class WorkflowValidator {
             }
             messages.add(message);
         }
-        throw new InvalidParamException("工作流校验失败: " + String.join("; ", messages));
+
+        // 自定义校验：EndNode answerMode=text 时 outputParams 不能有 name=text
+        if (nodes != null) {
+            for (Node node : nodes) {
+                if (node.getData() instanceof EndNodeData) {
+                    EndNodeData endNodeData = (EndNodeData) node.getData();
+                    if ("text".equals(endNodeData.getAnswerMode()) && endNodeData.getOutputParams() != null) {
+                        for (OutputParam outputParam : endNodeData.getOutputParams()) {
+                            if ("text".equals(outputParam.getName())) {
+                                String nodeLabel = resolveNodeLabel(node);
+                                messages.add("[" + nodeLabel + "] 结束节点回答模式为text时，输出参数中不能包含name为text的字段，该字段已被输出内容占用");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!messages.isEmpty()) {
+            throw new InvalidParamException("工作流校验失败: " + String.join("; ", messages));
+        }
     }
 
     /**

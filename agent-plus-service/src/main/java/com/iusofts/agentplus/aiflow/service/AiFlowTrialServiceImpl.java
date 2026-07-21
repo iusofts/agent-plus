@@ -51,8 +51,9 @@ import java.util.UUID;
  * 流程试运行 服务实现类
  * </p>
  *
- * <p>试运行走引擎的同步执行,结果落 {@code ai_flow_runtime}(trialFlag=1)及
- * {@code ai_flow_runtime_node},与正式运行记录以 {@code trial_flag} 区分。</p>
+ * <p>试运行走引擎的同步执行,结果落 {@code ai_flow_runtime}及
+ * {@code ai_flow_runtime_node},与正式运行记录以 {@code trial_flag} 区分：
+ * 1 = 流程试运行, 2 = 节点试运行。</p>
  *
  * @author Ivan
  * @since 2026-07-16
@@ -60,8 +61,10 @@ import java.util.UUID;
 @Service
 public class AiFlowTrialServiceImpl implements IAiFlowTrialService {
 
-    /** 试运行标记。 */
-    private static final int TRIAL_FLAG = 1;
+    /** 流程试运行标记。 */
+    private static final int TRIAL_FLAG_FLOW = 1;
+    /** 节点试运行标记。 */
+    private static final int TRIAL_FLAG_NODE = 2;
 
     @Resource
     private WorkflowEngine workflowEngine;
@@ -85,7 +88,7 @@ public class AiFlowTrialServiceImpl implements IAiFlowTrialService {
         Map<String, Object> inputs = reqVo.getInputs() == null ? new LinkedHashMap<>() : reqVo.getInputs();
         String traceId = newTraceId();
 
-        AiFlowRuntime runtime = newRuntime(version, traceId, inputs, reqVo.getOperatorId());
+        AiFlowRuntime runtime = newRuntime(version, traceId, inputs, reqVo.getOperatorId(), TRIAL_FLAG_FLOW);
         aiFlowRuntimeMapper.insert(runtime);
 
         LocalDateTime start = runtime.getStartTime();
@@ -158,7 +161,7 @@ public class AiFlowTrialServiceImpl implements IAiFlowTrialService {
         Map<String, Object> inputs = reqVo.getInputs() == null ? new LinkedHashMap<>() : reqVo.getInputs();
         String traceId = newTraceId();
 
-        AiFlowRuntime runtime = newRuntime(version, traceId, inputs, reqVo.getOperatorId());
+        AiFlowRuntime runtime = newRuntime(version, traceId, inputs, reqVo.getOperatorId(), TRIAL_FLAG_NODE);
         aiFlowRuntimeMapper.insert(runtime);
 
         LocalDateTime start = runtime.getStartTime();
@@ -250,13 +253,13 @@ public class AiFlowTrialServiceImpl implements IAiFlowTrialService {
     }
 
     private AiFlowRuntime newRuntime(AiFlowVersion version, String traceId,
-                                     Map<String, Object> inputs, Long operatorId) {
+                                     Map<String, Object> inputs, Long operatorId, int trialFlag) {
         AiFlowRuntime runtime = new AiFlowRuntime();
         runtime.setFlowId(version.getFlowId());
         runtime.setVersionNo(version.getVersionNo());
         runtime.setTraceId(traceId);
         runtime.setRunStatus(RunStatusEnum.RUNNING.getCode());
-        runtime.setTrialFlag(TRIAL_FLAG);
+        runtime.setTrialFlag(trialFlag);
         runtime.setStartTime(LocalDateTime.now());
         runtime.setInputParams(serialize(inputs));
         runtime.setCreateBy(operatorId);
