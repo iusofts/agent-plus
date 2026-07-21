@@ -105,10 +105,10 @@ public class FlowChatServiceImpl implements IAiChatServiceInterface {
 
         // 3. 构建输入参数
         Map<String, Object> inputs = new HashMap<>();
-        Map<String, Object> inputParams = new HashMap<>();
-        inputParams.put("query", reqVo.getContent());
-        inputParams.put("fileList", reqVo.getFileList());
-        inputs.put("inputParams", inputParams);
+        // 将 query 和 fileList 直接放在全局输入根级，匹配 {{inputs.query}} 的占位符引用方式
+        // 与试运行传参方式保持一致
+        inputs.put("query", reqVo.getContent());
+        inputs.put("fileList", reqVo.getFileList());
 
         // 4. 调用公共执行服务执行流程（会自动落库 AiFlowRuntime 和 AiFlowRuntimeNode）
         // trialFlag = 0 表示正式运行，不是试运行
