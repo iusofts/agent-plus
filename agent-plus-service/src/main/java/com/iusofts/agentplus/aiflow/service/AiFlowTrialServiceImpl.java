@@ -11,7 +11,9 @@ import com.iusofts.agentplus.aiflow.entity.AiFlowVersion;
 import com.iusofts.agentplus.aiflow.enums.FlowNodeType;
 import com.iusofts.agentplus.aiflow.enums.NodeRunStatusEnum;
 import com.iusofts.agentplus.aiflow.enums.RunStatusEnum;
+import com.iusofts.agentplus.aiflow.interfaces.IAiFlowExecutorService;
 import com.iusofts.agentplus.aiflow.interfaces.IAiFlowTrialService;
+import com.iusofts.agentplus.aiflow.vo.FlowExecuteResult;
 import com.iusofts.agentplus.aiflow.mapper.AiFlowMapper;
 import com.iusofts.agentplus.aiflow.mapper.AiFlowRuntimeMapper;
 import com.iusofts.agentplus.aiflow.mapper.AiFlowRuntimeNodeMapper;
@@ -26,6 +28,7 @@ import com.iusofts.agentplus.aiflow.vo.workflow.config.WorkflowConfig;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.InputParamNodeData;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.NodeData;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.common.InputParam;
+import com.iusofts.agentplus.aiflow.utils.AiFlowCommonUtils;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.common.ParamMapKey;
 import com.iusofts.agentplus.basic.exception.SystemBusinessException;
 import com.iusofts.agentplus.engine.WorkflowEngine;
@@ -78,70 +81,46 @@ public class AiFlowTrialServiceImpl implements IAiFlowTrialService {
     private AiFlowRuntimeMapper aiFlowRuntimeMapper;
     @Resource
     private AiFlowRuntimeNodeMapper aiFlowRuntimeNodeMapper;
+    @Resource
+    private IAiFlowExecutorService aiFlowExecutorService;
 
     @Override
     public AiFlowTrialRunResultVo runFlow(AiFlowTrialRunFlowReqVo reqVo) {
-        AiFlowVersion version = loadVersion(reqVo.getVersionId(), reqVo.getFlowId());
-        Workflow workflow = deserializeWorkflow(version.getFlowJson());
-        WorkflowConfig config = deserializeConfig(version.getConfigJson());
+        // 调用公共执行服务
+        com.iusofts.agentplus.aiflow.vo.FlowExecuteResult result = aiFlowExecutorService.executeVersion(
+                reqVo.getVersionId(),
+                reqVo.getFlowId(),
+                reqVo.getInputs() == null ? new LinkedHashMap<>() : reqVo.getInputs(),
+                reqVo.getOperatorId(),
+                reqVo.getOrgId(),
+                TRIAL_FLAG_FLOW
+        );
 
-        Map<String, Object> inputs = reqVo.getInputs() == null ? new LinkedHashMap<>() : reqVo.getInputs();
-        String traceId = newTraceId();
+        // 转换为试运行返回格式
+        AiFlowTrialRunResultVo vo = new AiFlowTrialRunResultVo();
+        vo.setRuntimeId(result.getRuntimeId());
+        vo.setTraceId(result.getTraceId());
+        vo.setRunStatus(result.getRunStatus());
+        vo.setOutput(result.getOutput());
+        vo.setCostMs(result.getCostMs());
+        vo.setErrorMsg(result.getErrorMsg());
 
-        AiFlowRuntime runtime = newRuntime(version, traceId, inputs, reqVo.getOperatorId(), TRIAL_FLAG_FLOW);
-        aiFlowRuntimeMapper.insert(runtime);
-
-        LocalDateTime start = runtime.getStartTime();
-        AiFlowTrialRunResultVo result = new AiFlowTrialRunResultVo();
-        result.setRuntimeId(runtime.getId());
-        result.setTraceId(traceId);
-
-        try {
-            WorkflowExecutionResult execResult = workflowEngine.execute(workflow, config, inputs, traceId,
-                    version.getFlowId(), reqVo.getOperatorId(), reqVo.getOrgId());
-
-            List<AiFlowRuntimeNode> nodeEntities = new ArrayList<>();
-            List<AiFlowTrialNodeResultVo> nodeResults = new ArrayList<>();
-            Map<String, String> nodeTypeMap = buildNodeTypeMap(workflow);
-            Map<String, NodeTiming> timings = execResult.getNodeTimings();
-            for (Map.Entry<String, NodeExecutionStatus> entry : execResult.getNodeStatus().entrySet()) {
-                String nodeId = entry.getKey();
-                String nodeType = nodeTypeMap.getOrDefault(nodeId, "");
-                NodeOutput output = execResult.getNodeOutputs().get(nodeId);
-                Map<String, Object> outputs = output == null ? null : output.getOutputs();
-                int nodeStatus = mapNodeStatus(entry.getValue());
-                NodeTiming timing = timings == null ? null : timings.get(nodeId);
-                LocalDateTime nodeStart = timing == null ? null : timing.getStartTime();
-                LocalDateTime nodeEnd = timing == null ? null : timing.getEndTime();
-                Long nodeCost = timing == null ? null : timing.getCostMs();
-
-                nodeEntities.add(buildRuntimeNode(runtime.getId(), nodeId, nodeType, nodeStatus,
-                        null, outputs, null, reqVo.getOperatorId(), nodeStart, nodeEnd, nodeCost));
-                nodeResults.add(buildNodeResultVo(nodeId, nodeType, nodeStatus, outputs, nodeCost, null));
+        // 转换节点结果
+        List<AiFlowTrialNodeResultVo> nodeResults = new ArrayList<>();
+        if (result.getNodeResults() != null) {
+            for (com.iusofts.agentplus.aiflow.vo.FlowExecuteResult.FlowNodeResult nodeResult : result.getNodeResults()) {
+                AiFlowTrialNodeResultVo nodeVo = new AiFlowTrialNodeResultVo();
+                nodeVo.setNodeId(nodeResult.getNodeId());
+                nodeVo.setNodeType(nodeResult.getNodeType());
+                nodeVo.setRunStatus(nodeResult.getRunStatus());
+                nodeVo.setOutput(nodeResult.getOutput());
+                nodeVo.setCostMs(nodeResult.getCostMs());
+                nodeVo.setErrorStack(nodeResult.getErrorStack());
+                nodeResults.add(nodeVo);
             }
-            for (AiFlowRuntimeNode nodeEntity : nodeEntities) {
-                aiFlowRuntimeNodeMapper.insert(nodeEntity);
-            }
-
-            long costMs = Duration.between(start, LocalDateTime.now()).toMillis();
-            finishRuntime(runtime, RunStatusEnum.SUCCESS.getCode(), costMs,
-                    serialize(execResult.getOutput()), null);
-
-            result.setRunStatus(RunStatusEnum.SUCCESS.getCode());
-            result.setOutput(execResult.getOutput());
-            result.setCostMs(costMs);
-            result.setNodeResults(nodeResults);
-            return result;
-        } catch (Exception e) {
-            long costMs = Duration.between(start, LocalDateTime.now()).toMillis();
-            finishRuntime(runtime, RunStatusEnum.FAILED.getCode(), costMs, null, truncate(e.getMessage()));
-
-            result.setRunStatus(RunStatusEnum.FAILED.getCode());
-            result.setCostMs(costMs);
-            result.setErrorMsg(truncate(e.getMessage()));
-            result.setNodeResults(new ArrayList<>());
-            return result;
         }
+        vo.setNodeResults(nodeResults);
+        return vo;
     }
 
     @Override
@@ -397,49 +376,24 @@ public class AiFlowTrialServiceImpl implements IAiFlowTrialService {
     }
 
     private String newTraceId() {
-        return "trial-" + UUID.randomUUID().toString().replace("-", "");
+        return AiFlowCommonUtils.newTraceId(true);
     }
 
     private Workflow deserializeWorkflow(String flowJson) {
-        if (flowJson == null || flowJson.isBlank()) {
-            throw new SystemBusinessException("流程定义为空,无法运行");
-        }
-        try {
-            return objectMapper.readValue(flowJson, Workflow.class);
-        } catch (JsonProcessingException e) {
-            throw new SystemBusinessException("流程数据解析失败");
-        }
+        return AiFlowCommonUtils.deserializeWorkflow(flowJson, objectMapper);
     }
 
     private WorkflowConfig deserializeConfig(String configJson) {
-        if (configJson == null || configJson.isBlank()) {
-            return new WorkflowConfig();
-        }
-        try {
-            return objectMapper.readValue(configJson, WorkflowConfig.class);
-        } catch (JsonProcessingException e) {
-            throw new SystemBusinessException("流程配置数据解析失败");
-        }
+        return AiFlowCommonUtils.deserializeConfig(configJson, objectMapper);
     }
 
     private String serialize(Object value) {
-        if (value == null) {
-            return null;
-        }
-        try {
-            return objectMapper.writeValueAsString(value);
-        } catch (JsonProcessingException e) {
-            return null;
-        }
+        return AiFlowCommonUtils.serialize(value, objectMapper);
     }
 
     /** 错误信息落库前做长度保护。 */
     private String truncate(String text) {
-        if (text == null) {
-            return null;
-        }
-        int max = 2000;
-        return text.length() > max ? text.substring(0, max) : text;
+        return AiFlowCommonUtils.truncate(text);
     }
 
 }

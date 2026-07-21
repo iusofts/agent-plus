@@ -1,15 +1,11 @@
 package com.iusofts.agentplus.chat.service;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.iusofts.agentplus.aiflow.entity.AiFlow;
-import com.iusofts.agentplus.aiflow.entity.AiFlowVersion;
 import com.iusofts.agentplus.aiflow.enums.PublishingStatusEnum;
+import com.iusofts.agentplus.aiflow.interfaces.IAiFlowExecutorService;
 import com.iusofts.agentplus.aiflow.mapper.AiFlowMapper;
-import com.iusofts.agentplus.aiflow.mapper.AiFlowVersionMapper;
-import com.iusofts.agentplus.aiflow.vo.workflow.Workflow;
-import com.iusofts.agentplus.aiflow.vo.workflow.config.WorkflowConfig;
+import com.iusofts.agentplus.aiflow.vo.FlowExecuteResult;
 import com.iusofts.agentplus.ailog.entity.AiKnowledgeRetrievalLog;
 import com.iusofts.agentplus.ailog.entity.AiLlmCallLog;
 import com.iusofts.agentplus.ailog.mapper.AiKnowledgeRetrievalLogMapper;
@@ -26,10 +22,10 @@ import com.iusofts.agentplus.chat.service.AiConversationServiceImpl;
 import com.iusofts.agentplus.chat.service.AiMessageServiceImpl;
 import com.iusofts.agentplus.chat.vo.AiMessageVo;
 import com.iusofts.agentplus.chat.vo.AiServiceChatReqVo;
-import com.iusofts.agentplus.engine.WorkflowEngine;
-import com.iusofts.agentplus.engine.WorkflowExecutionResult;
 import com.iusofts.agentplus.id.service.IdService;
 import com.iusofts.agentplus.id.service.IdService.UidTypeEnum;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -38,7 +34,6 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 /**
  * 对话流类型智能体 AI 服务实现。
@@ -61,13 +56,11 @@ public class FlowChatServiceImpl implements IAiChatServiceInterface {
     @Resource
     private AiFlowMapper aiFlowMapper;
     @Resource
-    private AiFlowVersionMapper aiFlowVersionMapper;
+    private IAiFlowExecutorService aiFlowExecutorService;
     @Resource
     private AiLlmCallLogMapper aiLlmCallLogMapper;
     @Resource
     private AiKnowledgeRetrievalLogMapper aiKnowledgeRetrievalLogMapper;
-    @Resource
-    private WorkflowEngine workflowEngine;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -87,7 +80,7 @@ public class FlowChatServiceImpl implements IAiChatServiceInterface {
             }
         }
 
-        AiAgent aiAgent = agentId != null ? aiAgentMapper.selectById(agentId) : null;
+        com.iusofts.agentplus.chat.entity.AiAgent aiAgent = agentId != null ? aiAgentMapper.selectById(agentId) : null;
         if (aiAgent == null) {
             throw new SystemBusinessException("智能体不存在");
         }
@@ -97,7 +90,7 @@ public class FlowChatServiceImpl implements IAiChatServiceInterface {
             throw new SystemBusinessException("智能体未绑定对话流");
         }
 
-        // 2. 获取对话流最新发布的版本
+        // 2. 检查对话流发布状态
         AiFlow aiFlow = aiFlowMapper.selectById(chatFlowId);
         if (aiFlow == null) {
             throw new SystemBusinessException("绑定的对话流不存在");
@@ -110,52 +103,39 @@ public class FlowChatServiceImpl implements IAiChatServiceInterface {
             throw new SystemBusinessException("对话流无已发布版本");
         }
 
-        LambdaQueryWrapper<AiFlowVersion> versionWrapper = Wrappers.lambdaQuery();
-        versionWrapper.eq(AiFlowVersion::getFlowId, chatFlowId)
-                .eq(AiFlowVersion::getVersionNo, onlineVersion)
-                .eq(AiFlowVersion::getPublishingStatus, PublishingStatusEnum.PUBLISHED.getCode());
-        AiFlowVersion version = aiFlowVersionMapper.selectOne(versionWrapper);
-        if (version == null) {
-            throw new SystemBusinessException("对话流发布版本不存在");
-        }
-
-        // 3. 反序列化工作流和配置
-        Workflow workflow = deserializeWorkflow(version.getFlowJson());
-        WorkflowConfig config = deserializeWorkflowConfig(version.getConfigJson());
-
-        // 4. 构建输入参数
+        // 3. 构建输入参数
         Map<String, Object> inputs = new HashMap<>();
         Map<String, Object> inputParams = new HashMap<>();
         inputParams.put("query", reqVo.getContent());
         inputParams.put("fileList", reqVo.getFileList());
         inputs.put("inputParams", inputParams);
 
-        // 5. 执行工作流
-        String runId = newTraceId();
-        WorkflowExecutionResult result = workflowEngine.execute(
-                workflow,
-                config,
-                inputs,
-                runId,
+        // 4. 调用公共执行服务执行流程（会自动落库 AiFlowRuntime 和 AiFlowRuntimeNode）
+        // trialFlag = 0 表示正式运行，不是试运行
+        com.iusofts.agentplus.aiflow.vo.FlowExecuteResult executeResult = aiFlowExecutorService.executeFlow(
                 chatFlowId,
+                inputs,
                 reqVo.getOperatorId(),
-                reqVo.getOrgId()
+                reqVo.getOrgId(),
+                0
         );
 
-        // 6. 统计 token 消耗
-        int[] tokens = countTokensByTraceId(runId);
+        // 5. 根据 traceId 统计 token 消耗
+        String traceId = executeResult.getTraceId();
+        int[] tokens = countTokensByTraceId(traceId);
         int inputTokens = tokens[0];
         int outputTokens = tokens[1];
         int totalTokens = tokens[2];
 
-        // 7. 构建返回结果
-        Map<String, Object> output = result.getOutput();
+        // 6. 构建返回结果
+        Map<String, Object> output = executeResult.getOutput();
         AiMessageVo resultMessage = new AiMessageVo();
         resultMessage.setRole("assistant");
         resultMessage.setAgentId(agentId);
 
-        // 根据 answerMode 获取返回内容
-        // answerMode 在 EndNode 中已经处理好了输出：text 模式会输出 "text" 字段
+        // 根据 answerMode 获取返回内容：
+        // answerMode = "text" 时 EndNode 已输出 "text" 字段，直接取该字段
+        // 否则返回整个 output 的 JSON
         if (output.containsKey("text")) {
             Object textObj = output.get("text");
             resultMessage.setContent(textObj != null ? textObj.toString() : "");
@@ -173,7 +153,7 @@ public class FlowChatServiceImpl implements IAiChatServiceInterface {
         resultMessage.setOutputTokens(outputTokens);
         resultMessage.setTotalTokens(totalTokens);
 
-        // 8. 落库：会话、用户消息、助手回复
+        // 7. 落库：会话、用户消息、助手回复
         if (newConversation) {
             conversation = new AiConversation();
             conversation.setId(idService.generateUid(UidTypeEnum.CHAT).longValue());
@@ -235,28 +215,6 @@ public class FlowChatServiceImpl implements IAiChatServiceInterface {
         return "新对话";
     }
 
-    private Workflow deserializeWorkflow(String flowJson) {
-        if (flowJson == null || flowJson.isBlank()) {
-            return null;
-        }
-        try {
-            return objectMapper.readValue(flowJson, Workflow.class);
-        } catch (Exception e) {
-            throw new SystemBusinessException("流程数据解析失败");
-        }
-    }
-
-    private WorkflowConfig deserializeWorkflowConfig(String configJson) {
-        if (configJson == null || configJson.isBlank()) {
-            return new WorkflowConfig();
-        }
-        try {
-            return objectMapper.readValue(configJson, WorkflowConfig.class);
-        } catch (Exception e) {
-            throw new SystemBusinessException("流程配置数据解析失败");
-        }
-    }
-
     /**
      * 根据 traceId (runId) 统计本次执行的 token 消耗
      * 从 ai_llm_call_log 和 ai_knowledge_retrieval_log 汇总
@@ -290,9 +248,5 @@ public class FlowChatServiceImpl implements IAiChatServiceInterface {
 
         int totalTokens = inputTokens + outputTokens;
         return new int[]{inputTokens, outputTokens, totalTokens};
-    }
-
-    private String newTraceId() {
-        return UUID.randomUUID().toString().replace("-", "");
     }
 }
