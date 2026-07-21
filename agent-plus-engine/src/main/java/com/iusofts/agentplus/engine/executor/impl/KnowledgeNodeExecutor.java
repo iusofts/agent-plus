@@ -1,5 +1,6 @@
 package com.iusofts.agentplus.engine.executor.impl;
 
+import com.alibaba.fastjson2.JSON;
 import com.iusofts.agentplus.aiflow.enums.FlowNodeType;
 import com.iusofts.agentplus.aiflow.vo.workflow.Node;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.KnowledgeNodeData;
@@ -73,15 +74,7 @@ public class KnowledgeNodeExecutor implements NodeExecutor {
         }
         recordRetrievalLog(node, data, ctx, query, topK, result, null);
 
-        Map<String, Object> outputs = new LinkedHashMap<>();
-        String outName = "documents";
-        if (data.getOutputParams() != null && !data.getOutputParams().isEmpty()) {
-            OutputParam p = data.getOutputParams().get(0);
-            if (p.getName() != null) {
-                outName = p.getName();
-            }
-        }
-        outputs.put(outName, result);
+        Map<String, Object> outputs = JSON.parseObject(JSON.toJSONString(result));
         return new NodeOutput(node.getId(), outputs);
     }
 
