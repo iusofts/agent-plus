@@ -120,6 +120,20 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgent> impl
     }
 
     @Override
+    public List<AiAgentVo> queryByChatFlowId(Long chatFlowId, Integer orgId) {
+        LambdaQueryWrapper<AiAgent> wrapper = Wrappers.lambdaQuery();
+        wrapper.eq(AiAgent::getChatFlowId, chatFlowId);
+        if (orgId != null) {
+            wrapper.eq(AiAgent::getOrgId, orgId);
+        }
+        wrapper.orderByDesc(AiAgent::getId);
+        List<AiAgent> list = super.list(wrapper);
+        return list.stream()
+                .map(item -> ModelMapperUtil.strictMap(item, AiAgentVo.class))
+                .toList();
+    }
+
+    @Override
     public void remove(IdReqVo reqVo) {
         checkDataPermission(reqVo.getId(), reqVo.getOrgId());
         AiAgent aiAgent = super.getById(reqVo.getId());

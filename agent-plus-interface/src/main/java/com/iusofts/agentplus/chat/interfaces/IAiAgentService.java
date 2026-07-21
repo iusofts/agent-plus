@@ -34,6 +34,14 @@ public interface IAiAgentService {
 
     List<AiAgentVo> queryAll(Integer orgId);
 
+    /**
+     * 根据对话流ID查询关联的智能体列表
+     *
+     * @param chatFlowId 对话流ID
+     * @param orgId      组织ID
+     */
+    List<AiAgentVo> queryByChatFlowId(Long chatFlowId, Integer orgId);
+
     void remove(IdReqVo reqVo);
 
     AiAgentDetailVo getById(IdReqVo reqVo);
