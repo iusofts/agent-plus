@@ -30,6 +30,7 @@ CREATE TABLE `ai_agent`  (
   `system_prompt` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL COMMENT '设定描述',
   `model_id` bigint(20) NULL DEFAULT NULL COMMENT '使用模型ID',
   `workflow_ids` json NULL COMMENT '绑定工作流ID列表(JSON数组存储)',
+  `chat_flow_id` bigint(20) NULL DEFAULT NULL COMMENT '对话流ID',
   `tool_ids` json NULL COMMENT '绑定工具ID列表(JSON数组存储)',
   `opening_statement` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL COMMENT '开场白文案',
   `opening_questions` json NULL COMMENT '开场白预置问题(JSON数组存储)',

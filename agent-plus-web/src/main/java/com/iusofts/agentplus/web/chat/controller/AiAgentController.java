@@ -48,6 +48,20 @@ public class AiAgentController extends BApiController {
         aiAgentService.edit(reqVo);
     }
 
+    @Operation(description = "新增ai对话流智能体")
+    @PostMapping("/addChat")
+    public void addChat(@Valid @RequestBody AiAgentAddChatReqVo reqVo) {
+        reqVo.setOrgId(SYSCODE);
+        aiAgentService.addChat(reqVo);
+    }
+
+    @Operation(description = "编辑ai对话流智能体")
+    @PostMapping("/editChat")
+    public void editChat(@Valid @RequestBody AiAgentEditChatReqVo reqVo) {
+        reqVo.setOrgId(SYSCODE);
+        aiAgentService.editChat(reqVo);
+    }
+
     @Operation(description = "分页查询ai智能体")
     @OperationLogExclude(type = RES)
     @PostMapping("/queryPage")

@@ -41,6 +41,9 @@ public class AiAgentVo {
     @Schema(description = "绑定工作流ID列表")
     private List<Long> workflowIds;
 
+    @Schema(description = "对话流ID")
+    private Long chatFlowId;
+
     @Schema(description = "记录创建时间")
     private LocalDateTime createTime;
 
