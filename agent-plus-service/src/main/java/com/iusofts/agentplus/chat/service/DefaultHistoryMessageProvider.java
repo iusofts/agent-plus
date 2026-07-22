@@ -30,6 +30,11 @@ public class DefaultHistoryMessageProvider implements HistoryMessageProvider {
     }
 
     @Override
+    public List<AiMessageVo> getHistoryMessages(Long conversationId, int limit) {
+        return aiMessageService.getHistoryMessages(conversationId, limit);
+    }
+
+    @Override
     public int clampRoundsByAgentLimit(int nodeRounds, Long agentId) {
         if (agentId == null) {
             return nodeRounds;
@@ -39,7 +44,7 @@ public class DefaultHistoryMessageProvider implements HistoryMessageProvider {
             return nodeRounds;
         }
         Integer agentMaxRounds = agent.getContextRounds();
-        if (agentMaxRounds == null || agentMaxRounds <= 0) {
+        if (agentMaxRounds == null) {
             return nodeRounds;
         }
         // 节点轮数不能超过智能体设置的上限

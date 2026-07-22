@@ -21,6 +21,21 @@ public interface HistoryMessageProvider {
     List<AiMessageVo> getHistoryMessages(Long conversationId);
 
     /**
+     * 获取指定会话的历史消息，限制返回条数。
+     *
+     * @param conversationId 会话ID
+     * @param limit 最大返回条数
+     * @return 历史消息列表，按时间升序排列，只返回最后 limit 条
+     */
+    default List<AiMessageVo> getHistoryMessages(Long conversationId, int limit) {
+        List<AiMessageVo> all = getHistoryMessages(conversationId);
+        if (all.size() > limit) {
+            return all.subList(all.size() - limit, all.size());
+        }
+        return all;
+    }
+
+    /**
      * 根据智能体配置的最大上下文轮数上限校正节点请求的轮数。
      * 节点配置的轮数不能超过智能体设置的上限。
      *

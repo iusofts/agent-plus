@@ -280,27 +280,22 @@ public class LLMNodeExecutor implements NodeExecutor {
             return;
         }
 
-        // 加载历史消息（按时间升序）
-        List<AiMessageVo> history = historyMessageProvider.getHistoryMessages(conversationId);
+        // 只保留最近 N 轮，过滤掉 system 角色
+        // 每轮对话包含 user + assistant 两条消息，所以消息数是 rounds * 2
+        int keepMessages = nodeRounds * 2;
+
+        // 加载历史消息（按时间升序），直接从数据库查询只返回最后 keepMessages 条
+        List<AiMessageVo> history = historyMessageProvider.getHistoryMessages(conversationId, keepMessages);
         if (CollectionUtils.isEmpty(history)) {
             return;
         }
 
-        // 只保留最近 N 轮，过滤掉 system 角色
-        // 每轮对话包含 user + assistant 两条消息，所以消息数是 rounds * 2
-        int keepMessages = nodeRounds * 2;
-        if (history.size() > keepMessages) {
-            history = history.subList(history.size() - keepMessages, history.size());
-        }
-
-        // 添加到消息列表
+        // 添加到消息列表（system 已经在数据库查询层面过滤掉了）
         for (AiMessageVo msg : history) {
-            if (!"system".equalsIgnoreCase(msg.getRole())) {
-                msgList.add(ChatMessage.builder()
-                        .role(msg.getRole())
-                        .content(msg.getContent())
-                        .build());
-            }
+            msgList.add(ChatMessage.builder()
+                    .role(msg.getRole())
+                    .content(msg.getContent())
+                    .build());
         }
     }
 
