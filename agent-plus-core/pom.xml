@@ -10,4 +10,12 @@
     </parent>
 
     <artifactId>agent-plus-core</artifactId>
+
+    <dependencies>
+        <!-- 通用工具依赖 -->
+        <dependency>
+            <groupId>com.iusofts</groupId>
+            <artifactId>agent-plus-common</artifactId>
+        </dependency>
+    </dependencies>
 </project>

@@ -2,14 +2,17 @@ package com.iusofts.agentplus.engine.executor.impl;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.iusofts.agentplus.aiflow.constants.FlowGlobalInputConstants;
 import com.iusofts.agentplus.aiflow.enums.FlowNodeType;
 import com.iusofts.agentplus.aiflow.vo.workflow.Node;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.common.OutputParam;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.llm.LLMNodeData;
+import com.iusofts.agentplus.chat.vo.AiMessageVo;
 import com.iusofts.agentplus.engine.context.ExecutionContext;
 import com.iusofts.agentplus.engine.context.NodeOutput;
 import com.iusofts.agentplus.engine.exception.WorkflowExecutionException;
 import com.iusofts.agentplus.engine.executor.NodeExecutor;
+import com.iusofts.agentplus.engine.history.HistoryMessageProvider;
 import com.iusofts.agentplus.engine.llm.ChatModelProvider;
 import com.iusofts.agentplus.engine.tool.ToolRegistry;
 import com.iusofts.agentplus.engine.util.ParamResolver;
@@ -65,9 +68,10 @@ public class LLMNodeExecutor implements NodeExecutor {
     private final LlmModelQueryProvider modelQueryProvider;
     private final ToolQueryProvider toolQueryProvider;
     private final ToolRegistry toolRegistry;
+    private final HistoryMessageProvider historyMessageProvider;
 
     public LLMNodeExecutor(ChatModelProvider chatModelProvider) {
-        this(chatModelProvider, null, null, null, null);
+        this(chatModelProvider, null, null, null, null, null);
     }
 
     public LLMNodeExecutor(ChatModelProvider chatModelProvider,
@@ -75,11 +79,21 @@ public class LLMNodeExecutor implements NodeExecutor {
                            LlmModelQueryProvider modelQueryProvider,
                            ToolQueryProvider toolQueryProvider,
                            ToolRegistry toolRegistry) {
+        this(chatModelProvider, llmLogRecorder, modelQueryProvider, toolQueryProvider, toolRegistry, null);
+    }
+
+    public LLMNodeExecutor(ChatModelProvider chatModelProvider,
+                           LlmLogRecorder llmLogRecorder,
+                           LlmModelQueryProvider modelQueryProvider,
+                           ToolQueryProvider toolQueryProvider,
+                           ToolRegistry toolRegistry,
+                           HistoryMessageProvider historyMessageProvider) {
         this.chatModelProvider = chatModelProvider;
         this.llmLogRecorder = llmLogRecorder;
         this.modelQueryProvider = modelQueryProvider;
         this.toolQueryProvider = toolQueryProvider;
         this.toolRegistry = toolRegistry;
+        this.historyMessageProvider = historyMessageProvider;
     }
 
     @Override
@@ -106,6 +120,11 @@ public class LLMNodeExecutor implements NodeExecutor {
         if (systemPrompt != null && !systemPrompt.isBlank()) {
             msgList.add(ChatMessage.builder().role("system").content(systemPrompt).build());
         }
+
+        // 如果开启了会话历史加载并且有 conversationId，则加载历史消息
+        loadHistoryMessagesIfEnabled(data, ctx, msgList);
+
+        // 添加当前用户提示词
         msgList.add(ChatMessage.builder().role("user").content(userPrompt).build());
 
         // 构建工具定义
@@ -218,6 +237,71 @@ public class LLMNodeExecutor implements NodeExecutor {
             map.put(tool.getName(), toolId);
         }
         return map;
+    }
+
+    /**
+     * 如果开启了会话历史加载，则从数据库加载历史消息添加到上下文。
+     * 节点配置的携带轮数不能超过智能体设置的上限。
+     */
+    private void loadHistoryMessagesIfEnabled(LLMNodeData data, ExecutionContext ctx, List<ChatMessage> msgList) {
+        // 检查是否开启历史
+        if (data.getEnableHistory() == null || !data.getEnableHistory()) {
+            return;
+        }
+        // 检查是否有 HistoryMessageProvider 实例
+        if (historyMessageProvider == null) {
+            LOGGER.debug("HistoryMessageProvider not injected, skip loading history messages");
+            return;
+        }
+        // 从全局输入获取 conversationId
+        Object convIdObj = ctx.getGlobalInputs().get(FlowGlobalInputConstants.CONVERSATION_ID);
+        if (!(convIdObj instanceof Long)) {
+            return;
+        }
+        Long conversationId = (Long) convIdObj;
+
+        // 获取节点配置的上下文轮数
+        Integer nodeRounds = data.getContextRounds();
+        if (nodeRounds == null || nodeRounds <= 0) {
+            return;
+        }
+
+        // 从全局输入获取 agentId，如果有智能体配置的上限则应用
+        Object agentIdObj = ctx.getGlobalInputs().get(FlowGlobalInputConstants.AGENT_ID);
+        if (historyMessageProvider != null && agentIdObj instanceof Long) {
+            nodeRounds = historyMessageProvider.clampRoundsByAgentLimit(nodeRounds, (Long) agentIdObj);
+        }
+
+        // 硬上限保护，防止加载过多历史
+        if (nodeRounds > 10) {
+            nodeRounds = 10;
+        }
+        if (nodeRounds <= 0) {
+            return;
+        }
+
+        // 加载历史消息（按时间升序）
+        List<AiMessageVo> history = historyMessageProvider.getHistoryMessages(conversationId);
+        if (CollectionUtils.isEmpty(history)) {
+            return;
+        }
+
+        // 只保留最近 N 轮，过滤掉 system 角色
+        // 每轮对话包含 user + assistant 两条消息，所以消息数是 rounds * 2
+        int keepMessages = nodeRounds * 2;
+        if (history.size() > keepMessages) {
+            history = history.subList(history.size() - keepMessages, history.size());
+        }
+
+        // 添加到消息列表
+        for (AiMessageVo msg : history) {
+            if (!"system".equalsIgnoreCase(msg.getRole())) {
+                msgList.add(ChatMessage.builder()
+                        .role(msg.getRole())
+                        .content(msg.getContent())
+                        .build());
+            }
+        }
     }
 
     /**

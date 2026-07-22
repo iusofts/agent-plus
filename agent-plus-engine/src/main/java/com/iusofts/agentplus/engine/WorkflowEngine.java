@@ -17,6 +17,7 @@ import com.iusofts.agentplus.engine.executor.impl.KnowledgeNodeExecutor;
 import com.iusofts.agentplus.engine.executor.impl.LLMNodeExecutor;
 import com.iusofts.agentplus.engine.executor.impl.StartNodeExecutor;
 import com.iusofts.agentplus.engine.executor.impl.ToolNodeExecutor;
+import com.iusofts.agentplus.engine.history.HistoryMessageProvider;
 import com.iusofts.agentplus.engine.tool.ToolRegistry;
 import com.iusofts.agentplus.tool.ToolQueryProvider;
 import com.iusofts.agentplus.engine.graph.ExecutionContextTracker;
@@ -147,6 +148,7 @@ public class WorkflowEngine {
         private ToolQueryProvider toolQueryProvider;
         private com.iusofts.agentplus.llm.log.LlmLogRecorder llmLogRecorder;
         private com.iusofts.agentplus.llm.LlmModelQueryProvider llmModelQueryProvider;
+        private HistoryMessageProvider historyMessageProvider;
         private final NodeExecutorRegistry registry = new NodeExecutorRegistry();
 
         public Builder chatModelProvider(ChatModelProvider provider) {
@@ -181,6 +183,12 @@ public class WorkflowEngine {
             return this;
         }
 
+        /** 可选:注入历史消息提供者,用于加载会话历史消息。 */
+        public Builder historyMessageProvider(HistoryMessageProvider provider) {
+            this.historyMessageProvider = provider;
+            return this;
+        }
+
         /** 追加/覆盖自定义节点执行器,类型冲突时后注册者胜出。 */
         public Builder registerExecutor(NodeExecutor executor) {
             registry.register(executor);
@@ -201,7 +209,7 @@ public class WorkflowEngine {
                     .register(new AggregatorNodeExecutor())
                     .register(new BatchNodeExecutor())
                     .register(new KnowledgeNodeExecutor(retriever, llmLogRecorder))
-                    .register(new LLMNodeExecutor(chatModelProvider, llmLogRecorder, llmModelQueryProvider, toolQueryProvider, toolRegistry));
+                    .register(new LLMNodeExecutor(chatModelProvider, llmLogRecorder, llmModelQueryProvider, toolQueryProvider, toolRegistry, historyMessageProvider));
 
             if (toolRegistry != null && toolQueryProvider != null) {
                 registry.register(new ToolNodeExecutor(toolRegistry, toolQueryProvider));

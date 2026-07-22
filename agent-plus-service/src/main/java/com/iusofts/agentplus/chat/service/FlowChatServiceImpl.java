@@ -3,6 +3,7 @@ package com.iusofts.agentplus.chat.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.iusofts.agentplus.aiflow.entity.AiFlow;
 import com.iusofts.agentplus.aiflow.enums.PublishingStatusEnum;
+import com.iusofts.agentplus.aiflow.constants.FlowGlobalInputConstants;
 import com.iusofts.agentplus.aiflow.interfaces.IAiFlowExecutorService;
 import com.iusofts.agentplus.aiflow.mapper.AiFlowMapper;
 import com.iusofts.agentplus.aiflow.vo.FlowExecuteResult;
@@ -107,8 +108,11 @@ public class FlowChatServiceImpl implements IAiChatServiceInterface {
         Map<String, Object> inputs = new HashMap<>();
         // 将 query 和 fileList 直接放在全局输入根级，匹配 {{inputs.query}} 的占位符引用方式
         // 与试运行传参方式保持一致
-        inputs.put("query", reqVo.getContent());
-        inputs.put("fileList", reqVo.getFileList());
+        inputs.put(FlowGlobalInputConstants.QUERY, reqVo.getContent());
+        inputs.put(FlowGlobalInputConstants.FILE_LIST, reqVo.getFileList());
+        // 传入会话ID和智能体ID，供LLM节点获取历史对话上下文
+        inputs.put(FlowGlobalInputConstants.CONVERSATION_ID, reqVo.getConversationId());
+        inputs.put(FlowGlobalInputConstants.AGENT_ID, agentId);
 
         // 4. 调用公共执行服务执行流程（会自动落库 AiFlowRuntime 和 AiFlowRuntimeNode）
         // trialFlag = 0 表示正式运行，不是试运行

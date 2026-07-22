@@ -1,6 +1,7 @@
 package com.iusofts.agentplus.engine.config;
 
 import com.iusofts.agentplus.engine.WorkflowEngine;
+import com.iusofts.agentplus.engine.history.HistoryMessageProvider;
 import com.iusofts.agentplus.engine.knowledge.KnowledgeRetriever;
 import com.iusofts.agentplus.engine.knowledge.NoopKnowledgeRetriever;
 import com.iusofts.agentplus.engine.llm.ChatModelProvider;
@@ -17,8 +18,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
-import java.util.List;
 
 /**
  * 工作流引擎 Spring 自动装配。
@@ -61,7 +60,8 @@ public class WorkflowEngineAutoConfiguration {
                                          ObjectProvider<ToolRegistry> toolRegistry,
                                          ObjectProvider<ToolQueryProvider> toolQueryProvider,
                                          ObjectProvider<LlmLogRecorder> llmLogRecorder,
-                                         ObjectProvider<LlmModelQueryProvider> llmModelQueryProvider) {
+                                         ObjectProvider<LlmModelQueryProvider> llmModelQueryProvider,
+                                         ObjectProvider<HistoryMessageProvider> historyMessageProvider) {
         WorkflowEngine.Builder builder = WorkflowEngine.builder()
                 .chatModelProvider(chatModelProvider)
                 .knowledgeRetriever(retriever.getIfAvailable(NoopKnowledgeRetriever::new));
@@ -70,6 +70,7 @@ public class WorkflowEngineAutoConfiguration {
         toolQueryProvider.ifAvailable(builder::toolQueryProvider);
         llmLogRecorder.ifAvailable(builder::llmLogRecorder);
         llmModelQueryProvider.ifAvailable(builder::llmModelQueryProvider);
+        historyMessageProvider.ifAvailable(builder::historyMessageProvider);
 
         return builder.build();
     }
