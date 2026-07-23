@@ -159,7 +159,9 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
                 .model(llmModelQueryProvider.getModel(modelId))
                 .config(config)
                 .inputMessages(msgList)
+                .toolDefinitions(toolDefinitions)
                 .output(response.getContent(), response.getInputTokens(), response.getOutputTokens())
+                .toolCalls(response.getToolCalls(), response.getFinishReason())
                 .success()
                 .operator(reqVo.getOperatorId(), reqVo.getOrgId())
                 .record();

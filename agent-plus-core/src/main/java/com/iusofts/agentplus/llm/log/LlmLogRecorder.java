@@ -3,6 +3,8 @@ package com.iusofts.agentplus.llm.log;
 import com.iusofts.agentplus.llm.dto.ChatMessage;
 import com.iusofts.agentplus.llm.dto.LlmModelConfigDTO;
 import com.iusofts.agentplus.llm.dto.LlmModelDTO;
+import com.iusofts.agentplus.llm.dto.ToolCall;
+import com.iusofts.agentplus.llm.dto.ToolDefinition;
 import com.iusofts.agentplus.knowledge.dto.KnowledgeRetrieveResult;
 
 import java.math.BigDecimal;
@@ -92,6 +94,11 @@ public interface LlmLogRecorder {
 
         LlmCallRecorder inputMessages(List<ChatMessage> messages);
 
+        /**
+         * 记录下发给模型的工具规格列表。
+         */
+        LlmCallRecorder toolDefinitions(List<ToolDefinition> toolDefinitions);
+
         LlmCallRecorder operator(Long userId, Integer orgId);
 
         /**
@@ -103,6 +110,11 @@ public interface LlmLogRecorder {
          * 手动设置输出和 Token 信息。
          */
         LlmCallRecorder output(String content, Integer inputTokens, Integer outputTokens);
+
+        /**
+         * 记录模型返回的工具调用列表与结束原因。
+         */
+        LlmCallRecorder toolCalls(List<ToolCall> toolCalls, String finishReason);
 
         /**
          * 标记为成功。

@@ -8,6 +8,8 @@ import com.iusofts.agentplus.ailog.entity.AiLlmCallLog.MessageEntry;
 import com.iusofts.agentplus.llm.dto.ChatMessage;
 import com.iusofts.agentplus.llm.dto.LlmModelConfigDTO;
 import com.iusofts.agentplus.llm.dto.LlmModelDTO;
+import com.iusofts.agentplus.llm.dto.ToolCall;
+import com.iusofts.agentplus.llm.dto.ToolDefinition;
 import com.iusofts.agentplus.knowledge.dto.KnowledgeChunk;
 import com.iusofts.agentplus.knowledge.dto.KnowledgeRetrieveResult;
 import com.iusofts.agentplus.llm.log.LlmLogRecorder;
@@ -159,6 +161,23 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
         public LlmCallRecorder operator(Long userId, Integer orgId) {
             entity.setCreateBy(userId);
             entity.setOrgId(orgId);
+            return this;
+        }
+
+        @Override
+        public LlmCallRecorder toolDefinitions(List<ToolDefinition> toolDefinitions) {
+            if (toolDefinitions != null && !toolDefinitions.isEmpty()) {
+                entity.setToolDefinitions(toolDefinitions);
+            }
+            return this;
+        }
+
+        @Override
+        public LlmCallRecorder toolCalls(List<ToolCall> toolCalls, String finishReason) {
+            if (toolCalls != null && !toolCalls.isEmpty()) {
+                entity.setToolCalls(toolCalls);
+            }
+            entity.setFinishReason(finishReason);
             return this;
         }
 

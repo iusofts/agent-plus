@@ -155,7 +155,7 @@ public class LLMNodeExecutor implements NodeExecutor {
                 }
 
                 // 记录本次 LLM 调用日志
-                recordLlmLogIteration(node, data, ctx, systemPrompt, userPrompt, response, iteration, ctx.getRunId(), msgList, llmCallStart);
+                recordLlmLogIteration(node, data, ctx, systemPrompt, userPrompt, response, iteration, ctx.getRunId(), msgList, llmCallStart, toolDefinitions);
 
                 // 模型未请求工具调用，得到最终回答，结束循环
                 if (CollectionUtils.isEmpty(response.getToolCalls())) {
@@ -182,7 +182,7 @@ public class LLMNodeExecutor implements NodeExecutor {
             usage.put("totalTokens", totalInputTokens + totalOutputTokens);
 
         } catch (Exception e) {
-            recordLlmLog(node, data, ctx, systemPrompt, userPrompt, null, null, e, llmCallStart);
+            recordLlmLog(node, data, ctx, systemPrompt, userPrompt, null, null, e, llmCallStart, toolDefinitions);
             text = handleFailure(node, data, e);
         }
 
@@ -362,7 +362,7 @@ public class LLMNodeExecutor implements NodeExecutor {
     private void recordLlmLogIteration(Node node, LLMNodeData data, ExecutionContext ctx,
                                        String systemPrompt, String userPrompt, ChatResponse response,
                                        int iteration, String traceId, List<ChatMessage> msgList,
-                                       LocalDateTime llmCallStart) {
+                                       LocalDateTime llmCallStart, List<ToolDefinition> toolDefinitions) {
         if (llmLogRecorder == null) {
             return;
         }
@@ -388,9 +388,12 @@ public class LLMNodeExecutor implements NodeExecutor {
                     .model(modelDTO)
                     .config(config)
                     .inputMessages(logMessages)
+                    .toolDefinitions(toolDefinitions)
                     .operator(ctx.getOperatorId(), ctx.getOrgId());
 
-            recorder.output(response.getContent(), response.getInputTokens(), response.getOutputTokens()).success();
+            recorder.output(response.getContent(), response.getInputTokens(), response.getOutputTokens())
+                    .toolCalls(response.getToolCalls(), response.getFinishReason())
+                    .success();
             recorder.record();
         } catch (Exception e) {
             LOGGER.warn("写 LLM 日志失败", e);
@@ -401,7 +404,7 @@ public class LLMNodeExecutor implements NodeExecutor {
     private void recordLlmLog(Node node, LLMNodeData data, ExecutionContext ctx,
                               String systemPrompt, String userPrompt,
                               String output, TokenUsage tokenUsage, Exception error,
-                              LocalDateTime llmCallStart) {
+                              LocalDateTime llmCallStart, List<ToolDefinition> toolDefinitions) {
         if (llmLogRecorder == null) {
             return;
         }
@@ -432,6 +435,7 @@ public class LLMNodeExecutor implements NodeExecutor {
                     .model(modelDTO)
                     .config(config)
                     .inputMessages(logMessages)
+                    .toolDefinitions(toolDefinitions)
                     .operator(ctx.getOperatorId(), ctx.getOrgId());
 
             if (error != null) {

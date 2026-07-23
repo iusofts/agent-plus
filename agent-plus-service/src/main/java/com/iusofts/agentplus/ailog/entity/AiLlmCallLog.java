@@ -5,6 +5,8 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.iusofts.agentplus.llm.dto.ToolCall;
+import com.iusofts.agentplus.llm.dto.ToolDefinition;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.Setter;
@@ -83,6 +85,17 @@ public class AiLlmCallLog implements Serializable {
 
     @Schema(description = "总消耗token数")
     private Integer totalTokens;
+
+    @Schema(description = "结束原因(STOP/TOOL_EXECUTION等)")
+    private String finishReason;
+
+    @Schema(description = "下发给模型的工具规格列表(JSON)")
+    @TableField(value = "tool_definitions", typeHandler = JacksonTypeHandler.class)
+    private List<ToolDefinition> toolDefinitions;
+
+    @Schema(description = "模型请求的工具调用列表(JSON)")
+    @TableField(value = "tool_calls", typeHandler = JacksonTypeHandler.class)
+    private List<ToolCall> toolCalls;
 
     @Schema(description = "调用状态(0:失败 1:成功)")
     private Integer callStatus;
