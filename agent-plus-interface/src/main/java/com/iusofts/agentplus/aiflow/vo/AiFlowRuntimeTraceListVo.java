@@ -24,4 +24,10 @@ public class AiFlowRuntimeTraceListVo {
     @Schema(description = "开始时间")
     private LocalDateTime startTime;
 
+    @Schema(description = "是否试运行 0:正式 1:流程试运行 2:节点试运行")
+    private Integer trialFlag;
+
+    @Schema(description = "运行状态 0等待 1运行中 2成功 3失败 4终止")
+    private Integer runStatus;
+
 }

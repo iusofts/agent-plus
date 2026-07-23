@@ -235,6 +235,7 @@ public class AiFlowRuntimeServiceImpl extends ServiceImpl<AiFlowRuntimeMapper, A
         LambdaQueryWrapper<AiFlowRuntime> wrapper = Wrappers.lambdaQuery();
         wrapper.eq(AiFlowRuntime::getFlowId, version.getFlowId());
         wrapper.eq(AiFlowRuntime::getVersionNo, version.getVersionNo());
+        wrapper.in(AiFlowRuntime::getTrialFlag, 1, 2);
 
         // 状态:指定成功/失败则精确匹配,否则默认只取成功和失败
         Integer status = reqVo.getStatus();
