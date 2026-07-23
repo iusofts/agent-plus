@@ -11,6 +11,7 @@ import com.iusofts.agentplus.library.entity.AiKnowledgeDocument;
 import com.iusofts.agentplus.library.interfaces.IAiKnowledgeDocumentService;
 import com.iusofts.agentplus.library.knowledge.KnowledgeIngestExecutor;
 import com.iusofts.agentplus.library.knowledge.KnowledgeIngestionService;
+import com.iusofts.agentplus.llm.log.EmbeddingCallContext;
 import com.iusofts.agentplus.llm.log.LlmLogRecorder;
 import com.iusofts.agentplus.plugin.vectorstore.KnowledgeMetadata;
 import com.iusofts.agentplus.plugin.vectorstore.KnowledgeStoreService;
@@ -263,9 +264,15 @@ public class AiKnowledgeDocumentServiceImpl extends ServiceImpl<AiKnowledgeDocum
         }
         if (!vectorIds.isEmpty()) {
             int embeddingTokens;
+            EmbeddingCallContext ctx = EmbeddingCallContext.builder()
+                    .traceId(LlmLogRecorder.generateTraceId())
+                    .operatorId(operatorId)
+                    .orgId(orgId)
+                    .build();
             try {
                 embeddingTokens = knowledgeStoreService.batchEmbedAndStore(
-                        kb.getCollectionName(), vectorIds, contents, metadatas, kb.getEmbeddingModelId());
+                        kb.getCollectionName(), vectorIds, contents, metadatas,
+                        kb.getEmbeddingModelId(), kb.getId(), ctx);
             } catch (Exception e) {
                 recordDocLogSafely(kb, doc, operatorId, orgId, null, null, null, e.getMessage());
                 throw new SystemBusinessException("重建向量数据失败:" + e.getMessage());
@@ -376,9 +383,15 @@ public class AiKnowledgeDocumentServiceImpl extends ServiceImpl<AiKnowledgeDocum
         }
         if (!vectorIds.isEmpty()) {
             int embeddingTokens;
+            EmbeddingCallContext ctx = EmbeddingCallContext.builder()
+                    .traceId(LlmLogRecorder.generateTraceId())
+                    .operatorId(reqVo.getOperatorId())
+                    .orgId(reqVo.getOrgId())
+                    .build();
             try {
                 embeddingTokens = knowledgeStoreService.batchEmbedAndStore(
-                        kb.getCollectionName(), vectorIds, contents, metadatas, kb.getEmbeddingModelId());
+                        kb.getCollectionName(), vectorIds, contents, metadatas,
+                        kb.getEmbeddingModelId(), kb.getId(), ctx);
             } catch (Exception e) {
                 recordDocLogSafely(kb, doc, reqVo.getOperatorId(), reqVo.getOrgId(),
                         null, null, null, e.getMessage());

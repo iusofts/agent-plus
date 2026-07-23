@@ -11,6 +11,7 @@ import com.iusofts.agentplus.engine.executor.NodeExecutor;
 import com.iusofts.agentplus.engine.knowledge.KnowledgeRetriever;
 import com.iusofts.agentplus.engine.util.ParamResolver;
 import com.iusofts.agentplus.knowledge.dto.KnowledgeRetrieveResult;
+import com.iusofts.agentplus.llm.log.EmbeddingCallContext;
 import com.iusofts.agentplus.llm.log.LlmLogRecorder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,8 +67,16 @@ public class KnowledgeNodeExecutor implements NodeExecutor {
         KnowledgeRetrieveResult result;
         Exception failure = null;
         LocalDateTime retrieveStart = LocalDateTime.now();
+
+        EmbeddingCallContext embeddingCtx = EmbeddingCallContext.builder()
+                .traceId(ctx.getRunId())
+                .sourceNodeId(node.getId())
+                .operatorId(ctx.getOperatorId())
+                .orgId(ctx.getOrgId())
+                .build();
+
         try {
-            result = retriever.retrieve(data.getKnowledgeIds(), query, topK);
+            result = retriever.retrieve(data.getKnowledgeIds(), query, topK, embeddingCtx);
         } catch (Exception e) {
             failure = e;
             result = null;

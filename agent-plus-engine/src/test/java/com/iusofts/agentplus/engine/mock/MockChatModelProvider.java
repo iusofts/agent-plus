@@ -55,6 +55,18 @@ public class MockChatModelProvider implements ChatModelProvider {
         };
     }
 
+    @Override
+    public com.iusofts.agentplus.llm.dto.ChatResponse chat(Long modelId, List<com.iusofts.agentplus.llm.dto.ChatMessage> messages,
+                                                             com.iusofts.agentplus.llm.dto.LlmModelConfigDTO config,
+                                                             List<com.iusofts.agentplus.llm.dto.ToolDefinition> tools) {
+        com.iusofts.agentplus.llm.dto.ChatResponse response = new com.iusofts.agentplus.llm.dto.ChatResponse();
+        response.setContent("[mock:" + modelId + "] test response");
+        response.setInputTokens(0);
+        response.setOutputTokens(0);
+        response.setTotalTokens(0);
+        return response;
+    }
+
     private static String defaultResponse(LLMNodeData data, List<ChatMessage> messages) {
         String userText = extractUserText(messages);
         String tag = "[mock:" + data.getModelId() + "]";

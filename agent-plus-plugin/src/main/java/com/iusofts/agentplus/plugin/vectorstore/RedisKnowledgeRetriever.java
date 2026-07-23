@@ -154,15 +154,12 @@ public class RedisKnowledgeRetriever implements KnowledgeRetriever {
             recordEmbeddingCall(kb, query, null, ctx, start, e.getMessage());
             throw e;
         }
-        Integer embeddingTokens = embeddingResponse.tokenUsage() != null
-                ? embeddingResponse.tokenUsage().totalTokenCount()
-                : null;
-        recordEmbeddingCall(kb, query, embeddingTokens, ctx, start, null);
+        recordEmbeddingCall(kb, query, embeddingResponse.tokenUsage(), ctx, start, null);
         return embeddingResponse;
     }
 
     /** 记录一次检索场景的 embedding 调用日志。ctx 为空或无记录器时静默跳过。 */
-    private void recordEmbeddingCall(KnowledgeBaseDTO kb, String query, Integer embeddingTokens,
+    private void recordEmbeddingCall(KnowledgeBaseDTO kb, String query, dev.langchain4j.model.output.TokenUsage tokenUsage,
                                      EmbeddingCallContext ctx, LocalDateTime start, String errorMessage) {
         if (ctx == null) {
             return;
@@ -188,7 +185,9 @@ public class RedisKnowledgeRetriever implements KnowledgeRetriever {
             if (errorMessage != null) {
                 call.error(null, errorMessage);
             } else {
-                call.output(null, embeddingTokens, 0).success();
+                Integer inputTokens = tokenUsage != null ? tokenUsage.inputTokenCount() : null;
+                Integer outputTokens = tokenUsage != null ? tokenUsage.outputTokenCount() : null;
+                call.output(null, inputTokens, outputTokens).success();
             }
             call.record();
         } catch (Exception e) {

@@ -22,6 +22,7 @@ import com.iusofts.agentplus.llm.dto.LlmModelConfigDTO;
 import com.iusofts.agentplus.llm.dto.ToolCall;
 import com.iusofts.agentplus.llm.dto.ToolDefinition;
 import com.iusofts.agentplus.llm.LlmModelQueryProvider;
+import com.iusofts.agentplus.llm.log.EmbeddingCallContext;
 import com.iusofts.agentplus.llm.log.LlmLogRecorder;
 import com.iusofts.agentplus.engine.knowledge.KnowledgeRetriever;
 import com.iusofts.agentplus.engine.tool.ToolRegistry;
@@ -307,6 +308,12 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
         }
         int topK = aiAgent.getRetrievalTopK() == null || aiAgent.getRetrievalTopK() <= 0 ? DEFAULT_RETRIEVAL_TOP_K : aiAgent.getRetrievalTopK();
 
+        EmbeddingCallContext embeddingCtx = EmbeddingCallContext.builder()
+                .traceId(traceId)
+                .operatorId(operatorId)
+                .orgId(orgId)
+                .build();
+
         List<String> chunks = new ArrayList<>();
         for (Long kbId : aiAgent.getKnowledgeBaseIds()) {
             if (kbId == null) {
@@ -316,7 +323,7 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
             String kbName = kb != null ? kb.getName() : null;
 
             LocalDateTime retrieveStart = LocalDateTime.now();
-            KnowledgeRetrieveResult result = knowledgeRetriever.retrieve(kbId, query, topK);
+            KnowledgeRetrieveResult result = knowledgeRetriever.retrieve(kbId, query, topK, embeddingCtx);
             List<String> retrievedChunks = result.getChunks() != null
                     ? result.getChunks().stream().map(KnowledgeChunk::getContent).collect(Collectors.toList())
                     : List.of();

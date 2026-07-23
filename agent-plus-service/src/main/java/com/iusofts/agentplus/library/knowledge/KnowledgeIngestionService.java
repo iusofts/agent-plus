@@ -11,6 +11,7 @@ import com.iusofts.agentplus.library.mapper.AiKnowledgeDocumentMapper;
 import com.iusofts.agentplus.basic.redis.RedisLock;
 import com.iusofts.agentplus.id.service.IdService;
 import com.iusofts.agentplus.id.service.IdService.UidTypeEnum;
+import com.iusofts.agentplus.llm.log.EmbeddingCallContext;
 import com.iusofts.agentplus.llm.log.LlmLogRecorder;
 import com.iusofts.agentplus.plugin.document.DocumentContentExtractor;
 import com.iusofts.agentplus.plugin.document.TextChunker;
@@ -140,7 +141,14 @@ public class KnowledgeIngestionService {
             List<String> vectorIds = chunkRows.stream().map(AiKnowledgeChunk::getVectorId).toList();
             List<Map<String, Object>> chunkMetadatas = buildChunkMetadatas(chunkRows, doc);
 
-            int embeddingTokens = knowledgeStoreService.batchEmbedAndStore(kb.getCollectionName(), vectorIds, chunkTextsForStore, chunkMetadatas, kb.getEmbeddingModelId());
+            EmbeddingCallContext ctx = EmbeddingCallContext.builder()
+                    .traceId(LlmLogRecorder.generateTraceId())
+                    .operatorId(doc.getCreateBy())
+                    .orgId(doc.getOrgId())
+                    .build();
+            int embeddingTokens = knowledgeStoreService.batchEmbedAndStore(
+                    kb.getCollectionName(), vectorIds, chunkTextsForStore, chunkMetadatas,
+                    kb.getEmbeddingModelId(), kb.getId(), ctx);
 
             saveChunkRows(chunkRows);
 

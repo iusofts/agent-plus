@@ -18,6 +18,7 @@ import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeChunkEditReqVo;
 import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeChunkQueryPageReqVo;
 import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeChunkStatusReqVo;
 import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeChunkVo;
+import com.iusofts.agentplus.llm.log.EmbeddingCallContext;
 import com.iusofts.agentplus.llm.log.LlmLogRecorder;
 import com.iusofts.agentplus.plugin.vectorstore.KnowledgeMetadata;
 import com.iusofts.agentplus.plugin.vectorstore.KnowledgeStoreService;
@@ -128,6 +129,11 @@ public class AiKnowledgeChunkServiceImpl extends ServiceImpl<AiKnowledgeChunkMap
 
         // 先向量化写入向量库,再落库
         int embeddingTokens;
+        EmbeddingCallContext ctx = EmbeddingCallContext.builder()
+                .traceId(LlmLogRecorder.generateTraceId())
+                .operatorId(reqVo.getOperatorId())
+                .orgId(reqVo.getOrgId())
+                .build();
         try {
             List<Map<String, Object>> metadatas = List.of(buildChunkMetadata(chunkId, doc));
             embeddingTokens = knowledgeStoreService.batchEmbedAndStore(
@@ -135,7 +141,9 @@ public class AiKnowledgeChunkServiceImpl extends ServiceImpl<AiKnowledgeChunkMap
                     List.of(vectorId),
                     List.of(reqVo.getContent()),
                     metadatas,
-                    kb.getEmbeddingModelId()
+                    kb.getEmbeddingModelId(),
+                    kb.getId(),
+                    ctx
             );
         } catch (Exception e) {
             recordChunkLogSafely(kb, doc, reqVo.getOperatorId(), reqVo.getOrgId(),
@@ -168,6 +176,11 @@ public class AiKnowledgeChunkServiceImpl extends ServiceImpl<AiKnowledgeChunkMap
 
         // 以相同 vectorId 重新向量化并覆盖向量库中的向量
         int embeddingTokens;
+        EmbeddingCallContext ctx = EmbeddingCallContext.builder()
+                .traceId(LlmLogRecorder.generateTraceId())
+                .operatorId(reqVo.getOperatorId())
+                .orgId(reqVo.getOrgId())
+                .build();
         try {
             List<Map<String, Object>> metadatas = List.of(buildChunkMetadata(chunk.getId(), doc));
             embeddingTokens = knowledgeStoreService.batchEmbedAndStore(
@@ -175,7 +188,9 @@ public class AiKnowledgeChunkServiceImpl extends ServiceImpl<AiKnowledgeChunkMap
                     List.of(chunk.getVectorId()),
                     List.of(reqVo.getContent()),
                     metadatas,
-                    kb.getEmbeddingModelId()
+                    kb.getEmbeddingModelId(),
+                    kb.getId(),
+                    ctx
             );
         } catch (Exception e) {
             recordChunkLogSafely(kb, doc, reqVo.getOperatorId(), reqVo.getOrgId(),
@@ -238,6 +253,11 @@ public class AiKnowledgeChunkServiceImpl extends ServiceImpl<AiKnowledgeChunkMap
             }
             AiKnowledgeDocument doc = aiKnowledgeDocumentMapper.selectById(chunk.getDocumentId());
             int embeddingTokens;
+            EmbeddingCallContext ctx = EmbeddingCallContext.builder()
+                    .traceId(LlmLogRecorder.generateTraceId())
+                    .operatorId(reqVo.getOperatorId())
+                    .orgId(reqVo.getOrgId())
+                    .build();
             try {
                 List<Map<String, Object>> metadatas = List.of(buildChunkMetadata(chunk.getId(), doc));
                 embeddingTokens = knowledgeStoreService.batchEmbedAndStore(
@@ -245,7 +265,9 @@ public class AiKnowledgeChunkServiceImpl extends ServiceImpl<AiKnowledgeChunkMap
                         List.of(chunk.getVectorId()),
                         List.of(chunk.getContent()),
                         metadatas,
-                        kb.getEmbeddingModelId()
+                        kb.getEmbeddingModelId(),
+                        kb.getId(),
+                        ctx
                 );
             } catch (Exception e) {
                 log.error("重建向量数据失败", e);
