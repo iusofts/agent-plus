@@ -111,9 +111,9 @@ public interface LlmLogRecorder {
         LlmCallRecorder inputMessages(List<ChatMessage> messages);
 
         /**
-         * 手动设置输入字符数（不走 inputMessages 时使用）。
+         * 手动设置输入内容（不走 inputMessages 时使用）。
          */
-        LlmCallRecorder inputCharCount(Integer charCount);
+        LlmCallRecorder inputContent(String content);
 
         /**
          * 记录下发给模型的工具规格列表。

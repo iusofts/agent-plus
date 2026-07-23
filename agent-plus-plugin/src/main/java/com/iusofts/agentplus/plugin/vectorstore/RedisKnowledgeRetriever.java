@@ -180,7 +180,7 @@ public class RedisKnowledgeRetriever implements KnowledgeRetriever {
                     .startTime(start)
                     .source(CALL_SOURCE_EMBED_RETRIEVE, kb.getId(), ctx.getSourceNodeId())
                     .embeddingModel(modelDTO)
-                    .inputCharCount(query != null ? query.length() : 0)
+                    .inputContent(query)
                     .operator(ctx.getOperatorId(), ctx.getOrgId());
             if (errorMessage != null) {
                 call.error(null, errorMessage);

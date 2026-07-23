@@ -177,8 +177,11 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
         }
 
         @Override
-        public LlmCallRecorder inputCharCount(Integer charCount) {
-            entity.setInputCharCount(charCount);
+        public LlmCallRecorder inputContent(String content) {
+            entity.setInputContent(content);
+            if (content != null) {
+                entity.setInputCharCount(content.length());
+            }
             return this;
         }
 

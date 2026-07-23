@@ -68,6 +68,9 @@ public class AiLlmCallLog implements Serializable {
     @TableField(value = "input_messages", typeHandler = JacksonTypeHandler.class)
     private List<MessageEntry> inputMessages;
 
+    @Schema(description = "输入内容(不走inputMessages时使用)")
+    private String inputContent;
+
     @Schema(description = "输入字符数")
     private Integer inputCharCount;
 

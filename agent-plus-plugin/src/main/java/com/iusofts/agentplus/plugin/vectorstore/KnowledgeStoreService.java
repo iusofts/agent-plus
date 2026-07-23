@@ -17,6 +17,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 知识库存储服务（封装向量化、存储逻辑，service 层不直接依赖 langchain4j）。
@@ -173,13 +174,13 @@ public class KnowledgeStoreService {
             return;
         }
         try {
-            int totalCharCount = batchTexts.stream().mapToInt(c -> c == null ? 0 : c.length()).sum();
+            String inputContent = batchTexts.stream().filter(c -> c != null).collect(Collectors.joining("\n"));
 
             LlmLogRecorder.LlmCallRecorder call = recorder.recordLlmCall()
                     .traceId(ctx != null && ctx.getTraceId() != null ? ctx.getTraceId() : LlmLogRecorder.generateTraceId())
                     .startTime(startTime)
                     .embeddingModel(modelDTO)
-                    .inputCharCount(totalCharCount);
+                    .inputContent(inputContent);
 
             // 设置来源信息
             if (ctx != null && ctx.getSourceNodeId() != null) {
