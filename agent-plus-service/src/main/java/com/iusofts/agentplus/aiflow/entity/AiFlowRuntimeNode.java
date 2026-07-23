@@ -39,6 +39,9 @@ public class AiFlowRuntimeNode implements Serializable {
     @Schema(description = "VueFlow节点唯一id")
     private String nodeId;
 
+    @Schema(description = "节点名称(冗余)")
+    private String nodeName;
+
     @Schema(description = "节点类型(Start/LLM/Knowledge/Condition/End)")
     private String nodeType;
 

@@ -119,6 +119,7 @@ DROP TABLE IF EXISTS `ai_flow_runtime`;
 CREATE TABLE `ai_flow_runtime`  (
   `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '执行实例ID',
   `flow_id` bigint(20) NOT NULL COMMENT '流程ID',
+  `flow_name` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '流程名称(冗余)',
   `version_no` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '执行使用的语义化版本v1.0.0',
   `trace_id` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '全局追踪ID',
   `run_status` tinyint(4) NOT NULL DEFAULT 0 COMMENT '运行状态 0等待 1运行中 2成功 3失败 4终止',
@@ -151,6 +152,7 @@ CREATE TABLE `ai_flow_runtime_node`  (
   `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '自增主键',
   `runtime_id` bigint(20) NOT NULL COMMENT '关联运行实例ID',
   `node_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'VueFlow节点唯一id',
+  `node_name` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '节点名称(冗余)',
   `node_type` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '节点类型(Start/LLM/Knowledge/Condition/End)',
   `run_status` tinyint(4) NOT NULL DEFAULT 0 COMMENT '0未执行 1执行中 2成功 3失败 4跳过',
   `node_input` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '节点入参JSON',

@@ -36,6 +36,9 @@ public class AiFlowRuntime implements Serializable {
     @Schema(description = "流程ID")
     private Long flowId;
 
+    @Schema(description = "流程名称(冗余)")
+    private String flowName;
+
     @Schema(description = "执行使用的语义化版本v1.0.0")
     private String versionNo;
 

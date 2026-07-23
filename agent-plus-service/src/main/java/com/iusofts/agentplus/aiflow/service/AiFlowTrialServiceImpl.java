@@ -163,7 +163,7 @@ public class AiFlowTrialServiceImpl implements IAiFlowTrialService {
             long costMs = Duration.between(nodeStart, nodeEnd).toMillis();
             int nodeStatus = NodeRunStatusEnum.SUCCESS.getCode();
 
-            AiFlowRuntimeNode nodeEntity = buildRuntimeNode(runtime.getId(), target.getId(), target.getType(),
+            AiFlowRuntimeNode nodeEntity = buildRuntimeNode(runtime.getId(), target.getId(), resolveNodeName(target), target.getType(),
                     nodeStatus, serialize(inputs), outputs, null, reqVo.getOperatorId(),
                     nodeStart, nodeEnd, costMs);
             aiFlowRuntimeNodeMapper.insert(nodeEntity);
@@ -182,7 +182,7 @@ public class AiFlowTrialServiceImpl implements IAiFlowTrialService {
             long costMs = Duration.between(start, nodeEnd).toMillis();
             String errorStack = truncate(e.toString());
 
-            AiFlowRuntimeNode nodeEntity = buildRuntimeNode(runtime.getId(), target.getId(), target.getType(),
+            AiFlowRuntimeNode nodeEntity = buildRuntimeNode(runtime.getId(), target.getId(), resolveNodeName(target), target.getType(),
                     NodeRunStatusEnum.FAILED.getCode(), serialize(inputs), null, errorStack, reqVo.getOperatorId(),
                     start, nodeEnd, costMs);
             aiFlowRuntimeNodeMapper.insert(nodeEntity);
@@ -235,6 +235,10 @@ public class AiFlowTrialServiceImpl implements IAiFlowTrialService {
                                      Map<String, Object> inputs, Long operatorId, int trialFlag) {
         AiFlowRuntime runtime = new AiFlowRuntime();
         runtime.setFlowId(version.getFlowId());
+        AiFlow aiFlow = aiFlowMapper.selectById(version.getFlowId());
+        if (aiFlow != null) {
+            runtime.setFlowName(aiFlow.getName());
+        }
         runtime.setVersionNo(version.getVersionNo());
         runtime.setTraceId(traceId);
         runtime.setRunStatus(RunStatusEnum.RUNNING.getCode());
@@ -256,13 +260,14 @@ public class AiFlowTrialServiceImpl implements IAiFlowTrialService {
         aiFlowRuntimeMapper.updateById(runtime);
     }
 
-    private AiFlowRuntimeNode buildRuntimeNode(Long runtimeId, String nodeId, String nodeType, int runStatus,
+    private AiFlowRuntimeNode buildRuntimeNode(Long runtimeId, String nodeId, String nodeName, String nodeType, int runStatus,
                                                String nodeInput, Map<String, Object> outputs, String errorStack,
                                                Long operatorId, LocalDateTime startTime, LocalDateTime endTime,
                                                Long costMs) {
         AiFlowRuntimeNode node = new AiFlowRuntimeNode();
         node.setRuntimeId(runtimeId);
         node.setNodeId(nodeId);
+        node.setNodeName(nodeName);
         node.setNodeType(nodeType);
         node.setRunStatus(runStatus);
         node.setNodeInput(nodeInput);
@@ -295,6 +300,15 @@ public class AiFlowTrialServiceImpl implements IAiFlowTrialService {
             }
         }
         return map;
+    }
+
+    /** 取节点名称:优先 data.label,其次 node.label。 */
+    private String resolveNodeName(Node node) {
+        String name = node.getData() == null ? null : node.getData().getLabel();
+        if (name == null || name.isBlank()) {
+            name = node.getLabel();
+        }
+        return name;
     }
 
     private Node findNode(Workflow workflow, String nodeId) {

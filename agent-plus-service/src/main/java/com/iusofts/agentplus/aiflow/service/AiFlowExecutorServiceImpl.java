@@ -102,6 +102,7 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
         // 3. 生成 traceId，创建运行实例落库
         String traceId = AiFlowCommonUtils.newTraceId(trialFlag > 0);
         AiFlowRuntime runtime = newRuntime(version, traceId, inputs, operatorId, trialFlag);
+        runtime.setFlowName(aiFlow.getName());
         aiFlowRuntimeMapper.insert(runtime);
 
         LocalDateTime start = runtime.getStartTime();
@@ -126,11 +127,13 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
             List<AiFlowRuntimeNode> nodeEntities = new ArrayList<>();
             List<FlowExecuteResult.FlowNodeResult> nodeResults = new ArrayList<>();
             Map<String, String> nodeTypeMap = buildNodeTypeMap(workflow);
+            Map<String, String> nodeNameMap = buildNodeNameMap(workflow);
             Map<String, NodeTiming> timings = execResult.getNodeTimings();
 
             for (Map.Entry<String, NodeExecutionStatus> entry : execResult.getNodeStatus().entrySet()) {
                 String nodeId = entry.getKey();
                 String nodeType = nodeTypeMap.getOrDefault(nodeId, "");
+                String nodeName = nodeNameMap.getOrDefault(nodeId, "");
                 NodeOutput output = execResult.getNodeOutputs().get(nodeId);
                 Map<String, Object> outputs = output == null ? null : output.getOutputs();
                 int nodeStatus = mapNodeStatus(entry.getValue());
@@ -139,7 +142,7 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
                 LocalDateTime nodeEnd = timing == null ? null : timing.getEndTime();
                 Long nodeCost = timing == null ? null : timing.getCostMs();
 
-                nodeEntities.add(buildRuntimeNode(runtime.getId(), nodeId, nodeType, nodeStatus,
+                nodeEntities.add(buildRuntimeNode(runtime.getId(), nodeId, nodeName, nodeType, nodeStatus,
                         null, outputs, null, operatorId, nodeStart, nodeEnd, nodeCost));
                 nodeResults.add(buildNodeResult(nodeId, nodeType, nodeStatus, outputs, nodeCost, null));
             }
@@ -211,6 +214,10 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
         // 创建运行实例
         String traceId = AiFlowCommonUtils.newTraceId(trialFlag > 0);
         AiFlowRuntime runtime = newRuntime(version, traceId, inputs, operatorId, trialFlag);
+        AiFlow aiFlow = aiFlowMapper.selectById(version.getFlowId());
+        if (aiFlow != null) {
+            runtime.setFlowName(aiFlow.getName());
+        }
         aiFlowRuntimeMapper.insert(runtime);
 
         LocalDateTime start = runtime.getStartTime();
@@ -235,11 +242,13 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
             List<AiFlowRuntimeNode> nodeEntities = new ArrayList<>();
             List<FlowExecuteResult.FlowNodeResult> nodeResults = new ArrayList<>();
             Map<String, String> nodeTypeMap = buildNodeTypeMap(workflow);
+            Map<String, String> nodeNameMap = buildNodeNameMap(workflow);
             Map<String, NodeTiming> timings = execResult.getNodeTimings();
 
             for (Map.Entry<String, NodeExecutionStatus> entry : execResult.getNodeStatus().entrySet()) {
                 String nodeId = entry.getKey();
                 String nodeType = nodeTypeMap.getOrDefault(nodeId, "");
+                String nodeName = nodeNameMap.getOrDefault(nodeId, "");
                 NodeOutput output = execResult.getNodeOutputs().get(nodeId);
                 Map<String, Object> outputs = output == null ? null : output.getOutputs();
                 int nodeStatus = mapNodeStatus(entry.getValue());
@@ -248,7 +257,7 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
                 LocalDateTime nodeEnd = timing == null ? null : timing.getEndTime();
                 Long nodeCost = timing == null ? null : timing.getCostMs();
 
-                nodeEntities.add(buildRuntimeNode(runtime.getId(), nodeId, nodeType, nodeStatus,
+                nodeEntities.add(buildRuntimeNode(runtime.getId(), nodeId, nodeName, nodeType, nodeStatus,
                         null, outputs, null, operatorId, nodeStart, nodeEnd, nodeCost));
                 nodeResults.add(buildNodeResult(nodeId, nodeType, nodeStatus, outputs, nodeCost, null));
             }
@@ -307,13 +316,14 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
         aiFlowRuntimeMapper.updateById(runtime);
     }
 
-    private AiFlowRuntimeNode buildRuntimeNode(Long runtimeId, String nodeId, String nodeType, int runStatus,
+    private AiFlowRuntimeNode buildRuntimeNode(Long runtimeId, String nodeId, String nodeName, String nodeType, int runStatus,
                                                String nodeInput, Map<String, Object> outputs, String errorStack,
                                                Long operatorId, LocalDateTime startTime, LocalDateTime endTime,
                                                Long costMs) {
         AiFlowRuntimeNode node = new AiFlowRuntimeNode();
         node.setRuntimeId(runtimeId);
         node.setNodeId(nodeId);
+        node.setNodeName(nodeName);
         node.setNodeType(nodeType);
         node.setRunStatus(runStatus);
         node.setNodeInput(nodeInput);
@@ -343,6 +353,21 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
         if (workflow.getNodes() != null) {
             for (Node node : workflow.getNodes()) {
                 map.put(node.getId(), node.getType());
+            }
+        }
+        return map;
+    }
+
+    /** 构建 节点ID -> 节点名称 映射，优先取 data.label，其次 node.label。 */
+    private Map<String, String> buildNodeNameMap(Workflow workflow) {
+        Map<String, String> map = new java.util.HashMap<>();
+        if (workflow.getNodes() != null) {
+            for (Node node : workflow.getNodes()) {
+                String name = node.getData() == null ? null : node.getData().getLabel();
+                if (name == null || name.isBlank()) {
+                    name = node.getLabel();
+                }
+                map.put(node.getId(), name);
             }
         }
         return map;
