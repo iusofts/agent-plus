@@ -32,4 +32,6 @@ public interface IAiFlowRuntimeService {
 
     List<AiFlowTraceTreeVo> queryTraceTree(AiFlowRuntimeTraceReqVo reqVo);
 
+    List<AiFlowRuntimeTraceListVo> queryTraceList(AiFlowRuntimeTraceListReqVo reqVo);
+
 }

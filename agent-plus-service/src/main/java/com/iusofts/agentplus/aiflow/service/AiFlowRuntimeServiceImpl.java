@@ -9,10 +9,12 @@ import com.iusofts.agentplus.aiflow.interfaces.IAiFlowRuntimeService;
 import com.iusofts.agentplus.aiflow.entity.AiFlow;
 import com.iusofts.agentplus.aiflow.entity.AiFlowRuntime;
 import com.iusofts.agentplus.aiflow.entity.AiFlowRuntimeNode;
+import com.iusofts.agentplus.aiflow.entity.AiFlowVersion;
 import com.iusofts.agentplus.aiflow.enums.RunStatusEnum;
 import com.iusofts.agentplus.aiflow.mapper.AiFlowMapper;
 import com.iusofts.agentplus.aiflow.mapper.AiFlowRuntimeMapper;
 import com.iusofts.agentplus.aiflow.mapper.AiFlowRuntimeNodeMapper;
+import com.iusofts.agentplus.aiflow.mapper.AiFlowVersionMapper;
 import com.iusofts.agentplus.aiflow.vo.*;
 import com.iusofts.agentplus.ailog.entity.AiKnowledgeRetrievalLog;
 import com.iusofts.agentplus.ailog.entity.AiLlmCallLog;
@@ -55,6 +57,9 @@ public class AiFlowRuntimeServiceImpl extends ServiceImpl<AiFlowRuntimeMapper, A
 
     @Resource
     private AiLlmCallLogMapper aiLlmCallLogMapper;
+
+    @Resource
+    private AiFlowVersionMapper aiFlowVersionMapper;
 
     @Override
     public void add(AiFlowRuntimeAddReqVo reqVo) {
@@ -217,6 +222,44 @@ public class AiFlowRuntimeServiceImpl extends ServiceImpl<AiFlowRuntimeMapper, A
         });
 
         return traceVo;
+    }
+
+    @Override
+    public List<AiFlowRuntimeTraceListVo> queryTraceList(AiFlowRuntimeTraceListReqVo reqVo) {
+        // 版本ID -> flowId + versionNo
+        AiFlowVersion version = aiFlowVersionMapper.selectById(reqVo.getVersionId());
+        if (version == null) {
+            throw new SystemBusinessException("流程版本不存在");
+        }
+
+        LambdaQueryWrapper<AiFlowRuntime> wrapper = Wrappers.lambdaQuery();
+        wrapper.eq(AiFlowRuntime::getFlowId, version.getFlowId());
+        wrapper.eq(AiFlowRuntime::getVersionNo, version.getVersionNo());
+
+        // 状态:指定成功/失败则精确匹配,否则默认只取成功和失败
+        Integer status = reqVo.getStatus();
+        if (RunStatusEnum.SUCCESS.getCode().equals(status)
+                || RunStatusEnum.FAILED.getCode().equals(status)) {
+            wrapper.eq(AiFlowRuntime::getRunStatus, status);
+        } else {
+            wrapper.in(AiFlowRuntime::getRunStatus,
+                    RunStatusEnum.SUCCESS.getCode(), RunStatusEnum.FAILED.getCode());
+        }
+
+        // 日期范围(按开始时间)
+        if (reqVo.getStartDate() != null) {
+            wrapper.ge(AiFlowRuntime::getStartTime, reqVo.getStartDate().atStartOfDay());
+        }
+        if (reqVo.getEndDate() != null) {
+            wrapper.lt(AiFlowRuntime::getStartTime, reqVo.getEndDate().plusDays(1).atStartOfDay());
+        }
+
+        wrapper.orderByDesc(AiFlowRuntime::getStartTime);
+
+        List<AiFlowRuntime> list = list(wrapper);
+        return list.stream()
+                .map(item -> ModelMapperUtil.strictMap(item, AiFlowRuntimeTraceListVo.class))
+                .toList();
     }
 
     private AiFlowTraceEventVo buildEvent(String name, long ts, long dur, String cat) {
