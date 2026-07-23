@@ -8,10 +8,16 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.iusofts.agentplus.aiflow.interfaces.IAiFlowRuntimeService;
 import com.iusofts.agentplus.aiflow.entity.AiFlow;
 import com.iusofts.agentplus.aiflow.entity.AiFlowRuntime;
+import com.iusofts.agentplus.aiflow.entity.AiFlowRuntimeNode;
 import com.iusofts.agentplus.aiflow.enums.RunStatusEnum;
 import com.iusofts.agentplus.aiflow.mapper.AiFlowMapper;
 import com.iusofts.agentplus.aiflow.mapper.AiFlowRuntimeMapper;
+import com.iusofts.agentplus.aiflow.mapper.AiFlowRuntimeNodeMapper;
 import com.iusofts.agentplus.aiflow.vo.*;
+import com.iusofts.agentplus.ailog.entity.AiKnowledgeRetrievalLog;
+import com.iusofts.agentplus.ailog.entity.AiLlmCallLog;
+import com.iusofts.agentplus.ailog.mapper.AiKnowledgeRetrievalLogMapper;
+import com.iusofts.agentplus.ailog.mapper.AiLlmCallLogMapper;
 import com.iusofts.agentplus.basic.exception.SystemBusinessException;
 import com.iusofts.agentplus.basic.web.vo.page.PageResult;
 import com.iusofts.agentplus.basic.utils.ModelMapperUtil;
@@ -19,6 +25,8 @@ import com.iusofts.agentplus.common.vo.IdReqVo;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 
@@ -35,6 +43,15 @@ public class AiFlowRuntimeServiceImpl extends ServiceImpl<AiFlowRuntimeMapper, A
 
     @Resource
     private AiFlowMapper aiFlowMapper;
+
+    @Resource
+    private AiFlowRuntimeNodeMapper aiFlowRuntimeNodeMapper;
+
+    @Resource
+    private AiKnowledgeRetrievalLogMapper aiKnowledgeRetrievalLogMapper;
+
+    @Resource
+    private AiLlmCallLogMapper aiLlmCallLogMapper;
 
     @Override
     public void add(AiFlowRuntimeAddReqVo reqVo) {
@@ -124,6 +141,98 @@ public class AiFlowRuntimeServiceImpl extends ServiceImpl<AiFlowRuntimeMapper, A
         runtime.setRunStatus(RunStatusEnum.TERMINATED.getCode());
         runtime.setUpdateBy(reqVo.getOperatorId());
         updateById(runtime);
+    }
+
+    @Override
+    public AiFlowTraceVo queryTrace(AiFlowRuntimeTraceReqVo reqVo) {
+        String traceId = reqVo.getTraceId();
+
+        // 运行实例
+        AiFlowRuntime runtime = getOne(Wrappers.<AiFlowRuntime>lambdaQuery()
+                .eq(AiFlowRuntime::getTraceId, traceId)
+                .last("LIMIT 1"));
+        if (runtime == null) {
+            throw new SystemBusinessException("运行实例不存在");
+        }
+
+        AiFlowTraceVo traceVo = new AiFlowTraceVo();
+        List<AiFlowTraceEventVo> events = traceVo.getTraceEvents();
+
+        // 1. 工作流根事件
+        long rootTs = toMicros(runtime.getStartTime());
+        long rootDur = runtime.getCostMs() == null ? 0L : runtime.getCostMs() * 1000L;
+        events.add(buildEvent(runtime.getFlowName() == null ? "工作流运行" : runtime.getFlowName(),
+                rootTs, rootDur, "workflow"));
+
+        // 2. 节点事件
+        List<AiFlowRuntimeNode> nodes = aiFlowRuntimeNodeMapper.selectList(
+                Wrappers.<AiFlowRuntimeNode>lambdaQuery()
+                        .eq(AiFlowRuntimeNode::getRuntimeId, runtime.getId())
+                        .orderByAsc(AiFlowRuntimeNode::getStartTime)
+                        .orderByAsc(AiFlowRuntimeNode::getId));
+        for (AiFlowRuntimeNode node : nodes) {
+            if (node.getStartTime() == null) {
+                continue;
+            }
+            long dur = node.getCostMs() == null ? 0L : node.getCostMs() * 1000L;
+            events.add(buildEvent(node.getNodeName() == null ? node.getNodeId() : node.getNodeName(),
+                    toMicros(node.getStartTime()), dur, "workflow.node"));
+        }
+
+        // 3. 知识库检索事件
+        List<AiKnowledgeRetrievalLog> knowledgeLogs = aiKnowledgeRetrievalLogMapper.selectList(
+                Wrappers.<AiKnowledgeRetrievalLog>lambdaQuery()
+                        .eq(AiKnowledgeRetrievalLog::getTraceId, traceId)
+                        .orderByAsc(AiKnowledgeRetrievalLog::getStartTime));
+        for (AiKnowledgeRetrievalLog log : knowledgeLogs) {
+            if (log.getStartTime() == null) {
+                continue;
+            }
+            long dur = log.getDuration() == null ? 0L : log.getDuration() * 1000L;
+            String name = log.getKnowledgeBaseName() == null ? "知识检索" : log.getKnowledgeBaseName();
+            events.add(buildEvent(name, toMicros(log.getStartTime()), dur, "knowledge"));
+        }
+
+        // 4. 大模型调用事件
+        List<AiLlmCallLog> llmLogs = aiLlmCallLogMapper.selectList(
+                Wrappers.<AiLlmCallLog>lambdaQuery()
+                        .eq(AiLlmCallLog::getTraceId, traceId)
+                        .orderByAsc(AiLlmCallLog::getStartTime));
+        for (AiLlmCallLog log : llmLogs) {
+            if (log.getStartTime() == null) {
+                continue;
+            }
+            long dur = log.getDuration() == null ? 0L : log.getDuration() * 1000L;
+            String name = log.getModelName() == null ? "LLM推理" : log.getModelName();
+            events.add(buildEvent(name, toMicros(log.getStartTime()), dur, "llm"));
+        }
+
+        // 按开始时间升序、时长降序排序(父区间在前),便于前端火焰图渲染
+        events.sort((a, b) -> {
+            int c = Long.compare(a.getTs(), b.getTs());
+            return c != 0 ? c : Long.compare(b.getDur(), a.getDur());
+        });
+
+        return traceVo;
+    }
+
+    private AiFlowTraceEventVo buildEvent(String name, long ts, long dur, String cat) {
+        AiFlowTraceEventVo event = new AiFlowTraceEventVo();
+        event.setName(name);
+        event.setPh("X");
+        event.setTs(ts);
+        event.setDur(dur);
+        event.setCat(cat);
+        return event;
+    }
+
+    /** LocalDateTime 转微秒时间戳(系统默认时区)。 */
+    private long toMicros(LocalDateTime time) {
+        if (time == null) {
+            return 0L;
+        }
+        var instant = time.atZone(ZoneId.systemDefault()).toInstant();
+        return instant.getEpochSecond() * 1_000_000L + instant.getNano() / 1000L;
     }
 
 }
