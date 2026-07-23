@@ -33,6 +33,7 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -136,11 +137,13 @@ public class LLMNodeExecutor implements NodeExecutor {
         Map<String, Object> usage = new LinkedHashMap<>();
         int totalInputTokens = 0;
         int totalOutputTokens = 0;
+        LocalDateTime llmCallStart = LocalDateTime.now();
 
         try {
             // 工具调用循环: 调用 LLM -> 执行工具 -> 回填结果 -> 再次推理
             ChatResponse response = null;
             for (int iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
+                llmCallStart = LocalDateTime.now();
                 response = invokeWithTools(data, msgList, toolDefinitions);
 
                 // 累加 token 消耗
@@ -152,7 +155,7 @@ public class LLMNodeExecutor implements NodeExecutor {
                 }
 
                 // 记录本次 LLM 调用日志
-                recordLlmLogIteration(node, data, ctx, systemPrompt, userPrompt, response, iteration, ctx.getRunId(), msgList);
+                recordLlmLogIteration(node, data, ctx, systemPrompt, userPrompt, response, iteration, ctx.getRunId(), msgList, llmCallStart);
 
                 // 模型未请求工具调用，得到最终回答，结束循环
                 if (CollectionUtils.isEmpty(response.getToolCalls())) {
@@ -179,7 +182,7 @@ public class LLMNodeExecutor implements NodeExecutor {
             usage.put("totalTokens", totalInputTokens + totalOutputTokens);
 
         } catch (Exception e) {
-            recordLlmLog(node, data, ctx, systemPrompt, userPrompt, null, null, e);
+            recordLlmLog(node, data, ctx, systemPrompt, userPrompt, null, null, e, llmCallStart);
             text = handleFailure(node, data, e);
         }
 
@@ -358,7 +361,8 @@ public class LLMNodeExecutor implements NodeExecutor {
     /** 记录一次迭代的 LLM 调用日志。 */
     private void recordLlmLogIteration(Node node, LLMNodeData data, ExecutionContext ctx,
                                        String systemPrompt, String userPrompt, ChatResponse response,
-                                       int iteration, String traceId, List<ChatMessage> msgList) {
+                                       int iteration, String traceId, List<ChatMessage> msgList,
+                                       LocalDateTime llmCallStart) {
         if (llmLogRecorder == null) {
             return;
         }
@@ -379,6 +383,7 @@ public class LLMNodeExecutor implements NodeExecutor {
 
             LlmLogRecorder.LlmCallRecorder recorder = llmLogRecorder.recordLlmCall()
                     .traceId(traceId)
+                    .startTime(llmCallStart)
                     .fromFlow(ctx.getFlowId(), node.getId())
                     .model(modelDTO)
                     .config(config)
@@ -395,7 +400,8 @@ public class LLMNodeExecutor implements NodeExecutor {
     /** 记录初始 LLM 调用日志（兼容原有逻辑）。recorder 或 modelQueryProvider 缺失时静默跳过。 */
     private void recordLlmLog(Node node, LLMNodeData data, ExecutionContext ctx,
                               String systemPrompt, String userPrompt,
-                              String output, TokenUsage tokenUsage, Exception error) {
+                              String output, TokenUsage tokenUsage, Exception error,
+                              LocalDateTime llmCallStart) {
         if (llmLogRecorder == null) {
             return;
         }
@@ -421,6 +427,7 @@ public class LLMNodeExecutor implements NodeExecutor {
 
             LlmLogRecorder.LlmCallRecorder recorder = llmLogRecorder.recordLlmCall()
                     .traceId(ctx.getRunId())
+                    .startTime(llmCallStart)
                     .fromFlow(ctx.getFlowId(), node.getId())
                     .model(modelDTO)
                     .config(config)

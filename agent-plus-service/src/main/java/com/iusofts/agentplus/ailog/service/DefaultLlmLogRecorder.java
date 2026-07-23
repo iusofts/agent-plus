@@ -62,7 +62,7 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
 
         private final AiLlmCallLogService service;
         private final AiLlmCallLog entity;
-        private final LocalDateTime startTime;
+        private LocalDateTime startTime;
 
         public DefaultLlmCallRecorder(AiLlmCallLogService service) {
             this.service = service;
@@ -76,6 +76,15 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
         @Override
         public LlmCallRecorder traceId(String traceId) {
             entity.setTraceId(traceId);
+            return this;
+        }
+
+        @Override
+        public LlmCallRecorder startTime(LocalDateTime startTime) {
+            if (startTime != null) {
+                this.startTime = startTime;
+                entity.setStartTime(startTime);
+            }
             return this;
         }
 
@@ -214,7 +223,7 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
 
         private final AiKnowledgeRetrievalLogService service;
         private final AiKnowledgeRetrievalLog entity;
-        private final LocalDateTime startTime;
+        private LocalDateTime startTime;
 
         public DefaultKnowledgeRetrievalRecorder(AiKnowledgeRetrievalLogService service) {
             this.service = service;
@@ -228,6 +237,15 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
         @Override
         public KnowledgeRetrievalRecorder traceId(String traceId) {
             entity.setTraceId(traceId);
+            return this;
+        }
+
+        @Override
+        public KnowledgeRetrievalRecorder startTime(LocalDateTime startTime) {
+            if (startTime != null) {
+                this.startTime = startTime;
+                entity.setStartTime(startTime);
+            }
             return this;
         }
 

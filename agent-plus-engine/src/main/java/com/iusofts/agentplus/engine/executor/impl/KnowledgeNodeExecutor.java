@@ -16,6 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.LinkedHashMap;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -64,15 +65,16 @@ public class KnowledgeNodeExecutor implements NodeExecutor {
         int topK = data.getTopK() == null ? 3 : data.getTopK();
         KnowledgeRetrieveResult result;
         Exception failure = null;
+        LocalDateTime retrieveStart = LocalDateTime.now();
         try {
             result = retriever.retrieve(data.getKnowledgeIds(), query, topK);
         } catch (Exception e) {
             failure = e;
             result = null;
-            recordRetrievalLog(node, data, ctx, query, topK, null, e);
+            recordRetrievalLog(node, data, ctx, query, topK, null, e, retrieveStart);
             throw e;
         }
-        recordRetrievalLog(node, data, ctx, query, topK, result, null);
+        recordRetrievalLog(node, data, ctx, query, topK, result, null, retrieveStart);
 
         Map<String, Object> outputs = JSON.parseObject(JSON.toJSONString(result));
         return new NodeOutput(node.getId(), outputs);
@@ -81,7 +83,8 @@ public class KnowledgeNodeExecutor implements NodeExecutor {
     /** 按节点上配置的每个知识库记录一条检索日志。 */
     private void recordRetrievalLog(Node node, KnowledgeNodeData data, ExecutionContext ctx,
                                     String query, int topK,
-                                    KnowledgeRetrieveResult result, Exception error) {
+                                    KnowledgeRetrieveResult result, Exception error,
+                                    LocalDateTime retrieveStart) {
         if (llmLogRecorder == null) {
             return;
         }
@@ -96,6 +99,7 @@ public class KnowledgeNodeExecutor implements NodeExecutor {
             try {
                 LlmLogRecorder.KnowledgeRetrievalRecorder recorder = llmLogRecorder.recordKnowledgeRetrieval()
                         .traceId(ctx.getRunId())
+                        .startTime(retrieveStart)
                         .fromFlow(ctx.getFlowId(), node.getId())
                         .knowledgeBase(kbId, kbName)
                         .query(query)

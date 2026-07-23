@@ -6,6 +6,7 @@ import com.iusofts.agentplus.llm.dto.LlmModelDTO;
 import com.iusofts.agentplus.knowledge.dto.KnowledgeRetrieveResult;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -71,6 +72,12 @@ public interface LlmLogRecorder {
 
         LlmCallRecorder traceId(String traceId);
 
+        /**
+         * 覆盖调用开始时间。默认取 {@code recordLlmCall()} 被调用的时刻，
+         * 但当 LLM 先调用、日志后补记时，应显式传入调用真正开始的时刻以正确统计耗时。
+         */
+        LlmCallRecorder startTime(LocalDateTime startTime);
+
         LlmCallRecorder fromAgent(Long agentId);
 
         LlmCallRecorder fromChat(Long conversationId);
@@ -119,6 +126,12 @@ public interface LlmLogRecorder {
     interface KnowledgeRetrievalRecorder {
 
         KnowledgeRetrievalRecorder traceId(String traceId);
+
+        /**
+         * 覆盖检索开始时间。默认取 {@code recordKnowledgeRetrieval()} 被调用的时刻，
+         * 但当检索先执行、日志后补记时，应显式传入检索真正开始的时刻以正确统计耗时。
+         */
+        KnowledgeRetrievalRecorder startTime(LocalDateTime startTime);
 
         KnowledgeRetrievalRecorder fromAgent(Long agentId);
 

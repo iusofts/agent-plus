@@ -149,10 +149,12 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
 
         ChatResponse response = null;
         for (int iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
+            LocalDateTime llmCallStart = LocalDateTime.now();
             response = aiChatService.chat(msgList, modelId, config, toolDefinitions);
 
             llmLogRecorder.recordLlmCall()
                 .traceId(traceId)
+                .startTime(llmCallStart)
                 .fromChat(conversation != null ? conversation.getId() : null)
                 .model(llmModelQueryProvider.getModel(modelId))
                 .config(config)
@@ -311,6 +313,7 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
             AiKnowledgeBase kb = knowledgeBaseMapper.selectById(kbId);
             String kbName = kb != null ? kb.getName() : null;
 
+            LocalDateTime retrieveStart = LocalDateTime.now();
             KnowledgeRetrieveResult result = knowledgeRetriever.retrieve(kbId, query, topK);
             List<String> retrievedChunks = result.getChunks() != null
                     ? result.getChunks().stream().map(KnowledgeChunk::getContent).collect(Collectors.toList())
@@ -319,6 +322,7 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
 
             llmLogRecorder.recordKnowledgeRetrieval()
                 .traceId(traceId)
+                .startTime(retrieveStart)
                 .fromAgent(aiAgent.getId())
                 .knowledgeBase(kbId, kbName)
                 .query(query)
