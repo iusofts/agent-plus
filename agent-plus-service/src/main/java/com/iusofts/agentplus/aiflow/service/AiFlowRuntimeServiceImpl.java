@@ -27,7 +27,10 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -224,6 +227,119 @@ public class AiFlowRuntimeServiceImpl extends ServiceImpl<AiFlowRuntimeMapper, A
         event.setDur(dur);
         event.setCat(cat);
         return event;
+    }
+
+    @Override
+    public List<AiFlowTraceTreeVo> queryTraceTree(AiFlowRuntimeTraceReqVo reqVo) {
+        String traceId = reqVo.getTraceId();
+
+        // 运行实例
+        AiFlowRuntime runtime = getOne(Wrappers.<AiFlowRuntime>lambdaQuery()
+                .eq(AiFlowRuntime::getTraceId, traceId)
+                .last("LIMIT 1"));
+        if (runtime == null) {
+            throw new SystemBusinessException("运行实例不存在");
+        }
+
+        // 根:工作流
+        AiFlowTraceTreeVo root = new AiFlowTraceTreeVo();
+        root.setLabel(runtime.getFlowName() == null ? "工作流运行" : runtime.getFlowName());
+        root.setDur(runtime.getCostMs() == null ? 0L : runtime.getCostMs() * 1000L);
+        root.setCat("workflow");
+        root.setBusinessType("runtime");
+        root.setBusinessId(runtime.getId());
+
+        // 知识库检索日志按 source_node_id 分组
+        List<AiKnowledgeRetrievalLog> knowledgeLogs = aiKnowledgeRetrievalLogMapper.selectList(
+                Wrappers.<AiKnowledgeRetrievalLog>lambdaQuery()
+                        .eq(AiKnowledgeRetrievalLog::getTraceId, traceId)
+                        .orderByAsc(AiKnowledgeRetrievalLog::getStartTime));
+        Map<String, List<AiKnowledgeRetrievalLog>> knowledgeByNode = new LinkedHashMap<>();
+        for (AiKnowledgeRetrievalLog log : knowledgeLogs) {
+            knowledgeByNode.computeIfAbsent(log.getSourceNodeId() == null ? "" : log.getSourceNodeId(),
+                    k -> new ArrayList<>()).add(log);
+        }
+
+        // 大模型调用日志按 source_node_id 分组
+        List<AiLlmCallLog> llmLogs = aiLlmCallLogMapper.selectList(
+                Wrappers.<AiLlmCallLog>lambdaQuery()
+                        .eq(AiLlmCallLog::getTraceId, traceId)
+                        .orderByAsc(AiLlmCallLog::getStartTime));
+        Map<String, List<AiLlmCallLog>> llmByNode = new LinkedHashMap<>();
+        for (AiLlmCallLog log : llmLogs) {
+            llmByNode.computeIfAbsent(log.getSourceNodeId() == null ? "" : log.getSourceNodeId(),
+                    k -> new ArrayList<>()).add(log);
+        }
+
+        // 节点作为二级,节点下挂知识检索/大模型调用日志
+        List<AiFlowRuntimeNode> nodes = aiFlowRuntimeNodeMapper.selectList(
+                Wrappers.<AiFlowRuntimeNode>lambdaQuery()
+                        .eq(AiFlowRuntimeNode::getRuntimeId, runtime.getId())
+                        .orderByAsc(AiFlowRuntimeNode::getStartTime)
+                        .orderByAsc(AiFlowRuntimeNode::getId));
+        for (AiFlowRuntimeNode node : nodes) {
+            AiFlowTraceTreeVo nodeVo = new AiFlowTraceTreeVo();
+            nodeVo.setLabel(node.getNodeName() == null ? node.getNodeId() : node.getNodeName());
+            nodeVo.setDur(node.getCostMs() == null ? 0L : node.getCostMs() * 1000L);
+            nodeVo.setCat(node.getNodeType());
+            nodeVo.setBusinessType("runtimeNode");
+            nodeVo.setBusinessId(node.getId());
+            nodeVo.setNodeId(node.getNodeId());
+
+            // 该节点下的知识检索,子级继承节点类型作为 cat
+            List<AiKnowledgeRetrievalLog> nodeKnowledge = knowledgeByNode.remove(node.getNodeId());
+            if (nodeKnowledge != null) {
+                for (AiKnowledgeRetrievalLog log : nodeKnowledge) {
+                    nodeVo.getChildren().add(buildKnowledgeTree(log, node.getNodeType()));
+                }
+            }
+            // 该节点下的大模型调用,子级继承节点类型作为 cat
+            List<AiLlmCallLog> nodeLlm = llmByNode.remove(node.getNodeId());
+            if (nodeLlm != null) {
+                for (AiLlmCallLog log : nodeLlm) {
+                    nodeVo.getChildren().add(buildLlmTree(log, node.getNodeType()));
+                }
+            }
+            root.getChildren().add(nodeVo);
+        }
+
+        // 未匹配到节点的日志(source_node_id 为空或找不到对应节点),直接挂到根下,cat 用日志自身分类兜底
+        for (List<AiKnowledgeRetrievalLog> logs : knowledgeByNode.values()) {
+            for (AiKnowledgeRetrievalLog log : logs) {
+                root.getChildren().add(buildKnowledgeTree(log, "knowledge"));
+            }
+        }
+        for (List<AiLlmCallLog> logs : llmByNode.values()) {
+            for (AiLlmCallLog log : logs) {
+                root.getChildren().add(buildLlmTree(log, "llm"));
+            }
+        }
+
+        List<AiFlowTraceTreeVo> result = new ArrayList<>();
+        result.add(root);
+        return result;
+    }
+
+    private AiFlowTraceTreeVo buildKnowledgeTree(AiKnowledgeRetrievalLog log, String cat) {
+        AiFlowTraceTreeVo vo = new AiFlowTraceTreeVo();
+        vo.setLabel(log.getKnowledgeBaseName() == null ? "知识检索" : log.getKnowledgeBaseName());
+        vo.setDur(log.getDuration() == null ? 0L : log.getDuration() * 1000L);
+        vo.setCat(cat);
+        vo.setBusinessType("knowledgeLog");
+        vo.setBusinessId(log.getId());
+        vo.setNodeId(log.getSourceNodeId());
+        return vo;
+    }
+
+    private AiFlowTraceTreeVo buildLlmTree(AiLlmCallLog log, String cat) {
+        AiFlowTraceTreeVo vo = new AiFlowTraceTreeVo();
+        vo.setLabel(log.getModelName() == null ? "LLM推理" : log.getModelName());
+        vo.setDur(log.getDuration() == null ? 0L : log.getDuration() * 1000L);
+        vo.setCat(cat);
+        vo.setBusinessType("llmLog");
+        vo.setBusinessId(log.getId());
+        vo.setNodeId(log.getSourceNodeId());
+        return vo;
     }
 
     /** LocalDateTime 转微秒时间戳(系统默认时区)。 */
