@@ -5,6 +5,7 @@ import com.iusofts.agentplus.llm.dto.LlmModelConfigDTO;
 import com.iusofts.agentplus.llm.dto.LlmModelDTO;
 import com.iusofts.agentplus.llm.dto.ToolCall;
 import com.iusofts.agentplus.llm.dto.ToolDefinition;
+import com.iusofts.agentplus.knowledge.dto.EmbeddingModelDTO;
 import com.iusofts.agentplus.knowledge.dto.KnowledgeRetrieveResult;
 
 import java.math.BigDecimal;
@@ -88,11 +89,31 @@ public interface LlmLogRecorder {
 
         LlmCallRecorder fromApi();
 
+        /**
+         * 自定义来源三元组。用于内置枚举无法覆盖的来源，
+         * 如 embedding 向量化：{@code EMBED_RETRIEVE}（检索）/ {@code EMBED_INDEX}（索引）。
+         *
+         * @param callSource   调用来源
+         * @param sourceId     来源 ID（如知识库 ID）
+         * @param sourceNodeId 来源节点 ID，可空
+         */
+        LlmCallRecorder source(String callSource, Long sourceId, String sourceNodeId);
+
         LlmCallRecorder model(LlmModelDTO modelDTO);
+
+        /**
+         * 使用嵌入模型配置填充模型信息。
+         */
+        LlmCallRecorder embeddingModel(EmbeddingModelDTO modelDTO);
 
         LlmCallRecorder config(LlmModelConfigDTO config);
 
         LlmCallRecorder inputMessages(List<ChatMessage> messages);
+
+        /**
+         * 手动设置输入字符数（不走 inputMessages 时使用）。
+         */
+        LlmCallRecorder inputCharCount(Integer charCount);
 
         /**
          * 记录下发给模型的工具规格列表。

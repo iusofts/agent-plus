@@ -1,10 +1,14 @@
 package com.iusofts.agentplus.plugin.vectorstore;
 
 import com.iusofts.agentplus.engine.knowledge.KnowledgeRetriever;
+import com.iusofts.agentplus.knowledge.EmbeddingModelQueryProvider;
+import com.iusofts.agentplus.knowledge.dto.EmbeddingModelDTO;
 import com.iusofts.agentplus.knowledge.dto.KnowledgeBaseDTO;
 import com.iusofts.agentplus.knowledge.dto.KnowledgeChunk;
 import com.iusofts.agentplus.knowledge.dto.KnowledgeRetrieveResult;
 import com.iusofts.agentplus.knowledge.KnowledgeBaseQueryProvider;
+import com.iusofts.agentplus.llm.log.EmbeddingCallContext;
+import com.iusofts.agentplus.llm.log.LlmLogRecorder;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
@@ -12,16 +16,21 @@ import dev.langchain4j.model.output.Response;
 import dev.langchain4j.store.embedding.EmbeddingMatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
 /**
  * 基于 Redis 向量库的知识库检索实现（无 DB 依赖，依赖抽象）。
+ *
+ * <p>检索时的 query 向量化调用（{@code embeddingModel.embed}）按 {@code EMBED_RETRIEVE}
+ * 来源记录到 {@code ai_llm_call_log}（需调用方透传 {@link EmbeddingCallContext}）。</p>
  *
  * @author Ivan
  */
@@ -31,21 +40,35 @@ public class RedisKnowledgeRetriever implements KnowledgeRetriever {
 
     private static final Logger log = LoggerFactory.getLogger(RedisKnowledgeRetriever.class);
 
+    /** embedding 向量化调用来源：检索场景。 */
+    private static final String CALL_SOURCE_EMBED_RETRIEVE = "EMBED_RETRIEVE";
+
     private final KnowledgeBaseQueryProvider knowledgeBaseQueryProvider;
     private final EmbeddingModelProvider embeddingModelProvider;
+    private final EmbeddingModelQueryProvider embeddingModelQueryProvider;
     private final RedisVectorStoreManager vectorStoreManager;
+    private final ObjectProvider<LlmLogRecorder> llmLogRecorderProvider;
 
     public RedisKnowledgeRetriever(
             KnowledgeBaseQueryProvider knowledgeBaseQueryProvider,
             EmbeddingModelProvider embeddingModelProvider,
-            RedisVectorStoreManager vectorStoreManager) {
+            EmbeddingModelQueryProvider embeddingModelQueryProvider,
+            RedisVectorStoreManager vectorStoreManager,
+            ObjectProvider<LlmLogRecorder> llmLogRecorderProvider) {
         this.knowledgeBaseQueryProvider = knowledgeBaseQueryProvider;
         this.embeddingModelProvider = embeddingModelProvider;
+        this.embeddingModelQueryProvider = embeddingModelQueryProvider;
         this.vectorStoreManager = vectorStoreManager;
+        this.llmLogRecorderProvider = llmLogRecorderProvider;
     }
 
     @Override
     public KnowledgeRetrieveResult retrieve(Long knowledgeId, String query, int topK) {
+        return retrieve(knowledgeId, query, topK, null);
+    }
+
+    @Override
+    public KnowledgeRetrieveResult retrieve(Long knowledgeId, String query, int topK, EmbeddingCallContext ctx) {
         KnowledgeRetrieveResult result = new KnowledgeRetrieveResult();
         result.setQuery(query);
         result.setRewriteQuery(query);
@@ -72,7 +95,7 @@ public class RedisKnowledgeRetriever implements KnowledgeRetriever {
             }
 
             EmbeddingModel embeddingModel = embeddingModelProvider.provide(kb.getEmbeddingModelId());
-            Response<Embedding> embeddingResponse = embeddingModel.embed(query);
+            Response<Embedding> embeddingResponse = embedQueryWithLog(embeddingModel, kb, query, ctx);
             Embedding queryEmbedding = embeddingResponse.content();
             Integer embeddingTokens = embeddingResponse.tokenUsage() != null
                     ? embeddingResponse.tokenUsage().totalTokenCount()
@@ -118,20 +141,80 @@ public class RedisKnowledgeRetriever implements KnowledgeRetriever {
         return result;
     }
 
+    /**
+     * 执行 query 向量化，并把这次 embedding 调用落库到 {@code ai_llm_call_log}。
+     */
+    private Response<Embedding> embedQueryWithLog(EmbeddingModel embeddingModel, KnowledgeBaseDTO kb,
+                                                  String query, EmbeddingCallContext ctx) {
+        LocalDateTime start = LocalDateTime.now();
+        Response<Embedding> embeddingResponse;
+        try {
+            embeddingResponse = embeddingModel.embed(query);
+        } catch (RuntimeException e) {
+            recordEmbeddingCall(kb, query, null, ctx, start, e.getMessage());
+            throw e;
+        }
+        Integer embeddingTokens = embeddingResponse.tokenUsage() != null
+                ? embeddingResponse.tokenUsage().totalTokenCount()
+                : null;
+        recordEmbeddingCall(kb, query, embeddingTokens, ctx, start, null);
+        return embeddingResponse;
+    }
+
+    /** 记录一次检索场景的 embedding 调用日志。ctx 为空或无记录器时静默跳过。 */
+    private void recordEmbeddingCall(KnowledgeBaseDTO kb, String query, Integer embeddingTokens,
+                                     EmbeddingCallContext ctx, LocalDateTime start, String errorMessage) {
+        if (ctx == null) {
+            return;
+        }
+        LlmLogRecorder recorder = llmLogRecorderProvider.getIfAvailable();
+        if (recorder == null) {
+            return;
+        }
+        try {
+            EmbeddingModelDTO modelDTO = null;
+            try {
+                modelDTO = embeddingModelQueryProvider.getModel(kb.getEmbeddingModelId());
+            } catch (Exception e) {
+                log.debug("查询嵌入模型信息失败,日志将不带模型详情", e);
+            }
+            LlmLogRecorder.LlmCallRecorder call = recorder.recordLlmCall()
+                    .traceId(ctx.getTraceId() != null ? ctx.getTraceId() : LlmLogRecorder.generateTraceId())
+                    .startTime(start)
+                    .source(CALL_SOURCE_EMBED_RETRIEVE, kb.getId(), ctx.getSourceNodeId())
+                    .embeddingModel(modelDTO)
+                    .inputCharCount(query != null ? query.length() : 0)
+                    .operator(ctx.getOperatorId(), ctx.getOrgId());
+            if (errorMessage != null) {
+                call.error(null, errorMessage);
+            } else {
+                call.output(null, embeddingTokens, 0).success();
+            }
+            call.record();
+        } catch (Exception e) {
+            log.warn("记录检索 embedding 调用日志失败: knowledgeId={}", kb.getId(), e);
+        }
+    }
+
     @Override
     public KnowledgeRetrieveResult retrieve(List<Long> knowledgeIds, String query, int topK) {
+        return retrieve(knowledgeIds, query, topK, null);
+    }
+
+    @Override
+    public KnowledgeRetrieveResult retrieve(List<Long> knowledgeIds, String query, int topK, EmbeddingCallContext ctx) {
         if (knowledgeIds == null || knowledgeIds.isEmpty()) {
-            return retrieve((Long) null, query, topK);
+            return retrieve((Long) null, query, topK, ctx);
         }
         if (knowledgeIds.size() == 1) {
-            return retrieve(knowledgeIds.get(0), query, topK);
+            return retrieve(knowledgeIds.get(0), query, topK, ctx);
         }
         // 多个知识库时，从每个知识库检索后合并
         int perKbK = Math.max(1, topK / knowledgeIds.size());
         List<KnowledgeChunk> allChunks = new ArrayList<>();
         Integer totalEmbeddingTokens = null;
         for (Long knowledgeId : knowledgeIds) {
-            KnowledgeRetrieveResult singleResult = retrieve(knowledgeId, query, perKbK);
+            KnowledgeRetrieveResult singleResult = retrieve(knowledgeId, query, perKbK, ctx);
             if (singleResult.getChunks() != null) {
                 allChunks.addAll(singleResult.getChunks());
             }

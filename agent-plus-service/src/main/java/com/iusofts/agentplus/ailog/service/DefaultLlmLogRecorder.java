@@ -10,6 +10,7 @@ import com.iusofts.agentplus.llm.dto.LlmModelConfigDTO;
 import com.iusofts.agentplus.llm.dto.LlmModelDTO;
 import com.iusofts.agentplus.llm.dto.ToolCall;
 import com.iusofts.agentplus.llm.dto.ToolDefinition;
+import com.iusofts.agentplus.knowledge.dto.EmbeddingModelDTO;
 import com.iusofts.agentplus.knowledge.dto.KnowledgeChunk;
 import com.iusofts.agentplus.knowledge.dto.KnowledgeRetrieveResult;
 import com.iusofts.agentplus.llm.log.LlmLogRecorder;
@@ -119,7 +120,25 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
         }
 
         @Override
+        public LlmCallRecorder source(String callSource, Long sourceId, String sourceNodeId) {
+            entity.setCallSource(callSource);
+            entity.setSourceId(sourceId);
+            entity.setSourceNodeId(sourceNodeId);
+            return this;
+        }
+
+        @Override
         public LlmCallRecorder model(LlmModelDTO modelDTO) {
+            if (modelDTO != null) {
+                entity.setModelId(modelDTO.getId());
+                entity.setModelName(modelDTO.getModelName());
+                entity.setModelProvider(modelDTO.getProvider());
+            }
+            return this;
+        }
+
+        @Override
+        public LlmCallRecorder embeddingModel(EmbeddingModelDTO modelDTO) {
             if (modelDTO != null) {
                 entity.setModelId(modelDTO.getId());
                 entity.setModelName(modelDTO.getModelName());
@@ -154,6 +173,12 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
                 entity.setInputMessages(entries);
                 entity.setInputCharCount(totalChars);
             }
+            return this;
+        }
+
+        @Override
+        public LlmCallRecorder inputCharCount(Integer charCount) {
+            entity.setInputCharCount(charCount);
             return this;
         }
 
