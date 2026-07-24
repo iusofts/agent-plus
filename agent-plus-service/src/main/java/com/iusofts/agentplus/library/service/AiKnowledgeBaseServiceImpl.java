@@ -14,7 +14,7 @@ import com.iusofts.agentplus.library.knowledge.KnowledgeIngestionService;
 import com.iusofts.agentplus.library.mapper.AiKnowledgeBaseMapper;
 import com.iusofts.agentplus.library.mapper.AiKnowledgeChunkMapper;
 import com.iusofts.agentplus.library.mapper.AiKnowledgeDocumentMapper;
-import com.iusofts.agentplus.llm.log.EmbeddingCallContext;
+import com.iusofts.agentplus.ailog.dto.AiTraceContext;
 import com.iusofts.agentplus.llm.log.LlmLogRecorder;
 import com.iusofts.agentplus.plugin.vectorstore.KnowledgeMetadata;
 import com.iusofts.agentplus.plugin.vectorstore.KnowledgeStoreService;
@@ -231,7 +231,7 @@ public class AiKnowledgeBaseServiceImpl extends ServiceImpl<AiKnowledgeBaseMappe
             }
             if (!vectorIds.isEmpty()) {
                 int embeddingTokens = 0;
-                EmbeddingCallContext ctx = EmbeddingCallContext.builder()
+                AiTraceContext ctx = AiTraceContext.builder()
                         .traceId(LlmLogRecorder.generateTraceId())
                         .operatorId(reqVo.getOperatorId())
                         .orgId(reqVo.getOrgId())

@@ -7,7 +7,7 @@ import com.iusofts.agentplus.knowledge.dto.KnowledgeBaseDTO;
 import com.iusofts.agentplus.knowledge.dto.KnowledgeChunk;
 import com.iusofts.agentplus.knowledge.dto.KnowledgeRetrieveResult;
 import com.iusofts.agentplus.knowledge.KnowledgeBaseQueryProvider;
-import com.iusofts.agentplus.llm.log.EmbeddingCallContext;
+import com.iusofts.agentplus.ailog.dto.AiTraceContext;
 import com.iusofts.agentplus.llm.log.LlmLogRecorder;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
@@ -30,7 +30,8 @@ import java.util.stream.Collectors;
  * 基于 Redis 向量库的知识库检索实现（无 DB 依赖，依赖抽象）。
  *
  * <p>检索时的 query 向量化调用（{@code embeddingModel.embed}）按 {@code EMBED_RETRIEVE}
- * 来源记录到 {@code ai_llm_call_log}（需调用方透传 {@link EmbeddingCallContext}）。</p>
+ * 来源记录到 {@code ai_llm_call_log}；每次单库检索另记一条 {@code ai_knowledge_retrieval_log}
+ * （含召回明细与 topK），均需调用方透传 {@link AiTraceContext}。多知识库场景逐库各记一条。</p>
  *
  * @author Ivan
  */
@@ -68,7 +69,8 @@ public class RedisKnowledgeRetriever implements KnowledgeRetriever {
     }
 
     @Override
-    public KnowledgeRetrieveResult retrieve(Long knowledgeId, String query, int topK, EmbeddingCallContext ctx) {
+    public KnowledgeRetrieveResult retrieve(Long knowledgeId, String query, int topK, AiTraceContext ctx) {
+        LocalDateTime retrieveStart = LocalDateTime.now();
         KnowledgeRetrieveResult result = new KnowledgeRetrieveResult();
         result.setQuery(query);
         result.setRewriteQuery(query);
@@ -82,8 +84,9 @@ public class RedisKnowledgeRetriever implements KnowledgeRetriever {
             return result;
         }
 
+        KnowledgeBaseDTO kb = null;
         try {
-            KnowledgeBaseDTO kb = knowledgeBaseQueryProvider.getKnowledgeBase(knowledgeId);
+            kb = knowledgeBaseQueryProvider.getKnowledgeBase(knowledgeId);
             if (kb == null) {
                 log.warn("知识库不存在: knowledgeId={}", knowledgeId);
                 result.setSuccess(true);
@@ -138,14 +141,49 @@ public class RedisKnowledgeRetriever implements KnowledgeRetriever {
             result.setTotalHit(0);
             result.setHasResult(false);
         }
+        recordRetrievalCall(knowledgeId, kb, query, topK, result, ctx, retrieveStart);
         return result;
+    }
+
+    /**
+     * 记录一次检索日志到 {@code ai_knowledge_retrieval_log}。ctx 为空或无记录器时静默跳过。
+     * 多知识库场景由上层循环调用单库检索，此处每库各记一条,召回明细精确到单库。
+     */
+    private void recordRetrievalCall(Long knowledgeId, KnowledgeBaseDTO kb, String query, int topK,
+                                     KnowledgeRetrieveResult result, AiTraceContext ctx, LocalDateTime start) {
+        if (ctx == null) {
+            return;
+        }
+        LlmLogRecorder recorder = llmLogRecorderProvider.getIfAvailable();
+        if (recorder == null) {
+            return;
+        }
+        try {
+            String kbName = kb != null ? kb.getName() : null;
+            LlmLogRecorder.KnowledgeRetrievalRecorder call = recorder.recordKnowledgeRetrieval()
+                    .traceId(ctx.getTraceId() != null ? ctx.getTraceId() : LlmLogRecorder.generateTraceId())
+                    .startTime(start)
+                    .source(ctx.getCallSource(), ctx.getSourceId(), ctx.getSourceNodeId())
+                    .knowledgeBase(knowledgeId, kbName)
+                    .query(query)
+                    .topK(topK)
+                    .operator(ctx.getOperatorId(), ctx.getOrgId());
+            if (result != null && Boolean.TRUE.equals(result.getSuccess())) {
+                call.retrievedResult(result).success();
+            } else {
+                call.error(result != null ? result.getErrorMessage() : "检索失败");
+            }
+            call.record();
+        } catch (Exception e) {
+            log.warn("记录知识库检索日志失败: knowledgeId={}", knowledgeId, e);
+        }
     }
 
     /**
      * 执行 query 向量化，并把这次 embedding 调用落库到 {@code ai_llm_call_log}。
      */
     private Response<Embedding> embedQueryWithLog(EmbeddingModel embeddingModel, KnowledgeBaseDTO kb,
-                                                  String query, EmbeddingCallContext ctx) {
+                                                  String query, AiTraceContext ctx) {
         LocalDateTime start = LocalDateTime.now();
         Response<Embedding> embeddingResponse;
         try {
@@ -160,7 +198,7 @@ public class RedisKnowledgeRetriever implements KnowledgeRetriever {
 
     /** 记录一次检索场景的 embedding 调用日志。ctx 为空或无记录器时静默跳过。 */
     private void recordEmbeddingCall(KnowledgeBaseDTO kb, String query, dev.langchain4j.model.output.TokenUsage tokenUsage,
-                                     EmbeddingCallContext ctx, LocalDateTime start, String errorMessage) {
+                                     AiTraceContext ctx, LocalDateTime start, String errorMessage) {
         if (ctx == null) {
             return;
         }
@@ -201,7 +239,7 @@ public class RedisKnowledgeRetriever implements KnowledgeRetriever {
     }
 
     @Override
-    public KnowledgeRetrieveResult retrieve(List<Long> knowledgeIds, String query, int topK, EmbeddingCallContext ctx) {
+    public KnowledgeRetrieveResult retrieve(List<Long> knowledgeIds, String query, int topK, AiTraceContext ctx) {
         if (knowledgeIds == null || knowledgeIds.isEmpty()) {
             return retrieve((Long) null, query, topK, ctx);
         }

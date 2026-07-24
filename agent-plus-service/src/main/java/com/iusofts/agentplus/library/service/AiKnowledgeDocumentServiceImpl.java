@@ -11,7 +11,7 @@ import com.iusofts.agentplus.library.entity.AiKnowledgeDocument;
 import com.iusofts.agentplus.library.interfaces.IAiKnowledgeDocumentService;
 import com.iusofts.agentplus.library.knowledge.KnowledgeIngestExecutor;
 import com.iusofts.agentplus.library.knowledge.KnowledgeIngestionService;
-import com.iusofts.agentplus.llm.log.EmbeddingCallContext;
+import com.iusofts.agentplus.ailog.dto.AiTraceContext;
 import com.iusofts.agentplus.llm.log.LlmLogRecorder;
 import com.iusofts.agentplus.plugin.vectorstore.KnowledgeMetadata;
 import com.iusofts.agentplus.plugin.vectorstore.KnowledgeStoreService;
@@ -264,7 +264,7 @@ public class AiKnowledgeDocumentServiceImpl extends ServiceImpl<AiKnowledgeDocum
         }
         if (!vectorIds.isEmpty()) {
             int embeddingTokens;
-            EmbeddingCallContext ctx = EmbeddingCallContext.builder()
+            AiTraceContext ctx = AiTraceContext.builder()
                     .traceId(LlmLogRecorder.generateTraceId())
                     .operatorId(operatorId)
                     .orgId(orgId)
@@ -383,7 +383,7 @@ public class AiKnowledgeDocumentServiceImpl extends ServiceImpl<AiKnowledgeDocum
         }
         if (!vectorIds.isEmpty()) {
             int embeddingTokens;
-            EmbeddingCallContext ctx = EmbeddingCallContext.builder()
+            AiTraceContext ctx = AiTraceContext.builder()
                     .traceId(LlmLogRecorder.generateTraceId())
                     .operatorId(reqVo.getOperatorId())
                     .orgId(reqVo.getOrgId())

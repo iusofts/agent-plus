@@ -7,6 +7,7 @@ import com.iusofts.agentplus.aiflow.enums.FlowNodeType;
 import com.iusofts.agentplus.aiflow.vo.workflow.Node;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.common.OutputParam;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.llm.LLMNodeData;
+import com.iusofts.agentplus.ailog.dto.AiTraceContext;
 import com.iusofts.agentplus.chat.vo.AiMessageVo;
 import com.iusofts.agentplus.engine.context.ExecutionContext;
 import com.iusofts.agentplus.engine.context.NodeOutput;
@@ -16,25 +17,20 @@ import com.iusofts.agentplus.engine.history.HistoryMessageProvider;
 import com.iusofts.agentplus.engine.llm.ChatModelProvider;
 import com.iusofts.agentplus.engine.tool.ToolRegistry;
 import com.iusofts.agentplus.engine.util.ParamResolver;
-import com.iusofts.agentplus.llm.LlmModelQueryProvider;
 import com.iusofts.agentplus.llm.dto.AiChatMessage;
 import com.iusofts.agentplus.llm.dto.AiChatRequest;
 import com.iusofts.agentplus.llm.dto.AiChatResponse;
 import com.iusofts.agentplus.llm.dto.LlmModelConfigDTO;
-import com.iusofts.agentplus.llm.dto.LlmModelDTO;
 import com.iusofts.agentplus.llm.dto.ToolCall;
 import com.iusofts.agentplus.llm.dto.ToolDefinition;
-import com.iusofts.agentplus.llm.log.LlmLogRecorder;
 import com.iusofts.agentplus.tool.dto.ToolDTO;
 import com.iusofts.agentplus.tool.dto.ToolExecuteRequest;
 import com.iusofts.agentplus.tool.dto.ToolExecuteResult;
 import com.iusofts.agentplus.tool.ToolQueryProvider;
-import dev.langchain4j.model.output.TokenUsage;
 import org.apache.commons.collections4.CollectionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -53,8 +49,8 @@ import java.util.Map;
  *   <li>输出映射: 单输出直接放模型文本;多输出尝试解析 JSON,失败则全部放同一 key。</li>
  * </ol>
  *
- * <p>若引擎构造时提供了 {@link LlmLogRecorder} 与 {@link LlmModelQueryProvider},
- * 每次模型调用后会写一条 {@code ai_llm_call_log},含消息体与 token 使用量。</p>
+ * <p>每次模型调用后由 {@link ChatModelProvider#chat(AiChatRequest, com.iusofts.agentplus.ailog.dto.AiTraceContext)}
+ * 统一写一条 {@code ai_llm_call_log},含消息体与 token 使用量,本执行器不再手动记日志。</p>
  *
  * @author Ivan
  */
@@ -66,33 +62,25 @@ public class LLMNodeExecutor implements NodeExecutor {
     private static final int MAX_TOOL_ITERATIONS = 5;
 
     private final ChatModelProvider chatModelProvider;
-    private final LlmLogRecorder llmLogRecorder;
-    private final LlmModelQueryProvider modelQueryProvider;
     private final ToolQueryProvider toolQueryProvider;
     private final ToolRegistry toolRegistry;
     private final HistoryMessageProvider historyMessageProvider;
 
     public LLMNodeExecutor(ChatModelProvider chatModelProvider) {
-        this(chatModelProvider, null, null, null, null, null);
+        this(chatModelProvider, null, null, null);
     }
 
     public LLMNodeExecutor(ChatModelProvider chatModelProvider,
-                           LlmLogRecorder llmLogRecorder,
-                           LlmModelQueryProvider modelQueryProvider,
                            ToolQueryProvider toolQueryProvider,
                            ToolRegistry toolRegistry) {
-        this(chatModelProvider, llmLogRecorder, modelQueryProvider, toolQueryProvider, toolRegistry, null);
+        this(chatModelProvider, toolQueryProvider, toolRegistry, null);
     }
 
     public LLMNodeExecutor(ChatModelProvider chatModelProvider,
-                           LlmLogRecorder llmLogRecorder,
-                           LlmModelQueryProvider modelQueryProvider,
                            ToolQueryProvider toolQueryProvider,
                            ToolRegistry toolRegistry,
                            HistoryMessageProvider historyMessageProvider) {
         this.chatModelProvider = chatModelProvider;
-        this.llmLogRecorder = llmLogRecorder;
-        this.modelQueryProvider = modelQueryProvider;
         this.toolQueryProvider = toolQueryProvider;
         this.toolRegistry = toolRegistry;
         this.historyMessageProvider = historyMessageProvider;
@@ -138,14 +126,12 @@ public class LLMNodeExecutor implements NodeExecutor {
         Map<String, Object> usage = new LinkedHashMap<>();
         int totalInputTokens = 0;
         int totalOutputTokens = 0;
-        LocalDateTime llmCallStart = LocalDateTime.now();
 
         try {
             // 工具调用循环: 调用 LLM -> 执行工具 -> 回填结果 -> 再次推理
             AiChatResponse response = null;
             for (int iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
-                llmCallStart = LocalDateTime.now();
-                response = invokeWithTools(data, msgList, toolDefinitions);
+                response = invokeWithTools(node, data, ctx, msgList, toolDefinitions);
 
                 // 累加 token 消耗
                 if (response.getInputTokens() != null) {
@@ -154,9 +140,6 @@ public class LLMNodeExecutor implements NodeExecutor {
                 if (response.getOutputTokens() != null) {
                     totalOutputTokens += response.getOutputTokens();
                 }
-
-                // 记录本次 LLM 调用日志
-                recordLlmLogIteration(node, data, ctx, systemPrompt, userPrompt, response, iteration, ctx.getRunId(), msgList, llmCallStart, toolDefinitions);
 
                 // 模型未请求工具调用，得到最终回答，结束循环
                 if (CollectionUtils.isEmpty(response.getToolCalls())) {
@@ -183,15 +166,15 @@ public class LLMNodeExecutor implements NodeExecutor {
             usage.put("totalTokens", totalInputTokens + totalOutputTokens);
 
         } catch (Exception e) {
-            recordLlmLog(node, data, ctx, systemPrompt, userPrompt, null, null, e, llmCallStart, toolDefinitions);
             text = handleFailure(node, data, e);
         }
 
         return new NodeOutput(node.getId(), mapOutputs(text, reasoningContent, usage, data.getOutputParams()));
     }
 
-    private AiChatResponse invokeWithTools(LLMNodeData data, List<AiChatMessage> messages, List<ToolDefinition> tools) throws Exception {
-        // 由内部 AiChatService 统一处理，包括工具调用
+    private AiChatResponse invokeWithTools(Node node, LLMNodeData data, ExecutionContext ctx,
+                                           List<AiChatMessage> messages, List<ToolDefinition> tools) throws Exception {
+        // 由内部 AiChatService 统一处理，包括工具调用；日志由 ChatModelProvider 统一落库
         LlmModelConfigDTO config = new LlmModelConfigDTO();
         config.setTemperature(data.getTemperature());
         AiChatRequest request = AiChatRequest.builder()
@@ -200,7 +183,15 @@ public class LLMNodeExecutor implements NodeExecutor {
                 .config(config)
                 .tools(tools)
                 .build();
-        return chatModelProvider.chat(request);
+        AiTraceContext traceContext = AiTraceContext.builder()
+                .traceId(ctx.getRunId())
+                .callSource("FLOW")
+                .sourceId(ctx.getFlowId())
+                .sourceNodeId(node.getId())
+                .operatorId(ctx.getOperatorId())
+                .orgId(ctx.getOrgId())
+                .build();
+        return chatModelProvider.chat(request, traceContext);
     }
 
     /**
@@ -362,99 +353,6 @@ public class LLMNodeExecutor implements NodeExecutor {
         } catch (Exception e) {
             LOGGER.warn("序列化工具执行结果失败", e);
             return String.valueOf(result.getData());
-        }
-    }
-
-    /** 记录一次迭代的 LLM 调用日志。 */
-    private void recordLlmLogIteration(Node node, LLMNodeData data, ExecutionContext ctx,
-                                       String systemPrompt, String userPrompt, AiChatResponse response,
-                                       int iteration, String traceId, List<AiChatMessage> msgList,
-                                       LocalDateTime llmCallStart, List<ToolDefinition> toolDefinitions) {
-        if (llmLogRecorder == null) {
-            return;
-        }
-        try {
-            LlmModelDTO modelDTO = null;
-            if (modelQueryProvider != null && data.getModelId() != null) {
-                try {
-                    modelDTO = modelQueryProvider.getModel(data.getModelId());
-                } catch (Exception e) {
-                    LOGGER.debug("查询 LLM 模型信息失败,日志将不带模型详情", e);
-                }
-            }
-            LlmModelConfigDTO config = new LlmModelConfigDTO();
-            config.setTemperature(data.getTemperature());
-
-            // 记录当前消息列表用于日志
-            List<AiChatMessage> logMessages = new ArrayList<>(msgList);
-
-            LlmLogRecorder.LlmCallRecorder recorder = llmLogRecorder.recordLlmCall()
-                    .traceId(traceId)
-                    .startTime(llmCallStart)
-                    .fromFlow(ctx.getFlowId(), node.getId())
-                    .model(modelDTO)
-                    .config(config)
-                    .inputMessages(logMessages)
-                    .toolDefinitions(toolDefinitions)
-                    .operator(ctx.getOperatorId(), ctx.getOrgId());
-
-            recorder.output(response.getContent(), response.getInputTokens(), response.getOutputTokens())
-                    .toolCalls(response.getToolCalls(), response.getFinishReason())
-                    .success();
-            recorder.record();
-        } catch (Exception e) {
-            LOGGER.warn("写 LLM 日志失败", e);
-        }
-    }
-
-    /** 记录初始 LLM 调用日志（兼容原有逻辑）。recorder 或 modelQueryProvider 缺失时静默跳过。 */
-    private void recordLlmLog(Node node, LLMNodeData data, ExecutionContext ctx,
-                              String systemPrompt, String userPrompt,
-                              String output, TokenUsage tokenUsage, Exception error,
-                              LocalDateTime llmCallStart, List<ToolDefinition> toolDefinitions) {
-        if (llmLogRecorder == null) {
-            return;
-        }
-        try {
-            LlmModelDTO modelDTO = null;
-            if (modelQueryProvider != null && data.getModelId() != null) {
-                try {
-                    modelDTO = modelQueryProvider.getModel(data.getModelId());
-                } catch (Exception e) {
-                    LOGGER.debug("查询 LLM 模型信息失败,日志将不带模型详情", e);
-                }
-            }
-            LlmModelConfigDTO config = new LlmModelConfigDTO();
-            config.setTemperature(data.getTemperature());
-
-            List<AiChatMessage> logMessages = new ArrayList<>();
-            if (systemPrompt != null && !systemPrompt.isBlank()) {
-                logMessages.add(AiChatMessage.builder()
-                        .role("system").content(systemPrompt).build());
-            }
-            logMessages.add(AiChatMessage.builder()
-                    .role("user").content(userPrompt).build());
-
-            LlmLogRecorder.LlmCallRecorder recorder = llmLogRecorder.recordLlmCall()
-                    .traceId(ctx.getRunId())
-                    .startTime(llmCallStart)
-                    .fromFlow(ctx.getFlowId(), node.getId())
-                    .model(modelDTO)
-                    .config(config)
-                    .inputMessages(logMessages)
-                    .toolDefinitions(toolDefinitions)
-                    .operator(ctx.getOperatorId(), ctx.getOrgId());
-
-            if (error != null) {
-                recorder.error(null, error.getMessage());
-            } else {
-                Integer inputTokens = tokenUsage != null ? tokenUsage.inputTokenCount() : null;
-                Integer outputTokens = tokenUsage != null ? tokenUsage.outputTokenCount() : null;
-                recorder.output(output, inputTokens, outputTokens).success();
-            }
-            recorder.record();
-        } catch (Exception e) {
-            LOGGER.warn("写 LLM 日志失败", e);
         }
     }
 

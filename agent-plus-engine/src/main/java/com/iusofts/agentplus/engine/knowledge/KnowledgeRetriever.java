@@ -1,7 +1,7 @@
 package com.iusofts.agentplus.engine.knowledge;
 
 import com.iusofts.agentplus.knowledge.dto.KnowledgeRetrieveResult;
-import com.iusofts.agentplus.llm.log.EmbeddingCallContext;
+import com.iusofts.agentplus.ailog.dto.AiTraceContext;
 
 import java.util.List;
 
@@ -39,14 +39,14 @@ public interface KnowledgeRetriever {
      * 带调用上下文的单知识库检索，供实现方将 embedding 调用落库到 {@code ai_llm_call_log}。
      * 默认忽略上下文，委托 {@link #retrieve(Long, String, int)}。
      */
-    default KnowledgeRetrieveResult retrieve(Long knowledgeId, String query, int topK, EmbeddingCallContext ctx) {
+    default KnowledgeRetrieveResult retrieve(Long knowledgeId, String query, int topK, AiTraceContext ctx) {
         return retrieve(knowledgeId, query, topK);
     }
 
     /**
      * 带调用上下文的多知识库检索。默认忽略上下文，委托 {@link #retrieve(List, String, int)}。
      */
-    default KnowledgeRetrieveResult retrieve(List<Long> knowledgeIds, String query, int topK, EmbeddingCallContext ctx) {
+    default KnowledgeRetrieveResult retrieve(List<Long> knowledgeIds, String query, int topK, AiTraceContext ctx) {
         return retrieve(knowledgeIds, query, topK);
     }
 }

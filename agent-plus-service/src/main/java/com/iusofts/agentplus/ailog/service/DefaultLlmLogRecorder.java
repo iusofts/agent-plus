@@ -325,6 +325,14 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
         }
 
         @Override
+        public KnowledgeRetrievalRecorder source(String callSource, Long sourceId, String sourceNodeId) {
+            entity.setCallSource(callSource);
+            entity.setSourceId(sourceId);
+            entity.setSourceNodeId(sourceNodeId);
+            return this;
+        }
+
+        @Override
         public KnowledgeRetrievalRecorder knowledgeBase(Long kbId, String kbName) {
             entity.setKnowledgeBaseId(kbId);
             entity.setKnowledgeBaseName(kbName);

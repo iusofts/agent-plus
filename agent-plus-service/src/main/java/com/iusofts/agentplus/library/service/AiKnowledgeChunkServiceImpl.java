@@ -18,7 +18,7 @@ import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeChunkEditReqVo;
 import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeChunkQueryPageReqVo;
 import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeChunkStatusReqVo;
 import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeChunkVo;
-import com.iusofts.agentplus.llm.log.EmbeddingCallContext;
+import com.iusofts.agentplus.ailog.dto.AiTraceContext;
 import com.iusofts.agentplus.llm.log.LlmLogRecorder;
 import com.iusofts.agentplus.plugin.vectorstore.KnowledgeMetadata;
 import com.iusofts.agentplus.plugin.vectorstore.KnowledgeStoreService;
@@ -129,7 +129,7 @@ public class AiKnowledgeChunkServiceImpl extends ServiceImpl<AiKnowledgeChunkMap
 
         // 先向量化写入向量库,再落库
         int embeddingTokens;
-        EmbeddingCallContext ctx = EmbeddingCallContext.builder()
+        AiTraceContext ctx = AiTraceContext.builder()
                 .traceId(LlmLogRecorder.generateTraceId())
                 .operatorId(reqVo.getOperatorId())
                 .orgId(reqVo.getOrgId())
@@ -176,7 +176,7 @@ public class AiKnowledgeChunkServiceImpl extends ServiceImpl<AiKnowledgeChunkMap
 
         // 以相同 vectorId 重新向量化并覆盖向量库中的向量
         int embeddingTokens;
-        EmbeddingCallContext ctx = EmbeddingCallContext.builder()
+        AiTraceContext ctx = AiTraceContext.builder()
                 .traceId(LlmLogRecorder.generateTraceId())
                 .operatorId(reqVo.getOperatorId())
                 .orgId(reqVo.getOrgId())
@@ -253,7 +253,7 @@ public class AiKnowledgeChunkServiceImpl extends ServiceImpl<AiKnowledgeChunkMap
             }
             AiKnowledgeDocument doc = aiKnowledgeDocumentMapper.selectById(chunk.getDocumentId());
             int embeddingTokens;
-            EmbeddingCallContext ctx = EmbeddingCallContext.builder()
+            AiTraceContext ctx = AiTraceContext.builder()
                     .traceId(LlmLogRecorder.generateTraceId())
                     .operatorId(reqVo.getOperatorId())
                     .orgId(reqVo.getOrgId())

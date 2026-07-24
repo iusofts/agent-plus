@@ -173,6 +173,16 @@ public interface LlmLogRecorder {
 
         KnowledgeRetrievalRecorder fromApi();
 
+        /**
+         * 自定义来源三元组。用于内置枚举无法覆盖的来源，或由调用方透传
+         * {@link com.iusofts.agentplus.ailog.dto.AiTraceContext} 直接落库。
+         *
+         * @param callSource   调用来源
+         * @param sourceId     来源 ID（如智能体 ID/流程 ID）
+         * @param sourceNodeId 来源节点 ID，可空
+         */
+        KnowledgeRetrievalRecorder source(String callSource, Long sourceId, String sourceNodeId);
+
         KnowledgeRetrievalRecorder knowledgeBase(Long kbId, String kbName);
 
         KnowledgeRetrievalRecorder query(String query);

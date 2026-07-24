@@ -8,23 +8,21 @@ import com.iusofts.agentplus.chat.mapper.AiAgentMapper;
 import com.iusofts.agentplus.chat.vo.AiMessageVo;
 import com.iusofts.agentplus.chat.vo.AiServiceChatReqVo;
 import com.iusofts.agentplus.chat.vo.ToolCallTraceVo;
-import com.iusofts.agentplus.library.entity.AiKnowledgeBase;
-import com.iusofts.agentplus.library.mapper.AiKnowledgeBaseMapper;
 import com.iusofts.agentplus.basic.exception.SystemBusinessException;
 import com.iusofts.agentplus.basic.utils.ModelMapperUtil;
 import com.iusofts.agentplus.basic.utils.StringUtils;
 import com.iusofts.agentplus.id.service.IdService;
 import com.iusofts.agentplus.id.service.IdService.UidTypeEnum;
-import com.iusofts.agentplus.llm.AiChatService;
 import com.iusofts.agentplus.llm.dto.AiChatMessage;
+import com.iusofts.agentplus.llm.dto.AiChatRequest;
 import com.iusofts.agentplus.llm.dto.AiChatResponse;
 import com.iusofts.agentplus.llm.dto.LlmModelConfigDTO;
 import com.iusofts.agentplus.llm.dto.ToolCall;
 import com.iusofts.agentplus.llm.dto.ToolDefinition;
-import com.iusofts.agentplus.llm.LlmModelQueryProvider;
-import com.iusofts.agentplus.llm.log.EmbeddingCallContext;
+import com.iusofts.agentplus.ailog.dto.AiTraceContext;
 import com.iusofts.agentplus.llm.log.LlmLogRecorder;
 import com.iusofts.agentplus.engine.knowledge.KnowledgeRetriever;
+import com.iusofts.agentplus.engine.llm.ChatModelProvider;
 import com.iusofts.agentplus.engine.tool.ToolRegistry;
 import com.iusofts.agentplus.knowledge.dto.KnowledgeChunk;
 import com.iusofts.agentplus.knowledge.dto.KnowledgeRetrieveResult;
@@ -63,17 +61,11 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
     private AiMessageServiceImpl aiMessageService;
     @Resource
     private AiAgentMapper aiAgentMapper;
-    @Resource
-    private AiKnowledgeBaseMapper knowledgeBaseMapper;
 
     @Resource
-    private AiChatService aiChatService;
+    private ChatModelProvider chatModelProvider;
     @Resource
     private KnowledgeRetriever knowledgeRetriever;
-    @Resource
-    private LlmModelQueryProvider llmModelQueryProvider;
-    @Resource
-    private LlmLogRecorder llmLogRecorder;
     @Resource
     private ToolRegistry toolRegistry;
     @Resource
@@ -150,22 +142,19 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
 
         AiChatResponse response = null;
         for (int iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
-            LocalDateTime llmCallStart = LocalDateTime.now();
-            response = aiChatService.chat(msgList, modelId, config, toolDefinitions);
-
-            llmLogRecorder.recordLlmCall()
+            AiTraceContext traceContext = AiTraceContext.builder()
                 .traceId(traceId)
-                .startTime(llmCallStart)
-                .fromChat(conversation != null ? conversation.getId() : null)
-                .model(llmModelQueryProvider.getModel(modelId))
+                .callSource("CHAT")
+                .sourceId(conversation != null ? conversation.getId() : null)
+                .operatorId(reqVo.getOperatorId())
+                .orgId(reqVo.getOrgId())
+                .build();
+            response = chatModelProvider.chat(AiChatRequest.builder()
+                .modelId(modelId)
+                .messages(msgList)
                 .config(config)
-                .inputMessages(msgList)
-                .toolDefinitions(toolDefinitions)
-                .output(response.getContent(), response.getInputTokens(), response.getOutputTokens())
-                .toolCalls(response.getToolCalls(), response.getFinishReason())
-                .success()
-                .operator(reqVo.getOperatorId(), reqVo.getOrgId())
-                .record();
+                .tools(toolDefinitions)
+                .build(), traceContext);
 
             // 模型未请求工具调用，得到最终回答，结束循环
             if (CollectionUtils.isEmpty(response.getToolCalls())) {
@@ -308,8 +297,10 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
         }
         int topK = aiAgent.getRetrievalTopK() == null || aiAgent.getRetrievalTopK() <= 0 ? DEFAULT_RETRIEVAL_TOP_K : aiAgent.getRetrievalTopK();
 
-        EmbeddingCallContext embeddingCtx = EmbeddingCallContext.builder()
+        AiTraceContext embeddingCtx = AiTraceContext.builder()
                 .traceId(traceId)
+                .callSource("AGENT")
+                .sourceId(aiAgent.getId())
                 .operatorId(operatorId)
                 .orgId(orgId)
                 .build();
@@ -319,27 +310,12 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
             if (kbId == null) {
                 continue;
             }
-            AiKnowledgeBase kb = knowledgeBaseMapper.selectById(kbId);
-            String kbName = kb != null ? kb.getName() : null;
-
-            LocalDateTime retrieveStart = LocalDateTime.now();
+            // 检索日志（embedding 调用与召回明细）由 KnowledgeRetriever 底层统一落库
             KnowledgeRetrieveResult result = knowledgeRetriever.retrieve(kbId, query, topK, embeddingCtx);
             List<String> retrievedChunks = result.getChunks() != null
                     ? result.getChunks().stream().map(KnowledgeChunk::getContent).collect(Collectors.toList())
                     : List.of();
             chunks.addAll(retrievedChunks);
-
-            llmLogRecorder.recordKnowledgeRetrieval()
-                .traceId(traceId)
-                .startTime(retrieveStart)
-                .fromAgent(aiAgent.getId())
-                .knowledgeBase(kbId, kbName)
-                .query(query)
-                .topK(topK)
-                .retrievedResult(result)
-                .success()
-                .operator(operatorId, orgId)
-                .record();
         }
         if (chunks.isEmpty()) {
             return null;

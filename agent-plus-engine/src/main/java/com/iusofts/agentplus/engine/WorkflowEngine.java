@@ -146,8 +146,6 @@ public class WorkflowEngine {
         private KnowledgeRetriever knowledgeRetriever;
         private ToolRegistry toolRegistry;
         private ToolQueryProvider toolQueryProvider;
-        private com.iusofts.agentplus.llm.log.LlmLogRecorder llmLogRecorder;
-        private com.iusofts.agentplus.llm.LlmModelQueryProvider llmModelQueryProvider;
         private HistoryMessageProvider historyMessageProvider;
         private final NodeExecutorRegistry registry = new NodeExecutorRegistry();
 
@@ -168,18 +166,6 @@ public class WorkflowEngine {
 
         public Builder toolQueryProvider(ToolQueryProvider toolQueryProvider) {
             this.toolQueryProvider = toolQueryProvider;
-            return this;
-        }
-
-        /** 可选:注入 AI 日志记录器,LLM/知识库节点会自动写日志。 */
-        public Builder llmLogRecorder(com.iusofts.agentplus.llm.log.LlmLogRecorder recorder) {
-            this.llmLogRecorder = recorder;
-            return this;
-        }
-
-        /** 可选:注入 LLM 模型查询,日志会带上模型名/厂商等详情。 */
-        public Builder llmModelQueryProvider(com.iusofts.agentplus.llm.LlmModelQueryProvider provider) {
-            this.llmModelQueryProvider = provider;
             return this;
         }
 
@@ -208,8 +194,8 @@ public class WorkflowEngine {
                     .register(new ConditionNodeExecutor())
                     .register(new AggregatorNodeExecutor())
                     .register(new BatchNodeExecutor())
-                    .register(new KnowledgeNodeExecutor(retriever, llmLogRecorder))
-                    .register(new LLMNodeExecutor(chatModelProvider, llmLogRecorder, llmModelQueryProvider, toolQueryProvider, toolRegistry, historyMessageProvider));
+                    .register(new KnowledgeNodeExecutor(retriever))
+                    .register(new LLMNodeExecutor(chatModelProvider, toolQueryProvider, toolRegistry, historyMessageProvider));
 
             if (toolRegistry != null && toolQueryProvider != null) {
                 registry.register(new ToolNodeExecutor(toolRegistry, toolQueryProvider));

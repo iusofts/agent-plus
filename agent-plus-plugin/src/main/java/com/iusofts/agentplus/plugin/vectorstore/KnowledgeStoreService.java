@@ -2,7 +2,7 @@ package com.iusofts.agentplus.plugin.vectorstore;
 
 import com.iusofts.agentplus.knowledge.dto.EmbeddingModelDTO;
 import com.iusofts.agentplus.knowledge.EmbeddingModelQueryProvider;
-import com.iusofts.agentplus.llm.log.EmbeddingCallContext;
+import com.iusofts.agentplus.ailog.dto.AiTraceContext;
 import com.iusofts.agentplus.llm.log.LlmLogRecorder;
 import dev.langchain4j.data.document.Metadata;
 import dev.langchain4j.data.embedding.Embedding;
@@ -84,7 +84,7 @@ public class KnowledgeStoreService {
             List<Map<String, Object>> chunkMetadatas,
             Long embeddingModelId,
             Long knowledgeBaseId,
-            EmbeddingCallContext ctx) {
+            AiTraceContext ctx) {
         return batchEmbedAndStore(collectionName, vectorIds, chunkTexts, chunkMetadatas, embeddingModelId, knowledgeBaseId, null, ctx);
     }
 
@@ -109,7 +109,7 @@ public class KnowledgeStoreService {
             Long embeddingModelId,
             Long knowledgeBaseId,
             String sourceNodeId,
-            EmbeddingCallContext ctx) {
+            AiTraceContext ctx) {
 
         EmbeddingModelDTO embeddingModelDTO = embeddingModelQueryProvider.getModel(embeddingModelId);
         EmbeddingModel embeddingModel = EmbeddingModelFactory.createEmbeddingModel(embeddingModelDTO);
@@ -160,7 +160,7 @@ public class KnowledgeStoreService {
             EmbeddingModelDTO modelDTO,
             Long knowledgeBaseId,
             String sourceNodeId,
-            EmbeddingCallContext ctx,
+            AiTraceContext ctx,
             LocalDateTime startTime,
             List<String> batchTexts,
             dev.langchain4j.model.output.TokenUsage tokenUsage,

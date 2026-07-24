@@ -9,8 +9,6 @@ import com.iusofts.agentplus.engine.llm.DefaultChatModelProvider;
 import com.iusofts.agentplus.engine.llm.DoubaoProperties;
 import com.iusofts.agentplus.engine.llm.QwenProperties;
 import com.iusofts.agentplus.engine.tool.ToolRegistry;
-import com.iusofts.agentplus.llm.LlmModelQueryProvider;
-import com.iusofts.agentplus.llm.log.LlmLogRecorder;
 import com.iusofts.agentplus.tool.Tool;
 import com.iusofts.agentplus.tool.ToolQueryProvider;
 import org.springframework.beans.factory.ObjectProvider;
@@ -59,8 +57,6 @@ public class WorkflowEngineAutoConfiguration {
                                          ObjectProvider<KnowledgeRetriever> retriever,
                                          ObjectProvider<ToolRegistry> toolRegistry,
                                          ObjectProvider<ToolQueryProvider> toolQueryProvider,
-                                         ObjectProvider<LlmLogRecorder> llmLogRecorder,
-                                         ObjectProvider<LlmModelQueryProvider> llmModelQueryProvider,
                                          ObjectProvider<HistoryMessageProvider> historyMessageProvider) {
         WorkflowEngine.Builder builder = WorkflowEngine.builder()
                 .chatModelProvider(chatModelProvider)
@@ -68,8 +64,6 @@ public class WorkflowEngineAutoConfiguration {
 
         toolRegistry.ifAvailable(builder::toolRegistry);
         toolQueryProvider.ifAvailable(builder::toolQueryProvider);
-        llmLogRecorder.ifAvailable(builder::llmLogRecorder);
-        llmModelQueryProvider.ifAvailable(builder::llmModelQueryProvider);
         historyMessageProvider.ifAvailable(builder::historyMessageProvider);
 
         return builder.build();
