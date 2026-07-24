@@ -87,6 +87,19 @@ knowledge:
   # 单个文档处理最长时长(秒),超过则视为处理中超时,定时任务重新入队
   process-timeout-seconds: 600
 
+# AI Trace 链路追踪(OpenTelemetry 手动 SDK 模式)
+agent-plus:
+  trace:
+    # 是否开启链路追踪(关闭后 tracer 不初始化,span 埋点为空操作)
+    enabled: true
+    exporter:
+      # 每批最大导出条数
+      batch-size: 512
+      # 定时导出间隔(毫秒)
+      schedule-delay: 5000
+      # 队列最大容量
+      max-queue-size: 2048
+
 ---
 
 spring:

@@ -13,11 +13,13 @@ import com.iusofts.agentplus.id.service.IdService;
 import com.iusofts.agentplus.id.service.IdService.UidTypeEnum;
 import com.iusofts.agentplus.ailog.dto.AiTraceContext;
 import com.iusofts.agentplus.llm.log.LlmLogRecorder;
+import com.iusofts.agentplus.trace.annotation.TraceSpan;
 import com.iusofts.agentplus.plugin.document.DocumentContentExtractor;
 import com.iusofts.agentplus.plugin.document.TextChunker;
 import com.iusofts.agentplus.plugin.vectorstore.KnowledgeMetadata;
 import com.iusofts.agentplus.plugin.vectorstore.KnowledgeStoreService;
 import com.iusofts.agentplus.plugin.vectorstore.RedisVectorStoreManager;
+import io.opentelemetry.api.trace.SpanKind;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -70,6 +72,7 @@ public class KnowledgeIngestionService {
     @Resource
     private LlmLogRecorder llmLogRecorder;
 
+    @TraceSpan(name = "knowledge.index", kind = SpanKind.INTERNAL)
     public void process(Long documentId) {
         String lockKey = LOCK_PREFIX + documentId;
         if (!redisLock.tryLock(lockKey, LOCK_EXPIRE_SECONDS, TimeUnit.SECONDS)) {

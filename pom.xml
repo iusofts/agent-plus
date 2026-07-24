@@ -94,6 +94,8 @@
         <langgraph4j.version>1.8.20</langgraph4j.version>
         <!-- 文档解析 -->
         <tika.version>2.9.2</tika.version>
+        <!-- OpenTelemetry: AI Trace 链路追踪(手动 SDK 模式) -->
+        <opentelemetry.version>1.64.0</opentelemetry.version>
     </properties>
 
     <dependencyManagement>
@@ -375,6 +377,15 @@
                 <groupId>org.bsc.langgraph4j</groupId>
                 <artifactId>langgraph4j-bom</artifactId>
                 <version>${langgraph4j.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- ================= OpenTelemetry ================= -->
+            <dependency>
+                <groupId>io.opentelemetry</groupId>
+                <artifactId>opentelemetry-bom</artifactId>
+                <version>${opentelemetry.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>

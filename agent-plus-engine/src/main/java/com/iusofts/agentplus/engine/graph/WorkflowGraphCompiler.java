@@ -4,12 +4,17 @@ import com.iusofts.agentplus.aiflow.enums.FlowNodeType;
 import com.iusofts.agentplus.aiflow.vo.workflow.Edge;
 import com.iusofts.agentplus.aiflow.vo.workflow.Node;
 import com.iusofts.agentplus.aiflow.vo.workflow.Workflow;
+import com.iusofts.agentplus.aiflow.vo.workflow.data.InputParamNodeData;
 import com.iusofts.agentplus.engine.context.ExecutionContext;
 import com.iusofts.agentplus.engine.context.NodeExecutionStatus;
 import com.iusofts.agentplus.engine.context.NodeOutput;
 import com.iusofts.agentplus.engine.exception.WorkflowExecutionException;
 import com.iusofts.agentplus.engine.executor.NodeExecutor;
 import com.iusofts.agentplus.engine.executor.NodeExecutorRegistry;
+import com.iusofts.agentplus.engine.util.ParamResolver;
+import com.iusofts.agentplus.trace.TraceUtil;
+import com.alibaba.fastjson2.JSON;
+import io.opentelemetry.api.trace.SpanKind;
 import org.bsc.langgraph4j.CompiledGraph;
 import org.bsc.langgraph4j.GraphStateException;
 import org.bsc.langgraph4j.StateGraph;
@@ -256,7 +261,29 @@ public class WorkflowGraphCompiler {
             java.time.LocalDateTime startTime = java.time.LocalDateTime.now();
             try {
                 LOGGER.debug("execute node id={} type={}", node.getId(), node.getType());
-                NodeOutput out = executor.execute(node, ctx);
+                NodeOutput out = TraceUtil.span("node." + node.getId(), SpanKind.INTERNAL, span -> {
+                    span.setAttribute("nodeId", node.getId());
+                    span.setAttribute("nodeType", node.getType());
+
+                    // 入参载荷：已解析的实际入参值（仅 InputParamNodeData 子类有入参）
+                    if (node.getData() instanceof InputParamNodeData inputParamNode) {
+                        java.util.List<com.iusofts.agentplus.aiflow.vo.workflow.data.common.InputParam> params = inputParamNode.getInputParams();
+                        if (params != null && !params.isEmpty()) {
+                            java.util.Map<String, Object> resolved = ParamResolver.resolveInputs(params, ctx);
+                            span.setAttribute("ap.payload.input", JSON.toJSONString(resolved));
+                        }
+                    }
+
+                    NodeOutput result = executor.execute(node, ctx);
+
+                    // 出参载荷：节点输出结果
+                    if (result != null && result.getOutputs() != null && !result.getOutputs().isEmpty()) {
+                        span.setAttribute("ap.payload.output", JSON.toJSONString(result.getOutputs()));
+                    }
+
+                    span.setAttribute("nodeStatus", "SUCCESS");
+                    return result;
+                });
                 ctx.putOutput(out);
                 ctx.updateStatus(node.getId(), NodeExecutionStatus.SUCCESS);
             } catch (WorkflowExecutionException e) {

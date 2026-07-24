@@ -582,4 +582,45 @@ CREATE TABLE `t_industry`  (
 -- ----------------------------
 INSERT INTO `t_industry` VALUES (1, '测试', 0, 1, 1, '2026-06-04 11:28:49', NULL, '2026-06-04 11:28:49', 0);
 
+-- ----------------------------
+-- Table structure for ai_trace_span
+-- ----------------------------
+DROP TABLE IF EXISTS `ai_trace_span`;
+CREATE TABLE `ai_trace_span` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '自增主键',
+  `trace_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'OTel 128-bit traceId(32hex)',
+  `span_id` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'OTel 64-bit spanId(16hex)',
+  `parent_span_id` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '父 spanId',
+  `span_name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'span名称',
+  `span_kind` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'INTERNAL' COMMENT 'span类型: INTERNAL/SERVER/CLIENT/PRODUCER/CONSUMER',
+  `status` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'OK' COMMENT 'span状态: OK/ERROR',
+  `status_message` varchar(2000) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '错误信息(仅status=ERROR时)',
+  `attributes` json DEFAULT NULL COMMENT 'span attribute键值对(含入参/出参等业务信息)',
+  `start_time` datetime(3) NOT NULL COMMENT 'span开始时间(毫秒精度)',
+  `end_time` datetime(3) NOT NULL COMMENT 'span结束时间(毫秒精度)',
+  `duration_ms` bigint(20) NOT NULL COMMENT 'span耗时(毫秒)',
+  `org_id` int(11) DEFAULT NULL COMMENT '组织ID',
+  `trial_flag` tinyint(4) DEFAULT 0 COMMENT '试运行标记 0:正式 1:试运行',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '记录创建时间',
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_trace_id`(`trace_id`) USING BTREE,
+  INDEX `idx_start_time`(`start_time`) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = 'AI Trace Span记录' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Table structure for ai_trace_span_payload
+-- ----------------------------
+DROP TABLE IF EXISTS `ai_trace_span_payload`;
+CREATE TABLE `ai_trace_span_payload` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `trace_id` varchar(32) NOT NULL COMMENT 'traceId',
+  `span_id` varchar(16) NOT NULL COMMENT 'spanId，联合唯一',
+  `input_payload` TEXT DEFAULT NULL COMMENT '节点入参',
+  `output_payload` TEXT DEFAULT NULL COMMENT '节点返回值',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_trace_span` (`trace_id`,`span_id`),
+  KEY `idx_trace_id` (`trace_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Span入参返回值载荷附表';
+
 SET FOREIGN_KEY_CHECKS = 1;

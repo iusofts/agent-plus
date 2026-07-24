@@ -9,6 +9,8 @@ import com.iusofts.agentplus.engine.executor.NodeExecutor;
 import com.iusofts.agentplus.engine.graph.ExecutionContextTracker;
 import com.iusofts.agentplus.engine.graph.WorkflowState;
 import com.iusofts.agentplus.engine.util.ParamResolver;
+import com.iusofts.agentplus.trace.TraceUtil;
+import io.opentelemetry.context.Context;
 import org.bsc.langgraph4j.CompiledGraph;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -74,18 +76,22 @@ public class BatchNodeExecutor implements NodeExecutor {
         }
 
         ExecutorService pool = Executors.newFixedThreadPool(parallel);
+        // 捕获父线程的 OTel Context，使并行迭代的 span 能挂到正确的 trace 上
+        Context parentContext = TraceUtil.getCurrentContext();
         try {
             List<CompletableFuture<Void>> futures = new ArrayList<>(items.size());
             for (int i = 0; i < items.size(); i++) {
                 final int index = i;
                 final Object item = items.get(i);
                 futures.add(CompletableFuture.runAsync(() -> {
-                    Map<String, Map<String, Object>> iterationResult = runIteration(
-                            node.getId(), item, index, items, inputs, subGraph, ctx);
-                    if (iterationResult != null) {
-                        results.set(index, iterationResult);
-                        success.incrementAndGet();
-                    }
+                    TraceUtil.runWithContext(parentContext, () -> {
+                        Map<String, Map<String, Object>> iterationResult = runIteration(
+                                node.getId(), item, index, items, inputs, subGraph, ctx);
+                        if (iterationResult != null) {
+                            results.set(index, iterationResult);
+                            success.incrementAndGet();
+                        }
+                    });
                 }, pool));
             }
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();

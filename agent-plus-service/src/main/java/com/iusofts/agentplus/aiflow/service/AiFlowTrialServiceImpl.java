@@ -38,6 +38,8 @@ import com.iusofts.agentplus.engine.context.NodeExecutionStatus;
 import com.iusofts.agentplus.engine.context.NodeOutput;
 import com.iusofts.agentplus.engine.context.NodeTiming;
 import com.iusofts.agentplus.engine.executor.NodeExecutor;
+import com.iusofts.agentplus.trace.TraceUtil;
+import io.opentelemetry.api.trace.SpanKind;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 
@@ -47,7 +49,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 /**
  * <p>
@@ -138,45 +139,59 @@ public class AiFlowTrialServiceImpl implements IAiFlowTrialService {
         List<InputParam> inputParams = extractInputParams(target);
 
         Map<String, Object> inputs = reqVo.getInputs() == null ? new LinkedHashMap<>() : reqVo.getInputs();
-        String traceId = newTraceId();
+        String placeholderTraceId = AiFlowCommonUtils.newPlaceholderTraceId();
 
-        AiFlowRuntime runtime = newRuntime(version, traceId, inputs, reqVo.getOperatorId(), TRIAL_FLAG_NODE);
+        AiFlowRuntime runtime = newRuntime(version, placeholderTraceId, inputs, reqVo.getOperatorId(), TRIAL_FLAG_NODE);
         aiFlowRuntimeMapper.insert(runtime);
 
         LocalDateTime start = runtime.getStartTime();
         AiFlowTrialRunResultVo result = new AiFlowTrialRunResultVo();
         result.setRuntimeId(runtime.getId());
-        result.setTraceId(traceId);
 
         try {
-            ExecutionContext ctx = new ExecutionContext(traceId, config, new LinkedHashMap<>(),
-                    version.getFlowId(), reqVo.getOperatorId(), reqVo.getOrgId());
-            // 按参数名直接赋值:把用户给的值回填到各输入参数 paramMapKey 指向的位置,不走真实上游
-            applyDirectInputs(inputParams, inputs, ctx);
+            return TraceUtil.span("flowTrial.runNode", SpanKind.INTERNAL, span -> {
+                // 以 OTel traceId 作为本次单节点试运行的 traceId
+                String traceId = span.getSpanContext().isValid()
+                        ? span.getSpanContext().getTraceId()
+                        : placeholderTraceId;
+                span.setAttribute("nodeId", target.getId());
+                span.setAttribute("nodeType", target.getType());
+                span.setAttribute("trialFlag", true);
+                if (reqVo.getOrgId() != null) {
+                    span.setAttribute("orgId", reqVo.getOrgId().longValue());
+                }
+                runtime.setTraceId(traceId);
+                result.setTraceId(traceId);
 
-            NodeExecutor executor = workflowEngine.registry().get(target.getType());
-            LocalDateTime nodeStart = LocalDateTime.now();
-            NodeOutput output = executor.execute(target, ctx);
-            LocalDateTime nodeEnd = LocalDateTime.now();
-            Map<String, Object> outputs = output == null ? null : output.getOutputs();
+                ExecutionContext ctx = new ExecutionContext(traceId, config, new LinkedHashMap<>(),
+                        version.getFlowId(), reqVo.getOperatorId(), reqVo.getOrgId());
+                // 按参数名直接赋值:把用户给的值回填到各输入参数 paramMapKey 指向的位置,不走真实上游
+                applyDirectInputs(inputParams, inputs, ctx);
 
-            long costMs = Duration.between(nodeStart, nodeEnd).toMillis();
-            int nodeStatus = NodeRunStatusEnum.SUCCESS.getCode();
+                NodeExecutor executor = workflowEngine.registry().get(target.getType());
+                LocalDateTime nodeStart = LocalDateTime.now();
+                NodeOutput output = executor.execute(target, ctx);
+                LocalDateTime nodeEnd = LocalDateTime.now();
+                Map<String, Object> outputs = output == null ? null : output.getOutputs();
 
-            AiFlowRuntimeNode nodeEntity = buildRuntimeNode(runtime.getId(), target.getId(), resolveNodeName(target), target.getType(),
-                    nodeStatus, serialize(inputs), outputs, null, reqVo.getOperatorId(),
-                    nodeStart, nodeEnd, costMs);
-            aiFlowRuntimeNodeMapper.insert(nodeEntity);
+                long costMs = Duration.between(nodeStart, nodeEnd).toMillis();
+                int nodeStatus = NodeRunStatusEnum.SUCCESS.getCode();
 
-            finishRuntime(runtime, RunStatusEnum.SUCCESS.getCode(), costMs, serialize(outputs), null);
+                AiFlowRuntimeNode nodeEntity = buildRuntimeNode(runtime.getId(), target.getId(), resolveNodeName(target), target.getType(),
+                        nodeStatus, serialize(inputs), outputs, null, reqVo.getOperatorId(),
+                        nodeStart, nodeEnd, costMs);
+                aiFlowRuntimeNodeMapper.insert(nodeEntity);
 
-            result.setRunStatus(RunStatusEnum.SUCCESS.getCode());
-            result.setOutput(outputs);
-            result.setCostMs(costMs);
-            List<AiFlowTrialNodeResultVo> nodeResults = new ArrayList<>();
-            nodeResults.add(buildNodeResultVo(target.getId(), target.getType(), nodeStatus, outputs, costMs, null));
-            result.setNodeResults(nodeResults);
-            return result;
+                finishRuntime(runtime, RunStatusEnum.SUCCESS.getCode(), costMs, serialize(outputs), null);
+
+                result.setRunStatus(RunStatusEnum.SUCCESS.getCode());
+                result.setOutput(outputs);
+                result.setCostMs(costMs);
+                List<AiFlowTrialNodeResultVo> nodeResults = new ArrayList<>();
+                nodeResults.add(buildNodeResultVo(target.getId(), target.getType(), nodeStatus, outputs, costMs, null));
+                result.setNodeResults(nodeResults);
+                return result;
+            });
         } catch (Exception e) {
             LocalDateTime nodeEnd = LocalDateTime.now();
             long costMs = Duration.between(start, nodeEnd).toMillis();
@@ -387,10 +402,6 @@ public class AiFlowTrialServiceImpl implements IAiFlowTrialService {
             case SKIPPED -> NodeRunStatusEnum.SKIPPED.getCode();
             case PENDING -> NodeRunStatusEnum.NOT_EXECUTED.getCode();
         };
-    }
-
-    private String newTraceId() {
-        return AiFlowCommonUtils.newTraceId(true);
     }
 
     private Workflow deserializeWorkflow(String flowJson) {

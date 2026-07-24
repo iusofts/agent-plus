@@ -21,7 +21,9 @@ import com.iusofts.agentplus.llm.dto.ToolCall;
 import com.iusofts.agentplus.llm.dto.ToolDefinition;
 import com.iusofts.agentplus.ailog.dto.AiTraceContext;
 import com.iusofts.agentplus.llm.log.LlmLogRecorder;
+import com.iusofts.agentplus.trace.annotation.TraceSpan;
 import com.iusofts.agentplus.engine.knowledge.KnowledgeRetriever;
+import io.opentelemetry.api.trace.SpanKind;
 import com.iusofts.agentplus.engine.llm.ChatModelProvider;
 import com.iusofts.agentplus.engine.tool.ToolRegistry;
 import com.iusofts.agentplus.knowledge.dto.KnowledgeChunk;
@@ -80,6 +82,7 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
     private static final int MAX_TOOL_ITERATIONS = 5;
 
     @Override
+    @TraceSpan(name = "chat.agent", kind = SpanKind.SERVER)
     public AiMessageVo chat(AiServiceChatReqVo reqVo) {
         // 1. 确定智能体与会话
         Long agentId = reqVo.getAgentId();

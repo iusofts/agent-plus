@@ -99,29 +99,34 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
         Workflow workflow = AiFlowCommonUtils.deserializeWorkflow(version.getFlowJson(), objectMapper);
         WorkflowConfig config = AiFlowCommonUtils.deserializeConfig(version.getConfigJson(), objectMapper);
 
-        // 3. 生成 traceId，创建运行实例落库
-        String traceId = AiFlowCommonUtils.newTraceId(trialFlag > 0);
-        AiFlowRuntime runtime = newRuntime(version, traceId, inputs, operatorId, trialFlag);
+        // 3. 创建运行实例(占位 traceId,执行后回填真实 OTel traceId)
+        String placeholderTraceId = AiFlowCommonUtils.newPlaceholderTraceId();
+        AiFlowRuntime runtime = newRuntime(version, placeholderTraceId, inputs, operatorId, trialFlag);
         runtime.setFlowName(aiFlow.getName());
         aiFlowRuntimeMapper.insert(runtime);
 
         LocalDateTime start = runtime.getStartTime();
         FlowExecuteResult result = new FlowExecuteResult();
         result.setRuntimeId(runtime.getId());
-        result.setTraceId(traceId);
         result.setFlowId(flowId);
 
         try {
-            // 4. 执行工作流
+            // 4. 执行工作流(引擎内开 root span,返回真实 OTel traceId)
             WorkflowExecutionResult execResult = workflowEngine.execute(
                     workflow,
                     config,
                     inputs,
-                    traceId,
+                    placeholderTraceId,
                     flowId,
                     operatorId,
-                    orgId
+                    orgId,
+                    trialFlag
             );
+
+            // 回填真实 traceId
+            String traceId = execResult.getRunId();
+            runtime.setTraceId(traceId);
+            result.setTraceId(traceId);
 
             // 5. 落库所有节点执行状态
             List<AiFlowRuntimeNode> nodeEntities = new ArrayList<>();
@@ -211,9 +216,9 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
         Workflow workflow = AiFlowCommonUtils.deserializeWorkflow(version.getFlowJson(), objectMapper);
         WorkflowConfig config = AiFlowCommonUtils.deserializeConfig(version.getConfigJson(), objectMapper);
 
-        // 创建运行实例
-        String traceId = AiFlowCommonUtils.newTraceId(trialFlag > 0);
-        AiFlowRuntime runtime = newRuntime(version, traceId, inputs, operatorId, trialFlag);
+        // 创建运行实例(占位 traceId,执行后回填真实 OTel traceId)
+        String placeholderTraceId = AiFlowCommonUtils.newPlaceholderTraceId();
+        AiFlowRuntime runtime = newRuntime(version, placeholderTraceId, inputs, operatorId, trialFlag);
         AiFlow aiFlow = aiFlowMapper.selectById(version.getFlowId());
         if (aiFlow != null) {
             runtime.setFlowName(aiFlow.getName());
@@ -223,20 +228,25 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
         LocalDateTime start = runtime.getStartTime();
         FlowExecuteResult result = new FlowExecuteResult();
         result.setRuntimeId(runtime.getId());
-        result.setTraceId(traceId);
         result.setFlowId(version.getFlowId());
 
         try {
-            // 执行
+            // 执行(引擎内开 root span,返回真实 OTel traceId)
             WorkflowExecutionResult execResult = workflowEngine.execute(
                     workflow,
                     config,
                     inputs,
-                    traceId,
+                    placeholderTraceId,
                     version.getFlowId(),
                     operatorId,
-                    orgId
+                    orgId,
+                    trialFlag
             );
+
+            // 回填真实 traceId
+            String traceId = execResult.getRunId();
+            runtime.setTraceId(traceId);
+            result.setTraceId(traceId);
 
             // 落库节点
             List<AiFlowRuntimeNode> nodeEntities = new ArrayList<>();

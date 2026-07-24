@@ -26,6 +26,10 @@ import com.iusofts.agentplus.engine.graph.WorkflowState;
 import com.iusofts.agentplus.engine.knowledge.KnowledgeRetriever;
 import com.iusofts.agentplus.engine.knowledge.NoopKnowledgeRetriever;
 import com.iusofts.agentplus.engine.llm.ChatModelProvider;
+import com.iusofts.agentplus.trace.TraceUtil;
+import com.alibaba.fastjson2.JSON;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.SpanKind;
 import org.bsc.langgraph4j.CompiledGraph;
 
 import java.util.LinkedHashMap;
@@ -84,6 +88,69 @@ public class WorkflowEngine {
                                            Long flowId,
                                            Long operatorId,
                                            Integer orgId) {
+        return execute(workflow, config, inputs, runId, flowId, operatorId, orgId, null);
+    }
+
+    /**
+     * 带运行元数据与试运行标记的执行入口。
+     *
+     * <p>在最外层开启 OTel root span,并以 span 的 traceId 作为本次执行的 runId
+     * (即业务 traceId),经 {@link WorkflowExecutionResult#getRunId()} 回传给调用方落库。
+     * 若 OTel SDK 未初始化(如单元测试),span context 无效时回退使用传入的 {@code runId}。</p>
+     *
+     * @param trialFlag 试运行标记(0正式/1试运行),写入 root span attribute,可空
+     */
+    public WorkflowExecutionResult execute(Workflow workflow,
+                                           WorkflowConfig config,
+                                           Map<String, Object> inputs,
+                                           String runId,
+                                           Long flowId,
+                                           Long operatorId,
+                                           Integer orgId,
+                                           Integer trialFlag) {
+        return TraceUtil.span("workflow.execute", SpanKind.INTERNAL, span -> {
+            // 以 OTel traceId 作为 runId;SDK 未初始化时回退传入值
+            String effectiveRunId = span.getSpanContext().isValid()
+                    ? span.getSpanContext().getTraceId()
+                    : runId;
+
+            span.setAttribute("workflow.runId", effectiveRunId);
+            if (flowId != null) {
+                span.setAttribute("flowId", flowId);
+            }
+            if (operatorId != null) {
+                span.setAttribute("operatorId", operatorId);
+            }
+            if (orgId != null) {
+                span.setAttribute("orgId", orgId.longValue());
+            }
+            if (trialFlag != null) {
+                span.setAttribute("trialFlag", trialFlag != 0);
+            }
+
+            // 入参载荷
+            if (inputs != null && !inputs.isEmpty()) {
+                span.setAttribute("ap.payload.input", JSON.toJSONString(inputs));
+            }
+
+            WorkflowExecutionResult result = doExecute(workflow, config, inputs, effectiveRunId, flowId, operatorId, orgId);
+
+            // 出参载荷
+            if (result.getOutput() != null && !result.getOutput().isEmpty()) {
+                span.setAttribute("ap.payload.output", JSON.toJSONString(result.getOutput()));
+            }
+
+            return result;
+        });
+    }
+
+    private WorkflowExecutionResult doExecute(Workflow workflow,
+                                              WorkflowConfig config,
+                                              Map<String, Object> inputs,
+                                              String runId,
+                                              Long flowId,
+                                              Long operatorId,
+                                              Integer orgId) {
         WorkflowGraphCompiler.Compiled compiled = compiler.compile(workflow);
         ExecutionContext ctx = new ExecutionContext(runId, config, inputs, flowId, operatorId, orgId);
         compiled.batchSubGraphs().forEach(ctx::registerBatchSubGraph);

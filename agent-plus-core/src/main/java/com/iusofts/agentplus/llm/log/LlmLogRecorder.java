@@ -47,8 +47,14 @@ public interface LlmLogRecorder {
 
     /**
      * 生成链路追踪 ID。
+     * <p>优先取当前 OTel Span 的 traceId（与工作流 / chat 链路对齐）；
+     * 无 active span 时回退为 UUID。</p>
      */
     static String generateTraceId() {
+        String otelTraceId = com.iusofts.agentplus.trace.TraceUtil.currentTraceId();
+        if (otelTraceId != null) {
+            return otelTraceId;
+        }
         return UUID.randomUUID().toString().replace("-", "");
     }
 
