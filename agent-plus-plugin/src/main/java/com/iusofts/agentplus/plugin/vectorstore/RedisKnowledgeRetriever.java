@@ -19,9 +19,12 @@ import dev.langchain4j.store.embedding.EmbeddingMatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
+
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -52,6 +55,10 @@ public class RedisKnowledgeRetriever implements KnowledgeRetriever {
     private final EmbeddingModelQueryProvider embeddingModelQueryProvider;
     private final RedisVectorStoreManager vectorStoreManager;
     private final ObjectProvider<LlmLogRecorder> llmLogRecorderProvider;
+
+    @Lazy
+    @Autowired
+    private KnowledgeRetriever self;
 
     public RedisKnowledgeRetriever(
         KnowledgeBaseQueryProvider knowledgeBaseQueryProvider,
@@ -235,19 +242,20 @@ public class RedisKnowledgeRetriever implements KnowledgeRetriever {
     }
 
     @Override
+    @TraceSpan(name = "knowledge.multi_retrieve", kind = SpanKind.INTERNAL)
     public KnowledgeRetrieveResult retrieve(List<Long> knowledgeIds, String query, int topK) {
         if (knowledgeIds == null || knowledgeIds.isEmpty()) {
-            return retrieve((Long) null, query, topK);
+            return self.retrieve((Long) null, query, topK);
         }
         if (knowledgeIds.size() == 1) {
-            return retrieve(knowledgeIds.get(0), query, topK);
+            return self.retrieve(knowledgeIds.get(0), query, topK);
         }
         // 多个知识库时，从每个知识库检索后合并
         int perKbK = Math.max(1, topK / knowledgeIds.size());
         List<KnowledgeChunk> allChunks = new ArrayList<>();
         Integer totalEmbeddingTokens = null;
         for (Long knowledgeId : knowledgeIds) {
-            KnowledgeRetrieveResult singleResult = retrieve(knowledgeId, query, perKbK);
+            KnowledgeRetrieveResult singleResult = self.retrieve(knowledgeId, query, perKbK);
             if (singleResult.getChunks() != null) {
                 allChunks.addAll(singleResult.getChunks());
             }
