@@ -57,12 +57,6 @@ public class AiFlowRuntime implements Serializable {
     @Schema(description = "结束时间")
     private LocalDateTime endTime;
 
-    @Schema(description = "本次执行入参JSON")
-    private String inputParams;
-
-    @Schema(description = "全局输出结果")
-    private String outputResult;
-
     @Schema(description = "错误信息")
     private String errorMsg;
 

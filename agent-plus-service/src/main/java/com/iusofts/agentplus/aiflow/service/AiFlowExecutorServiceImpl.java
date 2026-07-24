@@ -310,7 +310,6 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
         runtime.setRunStatus(RunStatusEnum.RUNNING.getCode());
         runtime.setTrialFlag(trialFlag);
         runtime.setStartTime(LocalDateTime.now());
-        runtime.setInputParams(AiFlowCommonUtils.serialize(inputs, objectMapper));
         runtime.setCreateBy(operatorId);
         return runtime;
     }
@@ -320,7 +319,6 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
         runtime.setRunStatus(runStatus);
         runtime.setEndTime(LocalDateTime.now());
         runtime.setCostMs(costMs);
-        runtime.setOutputResult(outputResult);
         runtime.setErrorMsg(errorMsg);
         runtime.setUpdateBy(runtime.getCreateBy());
         aiFlowRuntimeMapper.updateById(runtime);
@@ -336,8 +334,6 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
         node.setNodeName(nodeName);
         node.setNodeType(nodeType);
         node.setRunStatus(runStatus);
-        node.setNodeInput(nodeInput);
-        node.setNodeOutput(outputs == null ? null : AiFlowCommonUtils.serialize(outputs, objectMapper));
         node.setErrorStack(errorStack);
         node.setStartTime(startTime);
         node.setEndTime(endTime);

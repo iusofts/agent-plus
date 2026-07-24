@@ -198,8 +198,6 @@ public class AiLlmLogQueryServiceImpl implements IAiLlmLogQueryService {
             .outputTokens(log.getOutputTokens())
             .totalTokens(log.getTotalTokens())
             .finishReason(log.getFinishReason())
-            .toolDefinitions(log.getToolDefinitions())
-            .toolCalls(log.getToolCalls())
             .success(log.getCallStatus() != null && log.getCallStatus() == 1)
             .errorMessage(log.getErrorMessage())
             .durationMs(log.getDuration())

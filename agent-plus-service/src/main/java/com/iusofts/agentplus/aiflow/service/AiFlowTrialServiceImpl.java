@@ -257,7 +257,6 @@ public class AiFlowTrialServiceImpl implements IAiFlowTrialService {
         runtime.setRunStatus(RunStatusEnum.RUNNING.getCode());
         runtime.setTrialFlag(trialFlag);
         runtime.setStartTime(LocalDateTime.now());
-        runtime.setInputParams(serialize(inputs));
         runtime.setCreateBy(operatorId);
         return runtime;
     }
@@ -267,7 +266,6 @@ public class AiFlowTrialServiceImpl implements IAiFlowTrialService {
         runtime.setRunStatus(runStatus);
         runtime.setEndTime(LocalDateTime.now());
         runtime.setCostMs(costMs);
-        runtime.setOutputResult(outputResult);
         runtime.setErrorMsg(errorMsg);
         runtime.setUpdateBy(runtime.getCreateBy());
         aiFlowRuntimeMapper.updateById(runtime);
@@ -283,8 +281,6 @@ public class AiFlowTrialServiceImpl implements IAiFlowTrialService {
         node.setNodeName(nodeName);
         node.setNodeType(nodeType);
         node.setRunStatus(runStatus);
-        node.setNodeInput(nodeInput);
-        node.setNodeOutput(outputs == null ? null : serialize(outputs));
         node.setErrorStack(errorStack);
         node.setStartTime(startTime);
         node.setEndTime(endTime);

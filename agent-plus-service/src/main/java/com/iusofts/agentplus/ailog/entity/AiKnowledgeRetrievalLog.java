@@ -52,9 +52,6 @@ public class AiKnowledgeRetrievalLog implements Serializable {
     @Schema(description = "知识库名称")
     private String knowledgeBaseName;
 
-    @Schema(description = "检索查询内容")
-    private String query;
-
     @Schema(description = "查询字符数")
     private Integer queryCharCount;
 
@@ -63,10 +60,6 @@ public class AiKnowledgeRetrievalLog implements Serializable {
 
     @Schema(description = "召回条数")
     private Integer topK;
-
-    @Schema(description = "召回文档块列表(JSON)")
-    @TableField(value = "retrieved_chunks", typeHandler = JacksonTypeHandler.class)
-    private List<ChunkEntry> retrievedChunks;
 
     @Schema(description = "实际召回数量")
     private Integer retrievedCount;
@@ -100,12 +93,4 @@ public class AiKnowledgeRetrievalLog implements Serializable {
 
     @Schema(description = "所属组织ID")
     private Integer orgId;
-
-    @Getter
-    @Setter
-    public static class ChunkEntry implements Serializable {
-        private Long chunkId;
-        private String content;
-        private Double similarity;
-    }
 }

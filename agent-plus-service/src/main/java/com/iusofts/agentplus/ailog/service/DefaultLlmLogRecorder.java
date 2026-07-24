@@ -3,8 +3,6 @@ package com.iusofts.agentplus.ailog.service;
 import com.iusofts.agentplus.ailog.entity.AiKnowledgeDocLog;
 import com.iusofts.agentplus.ailog.entity.AiKnowledgeRetrievalLog;
 import com.iusofts.agentplus.ailog.entity.AiLlmCallLog;
-import com.iusofts.agentplus.ailog.entity.AiKnowledgeRetrievalLog.ChunkEntry;
-import com.iusofts.agentplus.ailog.entity.AiLlmCallLog.MessageEntry;
 import com.iusofts.agentplus.llm.dto.AiChatMessage;
 import com.iusofts.agentplus.llm.dto.LlmModelConfigDTO;
 import com.iusofts.agentplus.llm.dto.LlmModelDTO;
@@ -172,7 +170,6 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
 
         @Override
         public LlmCallRecorder inputContent(String content) {
-            entity.setInputContent(content);
             if (content != null) {
                 entity.setInputCharCount(content.length());
             }
