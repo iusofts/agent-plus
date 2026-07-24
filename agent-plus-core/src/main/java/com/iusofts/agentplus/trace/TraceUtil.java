@@ -73,6 +73,8 @@ public final class TraceUtil {
     public static final String ATTR_MODEL_PROVIDER = "ai.model_provider";
     /** OTel Span Attribute 键：模型名称 */
     public static final String ATTR_MODELNAME = "ai.model_name";
+    /** OTel Span Attribute 键：tokens */
+    public static final String ATTR_TOKENS = "ai.tokens";
 
     private TraceUtil() {
     }
@@ -359,6 +361,16 @@ public final class TraceUtil {
      * 设置当前 Span 的属性。
      */
     public static void setSpanAttribute(String key, @Nullable String value) {
+        Span span = Span.current();
+        if (span != null && span.getSpanContext().isValid() && StringUtils.isNotBlank(key)) {
+            span.setAttribute(key, value);
+        }
+    }
+
+    /**
+     * 设置当前 Span 的属性。
+     */
+    public static void setSpanAttribute(String key, long value) {
         Span span = Span.current();
         if (span != null && span.getSpanContext().isValid() && StringUtils.isNotBlank(key)) {
             span.setAttribute(key, value);

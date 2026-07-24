@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import static com.iusofts.agentplus.trace.TraceUtil.ATTR_MODELNAME;
+import static com.iusofts.agentplus.trace.TraceUtil.ATTR_TOKENS;
 
 /**
  * 基于 Redis 向量库的知识库检索实现（无 DB 依赖，依赖抽象）。
@@ -107,13 +108,24 @@ public class RedisKnowledgeRetriever implements KnowledgeRetriever {
 
             TraceUtil.setLabel(kb.getName());
 
+            EmbeddingModelDTO modelDTO = null;
+            try {
+                modelDTO = embeddingModelQueryProvider.getModel(kb.getEmbeddingModelId());
+                if (modelDTO != null) {
+                    TraceUtil.setSpanAttribute(ATTR_MODELNAME, modelDTO.getModelName());
+                }
+            } catch (Exception e) {
+                log.debug("查询嵌入模型信息失败,日志将不带模型详情", e);
+            }
+
             EmbeddingModel embeddingModel = embeddingModelProvider.provide(kb.getEmbeddingModelId());
-            TraceUtil.setSpanAttribute(ATTR_MODELNAME, embeddingModel.modelName());
-            Response<Embedding> embeddingResponse = embedQueryWithLog(embeddingModel, kb, query);
+            Response<Embedding> embeddingResponse = embedQueryWithLog(embeddingModel, kb, modelDTO, query);
             Embedding queryEmbedding = embeddingResponse.content();
             Integer embeddingTokens = embeddingResponse.tokenUsage() != null
                 ? embeddingResponse.tokenUsage().totalTokenCount()
                 : null;
+
+            TraceUtil.setSpanAttribute(ATTR_TOKENS, embeddingTokens);
 
             int limit = topK > 0 ? topK : 3;
             List<EmbeddingMatch<TextSegment>> matches =
@@ -194,22 +206,22 @@ public class RedisKnowledgeRetriever implements KnowledgeRetriever {
     /**
      * 执行 query 向量化，并把这次 embedding 调用落库到 {@code ai_llm_call_log}。
      */
-    private Response<Embedding> embedQueryWithLog(EmbeddingModel embeddingModel, KnowledgeBaseDTO kb,
+    private Response<Embedding> embedQueryWithLog(EmbeddingModel embeddingModel, KnowledgeBaseDTO kb, EmbeddingModelDTO modelDTO,
                                                   String query) {
         LocalDateTime start = LocalDateTime.now();
         Response<Embedding> embeddingResponse;
         try {
             embeddingResponse = embeddingModel.embed(query);
         } catch (RuntimeException e) {
-            recordEmbeddingCall(kb, query, null, start, e.getMessage());
+            recordEmbeddingCall(kb, modelDTO, query, null, start, e.getMessage());
             throw e;
         }
-        recordEmbeddingCall(kb, query, embeddingResponse.tokenUsage(), start, null);
+        recordEmbeddingCall(kb, modelDTO, query, embeddingResponse.tokenUsage(), start, null);
         return embeddingResponse;
     }
 
     /** 记录一次检索场景的 embedding 调用日志。无 active span 或无记录器时静默跳过。 */
-    private void recordEmbeddingCall(KnowledgeBaseDTO kb, String query,
+    private void recordEmbeddingCall(KnowledgeBaseDTO kb, EmbeddingModelDTO modelDTO, String query,
                                      dev.langchain4j.model.output.TokenUsage tokenUsage,
                                      LocalDateTime start, String errorMessage) {
         if (!TraceUtil.hasActiveSpan()) {
@@ -220,12 +232,7 @@ public class RedisKnowledgeRetriever implements KnowledgeRetriever {
             return;
         }
         try {
-            EmbeddingModelDTO modelDTO = null;
-            try {
-                modelDTO = embeddingModelQueryProvider.getModel(kb.getEmbeddingModelId());
-            } catch (Exception e) {
-                log.debug("查询嵌入模型信息失败,日志将不带模型详情", e);
-            }
+            
             LlmLogRecorder.LlmCallRecorder call = recorder.recordLlmCall()
                 .traceId(LlmLogRecorder.generateTraceId())
                 .startTime(start)

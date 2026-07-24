@@ -21,6 +21,8 @@ import java.time.LocalDateTime;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+import static com.iusofts.agentplus.trace.TraceUtil.ATTR_TOKENS;
+
 /**
  * 基于数据库的 ChatModelProvider 实现（无 DB 依赖，依赖抽象）。
  *
@@ -93,6 +95,7 @@ public class AiModelChatModelProvider implements ChatModelProvider {
         try {
             AiChatResponse response = doChat(request);
             if (TraceUtil.hasActiveSpan()) {
+                TraceUtil.setSpanAttribute(ATTR_TOKENS, response.getTotalTokens());
                 newRecorder(startTime, modelDTO, request)
                     .output(response.getContent(), response.getInputTokens(), response.getOutputTokens())
                     .toolCalls(response.getToolCalls(), response.getFinishReason())
