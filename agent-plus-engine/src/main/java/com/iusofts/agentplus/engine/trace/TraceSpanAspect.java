@@ -48,6 +48,12 @@ public class TraceSpanAspect {
                 .setSpanKind(traceSpan.kind())
                 .startSpan();
 
+        // 设置 label 属性
+        String label = traceSpan.label();
+        if (label != null && !label.isEmpty()) {
+            span.setAttribute("label", label);
+        }
+
         // 记录方法入参为载荷（写入约定 payload key，由 exporter 落附表）
         String[] paramNames = ((MethodSignature) joinPoint.getSignature()).getParameterNames();
         Object[] paramValues = joinPoint.getArgs();

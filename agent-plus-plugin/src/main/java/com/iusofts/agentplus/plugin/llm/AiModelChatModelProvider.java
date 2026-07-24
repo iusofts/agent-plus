@@ -82,6 +82,10 @@ public class AiModelChatModelProvider implements ChatModelProvider {
         if (request.getModelId() != null) {
             try {
                 modelDTO = modelQueryProvider.getModel(request.getModelId());
+                if (modelDTO != null) {
+                    TraceUtil.setLabel(modelDTO.getModelName());
+                    TraceUtil.setSpanAttribute(TraceUtil.ATTR_MODEL_PROVIDER, modelDTO.getProvider());
+                }
             } catch (Exception e) {
                 // 查询模型信息失败不影响主流程，日志将不带模型详情
             }

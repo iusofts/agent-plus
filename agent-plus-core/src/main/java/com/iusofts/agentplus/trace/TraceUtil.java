@@ -9,6 +9,8 @@ import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
+import jakarta.annotation.Nullable;
+import org.apache.commons.lang3.StringUtils;
 
 import java.util.function.Supplier;
 
@@ -55,6 +57,8 @@ public final class TraceUtil {
 
     // ==================== Span Attribute Keys（用于记录，不用于读取） ====================
 
+    /** OTel Span Attribute 键：标签 */
+    public static final String ATTR_LABEL = "label";
     /** OTel Span Attribute 键：调用来源 */
     public static final String ATTR_CALL_SOURCE = "ai.call_source";
     /** OTel Span Attribute 键：来源 ID */
@@ -65,6 +69,10 @@ public final class TraceUtil {
     public static final String ATTR_OPERATOR_ID = "ai.operator_id";
     /** OTel Span Attribute 键：组织 ID */
     public static final String ATTR_ORG_ID = "ai.org_id";
+    /** OTel Span Attribute 键：模型提供商 */
+    public static final String ATTR_MODEL_PROVIDER = "ai.model_provider";
+    /** OTel Span Attribute 键：模型名称 */
+    public static final String ATTR_MODELNAME = "ai.model_name";
 
     private TraceUtil() {
     }
@@ -335,6 +343,26 @@ public final class TraceUtil {
     public static boolean hasActiveSpan() {
         Span span = Span.current();
         return span != null && span.getSpanContext().isValid();
+    }
+
+    /**
+     * 设置当前 Span 的 label 属性。
+     */
+    public static void setLabel(String label) {
+        Span span = Span.current();
+        if (span != null && span.getSpanContext().isValid() && label != null && !label.isEmpty()) {
+            span.setAttribute(ATTR_LABEL, label);
+        }
+    }
+
+    /**
+     * 设置当前 Span 的属性。
+     */
+    public static void setSpanAttribute(String key, @Nullable String value) {
+        Span span = Span.current();
+        if (span != null && span.getSpanContext().isValid() && StringUtils.isNotBlank(key)) {
+            span.setAttribute(key, value);
+        }
     }
 
     // ==================== 辅助接口 ====================

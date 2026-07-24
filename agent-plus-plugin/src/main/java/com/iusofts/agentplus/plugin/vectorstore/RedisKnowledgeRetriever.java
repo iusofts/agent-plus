@@ -31,6 +31,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static com.iusofts.agentplus.trace.TraceUtil.ATTR_MODELNAME;
+
 /**
  * 基于 Redis 向量库的知识库检索实现（无 DB 依赖，依赖抽象）。
  *
@@ -103,7 +105,10 @@ public class RedisKnowledgeRetriever implements KnowledgeRetriever {
                 return result;
             }
 
+            TraceUtil.setLabel(kb.getName());
+
             EmbeddingModel embeddingModel = embeddingModelProvider.provide(kb.getEmbeddingModelId());
+            TraceUtil.setSpanAttribute(ATTR_MODELNAME, embeddingModel.modelName());
             Response<Embedding> embeddingResponse = embedQueryWithLog(embeddingModel, kb, query);
             Embedding queryEmbedding = embeddingResponse.content();
             Integer embeddingTokens = embeddingResponse.tokenUsage() != null
