@@ -67,7 +67,7 @@
         <aliyun-sdk-core.version>4.1.0</aliyun-sdk-core.version>
         <aliyun-sdk-sts.version>3.0.0</aliyun-sdk-sts.version>
         <aliyun-sdk-oss.version>3.7.0</aliyun-sdk-oss.version>
-        <dashscope-sdk.version>2.22.13</dashscope-sdk.version>
+        <dashscope-sdk.version>2.22.22</dashscope-sdk.version>
         <easyexcel.version>4.0.3</easyexcel.version>
         <okhttp.version>4.12.0</okhttp.version>
         <freemarker.version>2.3.23</freemarker.version>
@@ -83,8 +83,8 @@
         <maven-war-plugin.version>3.3.2</maven-war-plugin.version>
 
         <!-- AI / LangChain4j -->
-        <langchain4j.version>1.18.0</langchain4j.version>
-        <langchain4j-community.version>1.18.0-beta28</langchain4j-community.version>
+        <langchain4j.version>1.17.2</langchain4j.version>
+        <langchain4j-community.version>1.17.2-beta27</langchain4j-community.version>
         <!-- 覆盖 Spring Boot BOM 管理的 Jedis 版本(默认6.0.0)。
              langchain4j-community-redis 编译于 Jedis 7.2.1,其 UnifiedJedis.pipelined()
              返回 AbstractPipeline,6.0.0 无此签名会抛 NoSuchMethodError -->
