@@ -83,10 +83,8 @@
         <maven-war-plugin.version>3.3.2</maven-war-plugin.version>
 
         <!-- AI / LangChain4j -->
-        <langchain4j.version>1.17.1</langchain4j.version>
-        <langchain4j-community.version>1.13.0-beta23</langchain4j-community.version>
-        <!-- Redis 向量库集成(社区版,单独版本) -->
-        <langchain4j-community-redis.version>1.17.2-beta27</langchain4j-community-redis.version>
+        <langchain4j.version>1.18.0</langchain4j.version>
+        <langchain4j-community.version>1.18.0-beta28</langchain4j-community.version>
         <!-- 覆盖 Spring Boot BOM 管理的 Jedis 版本(默认6.0.0)。
              langchain4j-community-redis 编译于 Jedis 7.2.1,其 UnifiedJedis.pipelined()
              返回 AbstractPipeline,6.0.0 无此签名会抛 NoSuchMethodError -->
@@ -357,7 +355,7 @@
             <dependency>
                 <groupId>dev.langchain4j</groupId>
                 <artifactId>langchain4j-community-redis</artifactId>
-                <version>${langchain4j-community-redis.version}</version>
+                <version>${langchain4j-community.version}</version>
             </dependency>
 
             <!-- ================= 文档解析 (Apache Tika) ================= -->
