@@ -47,6 +47,9 @@ public class ExecutionContext implements Serializable {
     /** 主图运行时可用的批处理子图,由 {@code WorkflowGraphCompiler} 预编译写入,BatchNodeExecutor 直接调用。 */
     private transient final Map<String, CompiledGraph<?>> batchSubGraphs = new ConcurrentHashMap<>();
 
+    /** Root span 的 Context，用于节点 span 的父 context，确保所有节点都是平级。 */
+    private transient io.opentelemetry.context.Context rootContext;
+
     public ExecutionContext(String runId,
                             WorkflowConfig config,
                             Map<String, Object> globalInputs) {
@@ -156,5 +159,21 @@ public class ExecutionContext implements Serializable {
 
     public CompiledGraph<?> getBatchSubGraph(String batchId) {
         return batchSubGraphs.get(batchId);
+    }
+
+    public io.opentelemetry.context.Context getRootContext() {
+        ExecutionContext root = this;
+        while (root.parent != null) {
+            root = root.parent;
+        }
+        return root.rootContext;
+    }
+
+    public void setRootContext(io.opentelemetry.context.Context rootContext) {
+        ExecutionContext root = this;
+        while (root.parent != null) {
+            root = root.parent;
+        }
+        root.rootContext = rootContext;
     }
 }

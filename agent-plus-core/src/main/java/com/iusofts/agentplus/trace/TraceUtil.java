@@ -100,9 +100,28 @@ public final class TraceUtil {
      */
     @SuppressWarnings("unchecked")
     public static <T, E extends Throwable> T span(String spanName, SpanKind kind, TraceAction<T> action) throws E {
-        Span span = tracer().spanBuilder(spanName)
-            .setSpanKind(kind)
-            .startSpan();
+        return span(spanName, kind, null, action);
+    }
+
+    /**
+     * 创建同步 Span 模板，可指定父 Context，自动处理异常状态并结束 Span。
+     *
+     * @param spanName    span 名称
+     * @param kind        span 类型
+     * @param parentContext 父 Context，null 时使用当前 Context
+     * @param action      业务逻辑
+     * @param <T>         返回值类型
+     * @return 业务逻辑返回值
+     */
+    @SuppressWarnings("unchecked")
+    public static <T, E extends Throwable> T span(String spanName, SpanKind kind,
+                                                   @Nullable Context parentContext,
+                                                   TraceAction<T> action) throws E {
+        var spanBuilder = tracer().spanBuilder(spanName).setSpanKind(kind);
+        if (parentContext != null) {
+            spanBuilder.setParent(parentContext);
+        }
+        Span span = spanBuilder.startSpan();
         try (Scope scope = span.makeCurrent()) {
             return action.run(span);
         } catch (Exception e) {

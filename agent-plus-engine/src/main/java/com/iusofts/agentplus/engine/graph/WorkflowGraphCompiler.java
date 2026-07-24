@@ -261,7 +261,8 @@ public class WorkflowGraphCompiler {
             java.time.LocalDateTime startTime = java.time.LocalDateTime.now();
             try {
                 LOGGER.debug("execute node id={} type={}", node.getId(), node.getType());
-                NodeOutput out = TraceUtil.span("node." + node.getId(), SpanKind.INTERNAL, span -> {
+                // 使用 rootContext 作为父 context，确保所有节点都是平级的
+                NodeOutput out = TraceUtil.span("node." + node.getId(), SpanKind.INTERNAL, ctx.getRootContext(), span -> {
                     span.setAttribute("nodeId", node.getId());
                     span.setAttribute("nodeType", node.getType());
                     // 取节点名称:优先 data.label,其次 node.label

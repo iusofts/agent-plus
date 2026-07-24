@@ -133,7 +133,10 @@ public class WorkflowEngine {
                 span.setAttribute("ap.payload.input", JSON.toJSONString(inputs));
             }
 
-            WorkflowExecutionResult result = doExecute(workflow, config, inputs, effectiveRunId, flowId, operatorId, orgId);
+            // 保存当前 context 作为 root context，供后续节点 span 使用
+            io.opentelemetry.context.Context rootContext = io.opentelemetry.context.Context.current();
+
+            WorkflowExecutionResult result = doExecute(workflow, config, inputs, effectiveRunId, flowId, operatorId, orgId, rootContext);
 
             // 出参载荷
             if (result.getOutput() != null && !result.getOutput().isEmpty()) {
@@ -150,9 +153,11 @@ public class WorkflowEngine {
                                               String runId,
                                               Long flowId,
                                               Long operatorId,
-                                              Integer orgId) {
+                                              Integer orgId,
+                                              io.opentelemetry.context.Context rootContext) {
         WorkflowGraphCompiler.Compiled compiled = compiler.compile(workflow);
         ExecutionContext ctx = new ExecutionContext(runId, config, inputs, flowId, operatorId, orgId);
+        ctx.setRootContext(rootContext);
         compiled.batchSubGraphs().forEach(ctx::registerBatchSubGraph);
 
         CompiledGraph<WorkflowState> mainGraph = compiled.mainGraph();
