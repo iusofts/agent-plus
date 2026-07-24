@@ -9,7 +9,9 @@ import com.iusofts.agentplus.knowledge.dto.KnowledgeRetrieveResult;
 import com.iusofts.agentplus.knowledge.KnowledgeBaseQueryProvider;
 import com.iusofts.agentplus.llm.log.LlmLogRecorder;
 import com.iusofts.agentplus.trace.TraceUtil;
+import com.iusofts.agentplus.trace.annotation.TraceSpan;
 import dev.langchain4j.data.embedding.Embedding;
+import io.opentelemetry.api.trace.SpanKind;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.output.Response;
@@ -65,6 +67,7 @@ public class RedisKnowledgeRetriever implements KnowledgeRetriever {
     }
 
     @Override
+    @TraceSpan(name = "knowledge.retrieve", kind = SpanKind.INTERNAL)
     public KnowledgeRetrieveResult retrieve(Long knowledgeId, String query, int topK) {
         LocalDateTime retrieveStart = LocalDateTime.now();
         KnowledgeRetrieveResult result = new KnowledgeRetrieveResult();

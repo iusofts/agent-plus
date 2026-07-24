@@ -10,7 +10,9 @@ import com.iusofts.agentplus.llm.dto.LlmModelDTO;
 import com.iusofts.agentplus.llm.LlmModelQueryProvider;
 import com.iusofts.agentplus.llm.log.LlmLogRecorder;
 import com.iusofts.agentplus.trace.TraceUtil;
+import com.iusofts.agentplus.trace.annotation.TraceSpan;
 import dev.langchain4j.model.chat.ChatModel;
+import io.opentelemetry.api.trace.SpanKind;
 import jakarta.annotation.Resource;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
@@ -73,6 +75,7 @@ public class AiModelChatModelProvider implements ChatModelProvider {
      * 调用方需在调用前通过 {@link TraceUtil} 设置属性。
      */
     @Override
+    @TraceSpan(name = "llm.chat", kind = SpanKind.INTERNAL)
     public AiChatResponse chat(AiChatRequest request) {
         LocalDateTime startTime = LocalDateTime.now();
         LlmModelDTO modelDTO = null;

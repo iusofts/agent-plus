@@ -159,18 +159,12 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
         @Override
         public LlmCallRecorder inputMessages(List<AiChatMessage> messages) {
             if (messages != null) {
-                List<MessageEntry> entries = new ArrayList<>();
                 int totalChars = 0;
                 for (AiChatMessage msg : messages) {
-                    MessageEntry entry = new MessageEntry();
-                    entry.setRole(msg.getRole());
-                    entry.setContent(msg.getContent());
-                    entries.add(entry);
                     if (msg.getContent() != null) {
                         totalChars += msg.getContent().length();
                     }
                 }
-                entity.setInputMessages(entries);
                 entity.setInputCharCount(totalChars);
             }
             return this;
@@ -194,17 +188,13 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
 
         @Override
         public LlmCallRecorder toolDefinitions(List<ToolDefinition> toolDefinitions) {
-            if (toolDefinitions != null && !toolDefinitions.isEmpty()) {
-                entity.setToolDefinitions(toolDefinitions);
-            }
+            // 大字段不再保存到业务表，通过 Span payload 保存到 ai_trace_span_payload
             return this;
         }
 
         @Override
         public LlmCallRecorder toolCalls(List<ToolCall> toolCalls, String finishReason) {
-            if (toolCalls != null && !toolCalls.isEmpty()) {
-                entity.setToolCalls(toolCalls);
-            }
+            // 大字段不再保存到业务表，通过 Span payload 保存到 ai_trace_span_payload
             entity.setFinishReason(finishReason);
             return this;
         }
@@ -223,7 +213,6 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
 
         @Override
         public LlmCallRecorder output(String content, Integer inputTokens, Integer outputTokens) {
-            entity.setOutputContent(content);
             entity.setOutputCharCount(content != null ? content.length() : 0);
             entity.setInputTokens(inputTokens);
             entity.setOutputTokens(outputTokens);
@@ -341,7 +330,6 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
 
         @Override
         public KnowledgeRetrievalRecorder query(String query) {
-            entity.setQuery(query);
             entity.setQueryCharCount(query != null ? query.length() : 0);
             return this;
         }
@@ -376,13 +364,6 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
         public KnowledgeRetrievalRecorder retrievedChunks(List<String> chunks, Integer embeddingTokens) {
             if (chunks != null) {
                 entity.setRetrievedCount(chunks.size());
-                List<ChunkEntry> entries = new ArrayList<>();
-                for (String chunk : chunks) {
-                    ChunkEntry entry = new ChunkEntry();
-                    entry.setContent(truncate(chunk));
-                    entries.add(entry);
-                }
-                entity.setRetrievedChunks(entries);
             }
             entity.setQueryEmbeddingTokens(embeddingTokens);
             return this;
@@ -396,15 +377,6 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
             List<KnowledgeChunk> chunks = result.getChunks();
             if (chunks != null) {
                 entity.setRetrievedCount(chunks.size());
-                List<ChunkEntry> entries = new ArrayList<>();
-                for (KnowledgeChunk chunk : chunks) {
-                    ChunkEntry entry = new ChunkEntry();
-                    entry.setChunkId(chunk.getChunkId());
-                    entry.setContent(truncate(chunk.getContent()));
-                    entry.setSimilarity(chunk.getScore());
-                    entries.add(entry);
-                }
-                entity.setRetrievedChunks(entries);
             }
             entity.setQueryEmbeddingTokens(result.getEmbeddingTokens());
             return this;
