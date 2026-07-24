@@ -14,8 +14,8 @@ import com.iusofts.agentplus.library.knowledge.KnowledgeIngestionService;
 import com.iusofts.agentplus.library.mapper.AiKnowledgeBaseMapper;
 import com.iusofts.agentplus.library.mapper.AiKnowledgeChunkMapper;
 import com.iusofts.agentplus.library.mapper.AiKnowledgeDocumentMapper;
-import com.iusofts.agentplus.ailog.dto.AiTraceContext;
 import com.iusofts.agentplus.llm.log.LlmLogRecorder;
+import com.iusofts.agentplus.trace.TraceUtil;
 import com.iusofts.agentplus.plugin.vectorstore.KnowledgeMetadata;
 import com.iusofts.agentplus.plugin.vectorstore.KnowledgeStoreService;
 import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeBaseAddReqVo;
@@ -44,6 +44,8 @@ import java.util.Map;
  * <p>
  * AI知识库 服务实现类
  * </p>
+ *
+ * <p>方案一：链路信息通过 OpenTelemetry Span Attributes 传递。
  *
  * @author Ivan
  * @since 2026-07-08
@@ -231,15 +233,12 @@ public class AiKnowledgeBaseServiceImpl extends ServiceImpl<AiKnowledgeBaseMappe
             }
             if (!vectorIds.isEmpty()) {
                 int embeddingTokens = 0;
-                AiTraceContext ctx = AiTraceContext.builder()
-                        .traceId(LlmLogRecorder.generateTraceId())
-                        .operatorId(reqVo.getOperatorId())
-                        .orgId(reqVo.getOrgId())
-                        .build();
+                // 方案一：设置操作人信息到 Span
+                TraceUtil.setOperator(reqVo.getOperatorId(), reqVo.getOrgId());
                 try {
                     embeddingTokens = knowledgeStoreService.batchEmbedAndStore(
                             kb.getCollectionName(), vectorIds, contents, metadatas,
-                            kb.getEmbeddingModelId(), kb.getId(), ctx);
+                            kb.getEmbeddingModelId(), kb.getId());
                 } catch (Exception e) {
                     try {
                         llmLogRecorder.recordKnowledgeDoc()

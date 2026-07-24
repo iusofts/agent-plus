@@ -11,8 +11,8 @@ import com.iusofts.agentplus.library.entity.AiKnowledgeDocument;
 import com.iusofts.agentplus.library.interfaces.IAiKnowledgeDocumentService;
 import com.iusofts.agentplus.library.knowledge.KnowledgeIngestExecutor;
 import com.iusofts.agentplus.library.knowledge.KnowledgeIngestionService;
-import com.iusofts.agentplus.ailog.dto.AiTraceContext;
 import com.iusofts.agentplus.llm.log.LlmLogRecorder;
+import com.iusofts.agentplus.trace.TraceUtil;
 import com.iusofts.agentplus.plugin.vectorstore.KnowledgeMetadata;
 import com.iusofts.agentplus.plugin.vectorstore.KnowledgeStoreService;
 import com.iusofts.agentplus.plugin.vectorstore.RedisVectorStoreManager;
@@ -48,6 +48,8 @@ import java.util.Map;
  *
  * <p>新增时仅登记文档元数据(OSS url + 文件名),status=0(待处理),随后在事务提交后
  * 异步提交到有界线程池执行「下载->解析->分块->向量化->落库」管线。</p>
+ *
+ * <p>方案一：链路信息通过 OpenTelemetry Span Attributes 传递。
  *
  * @author Ivan
  * @since 2026-07-08
@@ -264,15 +266,12 @@ public class AiKnowledgeDocumentServiceImpl extends ServiceImpl<AiKnowledgeDocum
         }
         if (!vectorIds.isEmpty()) {
             int embeddingTokens;
-            AiTraceContext ctx = AiTraceContext.builder()
-                    .traceId(LlmLogRecorder.generateTraceId())
-                    .operatorId(operatorId)
-                    .orgId(orgId)
-                    .build();
+            // 方案一：设置操作人信息到 Span
+            TraceUtil.setOperator(operatorId, orgId);
             try {
                 embeddingTokens = knowledgeStoreService.batchEmbedAndStore(
                         kb.getCollectionName(), vectorIds, contents, metadatas,
-                        kb.getEmbeddingModelId(), kb.getId(), ctx);
+                        kb.getEmbeddingModelId(), kb.getId());
             } catch (Exception e) {
                 recordDocLogSafely(kb, doc, operatorId, orgId, null, null, null, e.getMessage());
                 throw new SystemBusinessException("重建向量数据失败:" + e.getMessage());
@@ -383,15 +382,12 @@ public class AiKnowledgeDocumentServiceImpl extends ServiceImpl<AiKnowledgeDocum
         }
         if (!vectorIds.isEmpty()) {
             int embeddingTokens;
-            AiTraceContext ctx = AiTraceContext.builder()
-                    .traceId(LlmLogRecorder.generateTraceId())
-                    .operatorId(reqVo.getOperatorId())
-                    .orgId(reqVo.getOrgId())
-                    .build();
+            // 方案一：设置操作人信息到 Span
+            TraceUtil.setOperator(reqVo.getOperatorId(), reqVo.getOrgId());
             try {
                 embeddingTokens = knowledgeStoreService.batchEmbedAndStore(
                         kb.getCollectionName(), vectorIds, contents, metadatas,
-                        kb.getEmbeddingModelId(), kb.getId(), ctx);
+                        kb.getEmbeddingModelId(), kb.getId());
             } catch (Exception e) {
                 recordDocLogSafely(kb, doc, reqVo.getOperatorId(), reqVo.getOrgId(),
                         null, null, null, e.getMessage());

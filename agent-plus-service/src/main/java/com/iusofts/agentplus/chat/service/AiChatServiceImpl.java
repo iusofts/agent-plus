@@ -1,39 +1,33 @@
 package com.iusofts.agentplus.chat.service;
 
-import com.iusofts.agentplus.chat.interfaces.IAiChatServiceInterface;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.iusofts.agentplus.basic.exception.SystemBusinessException;
+import com.iusofts.agentplus.basic.utils.ModelMapperUtil;
+import com.iusofts.agentplus.basic.utils.StringUtils;
 import com.iusofts.agentplus.chat.entity.AiAgent;
 import com.iusofts.agentplus.chat.entity.AiConversation;
 import com.iusofts.agentplus.chat.entity.AiMessage;
+import com.iusofts.agentplus.chat.interfaces.IAiChatServiceInterface;
 import com.iusofts.agentplus.chat.mapper.AiAgentMapper;
 import com.iusofts.agentplus.chat.vo.AiMessageVo;
 import com.iusofts.agentplus.chat.vo.AiServiceChatReqVo;
 import com.iusofts.agentplus.chat.vo.ToolCallTraceVo;
-import com.iusofts.agentplus.basic.exception.SystemBusinessException;
-import com.iusofts.agentplus.basic.utils.ModelMapperUtil;
-import com.iusofts.agentplus.basic.utils.StringUtils;
-import com.iusofts.agentplus.id.service.IdService;
-import com.iusofts.agentplus.id.service.IdService.UidTypeEnum;
-import com.iusofts.agentplus.llm.dto.AiChatMessage;
-import com.iusofts.agentplus.llm.dto.AiChatRequest;
-import com.iusofts.agentplus.llm.dto.AiChatResponse;
-import com.iusofts.agentplus.llm.dto.LlmModelConfigDTO;
-import com.iusofts.agentplus.llm.dto.ToolCall;
-import com.iusofts.agentplus.llm.dto.ToolDefinition;
-import com.iusofts.agentplus.ailog.dto.AiTraceContext;
-import com.iusofts.agentplus.llm.log.LlmLogRecorder;
-import com.iusofts.agentplus.trace.annotation.TraceSpan;
 import com.iusofts.agentplus.engine.knowledge.KnowledgeRetriever;
-import io.opentelemetry.api.trace.SpanKind;
 import com.iusofts.agentplus.engine.llm.ChatModelProvider;
 import com.iusofts.agentplus.engine.tool.ToolRegistry;
+import com.iusofts.agentplus.id.service.IdService;
+import com.iusofts.agentplus.id.service.IdService.UidTypeEnum;
 import com.iusofts.agentplus.knowledge.dto.KnowledgeChunk;
 import com.iusofts.agentplus.knowledge.dto.KnowledgeRetrieveResult;
+import com.iusofts.agentplus.llm.dto.*;
 import com.iusofts.agentplus.tool.ToolQueryProvider;
 import com.iusofts.agentplus.tool.dto.ToolDTO;
 import com.iusofts.agentplus.tool.dto.ToolExecuteRequest;
 import com.iusofts.agentplus.tool.dto.ToolExecuteResult;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.iusofts.agentplus.trace.TraceUtil;
+import com.iusofts.agentplus.trace.annotation.TraceSpan;
+import io.opentelemetry.api.trace.SpanKind;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
@@ -48,6 +42,9 @@ import java.util.stream.Collectors;
 
 /**
  * AI 服务实现。
+ *
+ * <p>方案一：链路信息通过 OpenTelemetry Span Attributes 传递，
+ * 不再手动构造和透传 AiTraceContext。
  *
  * @author Ivan Shen
  */
@@ -113,7 +110,7 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
             dialog.addAll(aiMessageService.getList(reqVo.getConversationId()));
         }
         List<AiMessageVo> requestMsgs = new ArrayList<>();
-        if (StringUtils.isNotBlank(reqVo.getContent())) {
+        if (StringUtils.hasText(reqVo.getContent())) {
             AiMessageVo userMsg = new AiMessageVo();
             userMsg.setRole("user");
             userMsg.setContent(reqVo.getContent());
@@ -122,15 +119,16 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
         }
         dialog.addAll(requestMsgs);
 
-        String traceId = LlmLogRecorder.generateTraceId();
         String userQuestion = reqVo.getContent();
 
         // 3. 构建发送给模型的消息：系统提示词与知识库合并为单条 system，动态生成不落库
-        String knowledgeContext = retrieveKnowledge(aiAgent, userQuestion, traceId, reqVo.getOperatorId(), reqVo.getOrgId());
+        // 设置操作人信息到 Span
+        TraceUtil.setOperator(reqVo.getOperatorId(), reqVo.getOrgId());
+        String knowledgeContext = retrieveKnowledge(aiAgent, userQuestion, conversation != null ? conversation.getId() : null);
         String systemContent = buildSystemPrompt(aiAgent, knowledgeContext);
 
         List<AiChatMessage> msgList = new ArrayList<>();
-        if (StringUtils.isNotBlank(systemContent)) {
+        if (StringUtils.hasText(systemContent)) {
             msgList.add(AiChatMessage.builder().role("system").content(systemContent).build());
         }
         msgList.addAll(buildDialogContext(dialog, aiAgent));
@@ -145,19 +143,15 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
 
         AiChatResponse response = null;
         for (int iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
-            AiTraceContext traceContext = AiTraceContext.builder()
-                .traceId(traceId)
-                .callSource("CHAT")
-                .sourceId(conversation != null ? conversation.getId() : null)
-                .operatorId(reqVo.getOperatorId())
-                .orgId(reqVo.getOrgId())
-                .build();
+            // 设置调用来源到 Span（每次循环设置，因为 Span 在当前上下文中）
+            TraceUtil.setCallSource("CHAT", conversation != null ? conversation.getId() : null);
+
             response = chatModelProvider.chat(AiChatRequest.builder()
                 .modelId(modelId)
                 .messages(msgList)
                 .config(config)
                 .tools(toolDefinitions)
-                .build(), traceContext);
+                .build());
 
             // 模型未请求工具调用，得到最终回答，结束循环
             if (CollectionUtils.isEmpty(response.getToolCalls())) {
@@ -229,7 +223,7 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
     }
 
     private String buildTitle(String content) {
-        if (StringUtils.isNotBlank(content)) {
+        if (StringUtils.hasText(content)) {
             return content.substring(0, Math.min(content.length(), 15));
         }
         return "新对话";
@@ -250,10 +244,10 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
      */
     private String buildSystemPrompt(AiAgent aiAgent, String knowledgeContext) {
         StringBuilder sb = new StringBuilder();
-        if (aiAgent != null && StringUtils.isNotBlank(aiAgent.getSystemPrompt())) {
+        if (aiAgent != null && StringUtils.hasText(aiAgent.getSystemPrompt())) {
             sb.append(aiAgent.getSystemPrompt().trim());
         }
-        if (StringUtils.isNotBlank(knowledgeContext)) {
+        if (StringUtils.hasText(knowledgeContext)) {
             if (sb.length() > 0) {
                 sb.append("\n\n");
             }
@@ -274,7 +268,7 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
             }
         }
 
-        Integer contextRounds = aiAgent == null ? null : aiAgent.getContextRounds();
+        Integer contextRounds = aiAgent != null ? aiAgent.getContextRounds() : null;
         if (contextRounds != null && contextRounds > 0) {
             int keep = contextRounds * 2;
             if (dialogMsgs.size() > keep) {
@@ -294,19 +288,14 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
         return msgList;
     }
 
-    private String retrieveKnowledge(AiAgent aiAgent, String query, String traceId, Long operatorId, Integer orgId) {
-        if (aiAgent == null || StringUtils.isBlank(query) || CollectionUtils.isEmpty(aiAgent.getKnowledgeBaseIds())) {
+    private String retrieveKnowledge(AiAgent aiAgent, String query, Long conversationId) {
+        if (aiAgent == null || !StringUtils.hasText(query) || CollectionUtils.isEmpty(aiAgent.getKnowledgeBaseIds())) {
             return null;
         }
         int topK = aiAgent.getRetrievalTopK() == null || aiAgent.getRetrievalTopK() <= 0 ? DEFAULT_RETRIEVAL_TOP_K : aiAgent.getRetrievalTopK();
 
-        AiTraceContext embeddingCtx = AiTraceContext.builder()
-                .traceId(traceId)
-                .callSource("AGENT")
-                .sourceId(aiAgent.getId())
-                .operatorId(operatorId)
-                .orgId(orgId)
-                .build();
+        // 设置调用来源到 Span（知识库检索场景）
+        TraceUtil.setCallSource("AGENT", aiAgent.getId());
 
         List<String> chunks = new ArrayList<>();
         for (Long kbId : aiAgent.getKnowledgeBaseIds()) {
@@ -314,10 +303,10 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
                 continue;
             }
             // 检索日志（embedding 调用与召回明细）由 KnowledgeRetriever 底层统一落库
-            KnowledgeRetrieveResult result = knowledgeRetriever.retrieve(kbId, query, topK, embeddingCtx);
+            KnowledgeRetrieveResult result = knowledgeRetriever.retrieve(kbId, query, topK);
             List<String> retrievedChunks = result.getChunks() != null
-                    ? result.getChunks().stream().map(KnowledgeChunk::getContent).collect(Collectors.toList())
-                    : List.of();
+                ? result.getChunks().stream().map(KnowledgeChunk::getContent).collect(Collectors.toList())
+                : List.of();
             chunks.addAll(retrievedChunks);
         }
         if (chunks.isEmpty()) {
@@ -418,7 +407,7 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
      * 解析模型返回的工具调用参数（JSON 字符串）为 Map。
      */
     private Map<String, Object> parseArguments(String arguments) {
-        if (StringUtils.isBlank(arguments)) {
+        if (!StringUtils.hasText(arguments)) {
             return new HashMap<>();
         }
         try {

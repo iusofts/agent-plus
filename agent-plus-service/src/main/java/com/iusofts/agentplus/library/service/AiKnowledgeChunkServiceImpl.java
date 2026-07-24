@@ -18,8 +18,8 @@ import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeChunkEditReqVo;
 import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeChunkQueryPageReqVo;
 import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeChunkStatusReqVo;
 import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeChunkVo;
-import com.iusofts.agentplus.ailog.dto.AiTraceContext;
 import com.iusofts.agentplus.llm.log.LlmLogRecorder;
+import com.iusofts.agentplus.trace.TraceUtil;
 import com.iusofts.agentplus.plugin.vectorstore.KnowledgeMetadata;
 import com.iusofts.agentplus.plugin.vectorstore.KnowledgeStoreService;
 import com.iusofts.agentplus.plugin.vectorstore.RedisVectorStoreManager;
@@ -45,6 +45,8 @@ import java.util.Map;
  *
  * <p>提供分块的查询与管理能力。编辑分块内容时,以相同 {@code vectorId} 重新向量化并覆盖
  * 向量库中的向量,保证 DB 分块与向量库一致;删除分块时同步清理向量并递减文档 chunkCount。</p>
+ *
+ * <p>方案一：链路信息通过 OpenTelemetry Span Attributes 传递。
  *
  * @author Ivan
  * @since 2026-07-09
@@ -129,11 +131,8 @@ public class AiKnowledgeChunkServiceImpl extends ServiceImpl<AiKnowledgeChunkMap
 
         // 先向量化写入向量库,再落库
         int embeddingTokens;
-        AiTraceContext ctx = AiTraceContext.builder()
-                .traceId(LlmLogRecorder.generateTraceId())
-                .operatorId(reqVo.getOperatorId())
-                .orgId(reqVo.getOrgId())
-                .build();
+        // 方案一：设置操作人信息到 Span
+        TraceUtil.setOperator(reqVo.getOperatorId(), reqVo.getOrgId());
         try {
             List<Map<String, Object>> metadatas = List.of(buildChunkMetadata(chunkId, doc));
             embeddingTokens = knowledgeStoreService.batchEmbedAndStore(
@@ -142,8 +141,7 @@ public class AiKnowledgeChunkServiceImpl extends ServiceImpl<AiKnowledgeChunkMap
                     List.of(reqVo.getContent()),
                     metadatas,
                     kb.getEmbeddingModelId(),
-                    kb.getId(),
-                    ctx
+                    kb.getId()
             );
         } catch (Exception e) {
             recordChunkLogSafely(kb, doc, reqVo.getOperatorId(), reqVo.getOrgId(),
@@ -176,11 +174,8 @@ public class AiKnowledgeChunkServiceImpl extends ServiceImpl<AiKnowledgeChunkMap
 
         // 以相同 vectorId 重新向量化并覆盖向量库中的向量
         int embeddingTokens;
-        AiTraceContext ctx = AiTraceContext.builder()
-                .traceId(LlmLogRecorder.generateTraceId())
-                .operatorId(reqVo.getOperatorId())
-                .orgId(reqVo.getOrgId())
-                .build();
+        // 方案一：设置操作人信息到 Span
+        TraceUtil.setOperator(reqVo.getOperatorId(), reqVo.getOrgId());
         try {
             List<Map<String, Object>> metadatas = List.of(buildChunkMetadata(chunk.getId(), doc));
             embeddingTokens = knowledgeStoreService.batchEmbedAndStore(
@@ -189,8 +184,7 @@ public class AiKnowledgeChunkServiceImpl extends ServiceImpl<AiKnowledgeChunkMap
                     List.of(reqVo.getContent()),
                     metadatas,
                     kb.getEmbeddingModelId(),
-                    kb.getId(),
-                    ctx
+                    kb.getId()
             );
         } catch (Exception e) {
             recordChunkLogSafely(kb, doc, reqVo.getOperatorId(), reqVo.getOrgId(),
@@ -253,11 +247,8 @@ public class AiKnowledgeChunkServiceImpl extends ServiceImpl<AiKnowledgeChunkMap
             }
             AiKnowledgeDocument doc = aiKnowledgeDocumentMapper.selectById(chunk.getDocumentId());
             int embeddingTokens;
-            AiTraceContext ctx = AiTraceContext.builder()
-                    .traceId(LlmLogRecorder.generateTraceId())
-                    .operatorId(reqVo.getOperatorId())
-                    .orgId(reqVo.getOrgId())
-                    .build();
+            // 方案一：设置操作人信息到 Span
+            TraceUtil.setOperator(reqVo.getOperatorId(), reqVo.getOrgId());
             try {
                 List<Map<String, Object>> metadatas = List.of(buildChunkMetadata(chunk.getId(), doc));
                 embeddingTokens = knowledgeStoreService.batchEmbedAndStore(
@@ -266,8 +257,7 @@ public class AiKnowledgeChunkServiceImpl extends ServiceImpl<AiKnowledgeChunkMap
                         List.of(chunk.getContent()),
                         metadatas,
                         kb.getEmbeddingModelId(),
-                        kb.getId(),
-                        ctx
+                        kb.getId()
                 );
             } catch (Exception e) {
                 log.error("重建向量数据失败", e);

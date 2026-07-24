@@ -1,7 +1,6 @@
 package com.iusofts.agentplus.plugin.llm;
 
 import com.iusofts.agentplus.aiflow.vo.workflow.data.llm.LLMNodeData;
-import com.iusofts.agentplus.ailog.dto.AiTraceContext;
 import com.iusofts.agentplus.engine.llm.ChatModelProvider;
 import com.iusofts.agentplus.llm.AiChatService;
 import com.iusofts.agentplus.llm.dto.AiChatRequest;
@@ -10,6 +9,7 @@ import com.iusofts.agentplus.llm.dto.LlmModelConfigDTO;
 import com.iusofts.agentplus.llm.dto.LlmModelDTO;
 import com.iusofts.agentplus.llm.LlmModelQueryProvider;
 import com.iusofts.agentplus.llm.log.LlmLogRecorder;
+import com.iusofts.agentplus.trace.TraceUtil;
 import dev.langchain4j.model.chat.ChatModel;
 import jakarta.annotation.Resource;
 import org.springframework.context.annotation.Primary;
@@ -22,7 +22,10 @@ import java.util.concurrent.ConcurrentMap;
 /**
  * 基于数据库的 ChatModelProvider 实现（无 DB 依赖，依赖抽象）。
  *
- * <p>仅负责：入参校验、模型实例缓存、编排调用；不直接操作 Mapper、不写厂商构建逻辑。</p>
+ * <p>仅负责：入参校验、模型实例缓存、编排调用；不直接操作 Mapper、不写厂商构建逻辑。
+ *
+ * <p>方案一：链路信息自动从 OpenTelemetry Span Attributes 获取，
+ * 调用方需通过 TraceUtil 设置属性后再调用。
  *
  * @author Ivan
  */
@@ -63,23 +66,14 @@ public class AiModelChatModelProvider implements ChatModelProvider {
         });
     }
 
-    @Override
-    public AiChatResponse chat(AiChatRequest request) {
-        return aiChatService.chat(request.getMessages(), request.getModelId(),
-                request.getConfig(), request.getTools());
-    }
-
     /**
      * 执行聊天并统一落库到 {@code ai_llm_call_log}。
      *
-     * <p>业务侧（聊天 / 流程 LLM 节点）不再手动记日志，只需构造 {@link AiTraceContext} 透传
-     * traceId、来源与操作人；成功/失败均在此处记录，失败时补记 error 日志后原样抛出。</p>
+     * <p>链路信息自动从当前 OpenTelemetry Span Attributes 获取，
+     * 调用方需在调用前通过 {@link TraceUtil} 设置属性。
      */
     @Override
-    public AiChatResponse chat(AiChatRequest request, AiTraceContext ctx) {
-        if (ctx == null) {
-            return chat(request);
-        }
+    public AiChatResponse chat(AiChatRequest request) {
         LocalDateTime startTime = LocalDateTime.now();
         LlmModelDTO modelDTO = null;
         if (request.getModelId() != null) {
@@ -90,32 +84,42 @@ public class AiModelChatModelProvider implements ChatModelProvider {
             }
         }
         try {
-            AiChatResponse response = chat(request);
-            newRecorder(ctx, startTime, modelDTO, request)
+            AiChatResponse response = doChat(request);
+            if (TraceUtil.hasActiveSpan()) {
+                newRecorder(startTime, modelDTO, request)
                     .output(response.getContent(), response.getInputTokens(), response.getOutputTokens())
                     .toolCalls(response.getToolCalls(), response.getFinishReason())
                     .success()
                     .record();
+            }
             return response;
         } catch (RuntimeException e) {
-            newRecorder(ctx, startTime, modelDTO, request)
+            if (TraceUtil.hasActiveSpan()) {
+                newRecorder(startTime, modelDTO, request)
                     .error(null, e.getMessage())
                     .record();
+            }
             throw e;
         }
     }
 
-    /** 以调用上下文与请求构造一个已填充公共字段的日志记录器。 */
-    private LlmLogRecorder.LlmCallRecorder newRecorder(AiTraceContext ctx, LocalDateTime startTime,
-                                                       LlmModelDTO modelDTO, AiChatRequest request) {
+    private AiChatResponse doChat(AiChatRequest request) {
+        return aiChatService.chat(request.getMessages(), request.getModelId(),
+            request.getConfig(), request.getTools());
+    }
+
+    /** 从当前 Span Attributes 构造日志记录器。 */
+    private LlmLogRecorder.LlmCallRecorder newRecorder(LocalDateTime startTime,
+                                                        LlmModelDTO modelDTO,
+                                                        AiChatRequest request) {
         return llmLogRecorder.recordLlmCall()
-                .traceId(ctx.getTraceId())
-                .startTime(startTime)
-                .source(ctx.getCallSource(), ctx.getSourceId(), ctx.getSourceNodeId())
-                .model(modelDTO)
-                .config(request.getConfig())
-                .inputMessages(request.getMessages())
-                .toolDefinitions(request.getTools())
-                .operator(ctx.getOperatorId(), ctx.getOrgId());
+            .traceId(LlmLogRecorder.generateTraceId())
+            .startTime(startTime)
+            .source(TraceUtil.getCallSource(), TraceUtil.getSourceId(), TraceUtil.getSourceNodeId())
+            .model(modelDTO)
+            .config(request.getConfig())
+            .inputMessages(request.getMessages())
+            .toolDefinitions(request.getTools())
+            .operator(TraceUtil.getOperatorId(), TraceUtil.getOrgId());
     }
 }

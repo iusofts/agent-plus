@@ -7,7 +7,6 @@ import com.iusofts.agentplus.aiflow.enums.FlowNodeType;
 import com.iusofts.agentplus.aiflow.vo.workflow.Node;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.common.OutputParam;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.llm.LLMNodeData;
-import com.iusofts.agentplus.ailog.dto.AiTraceContext;
 import com.iusofts.agentplus.chat.vo.AiMessageVo;
 import com.iusofts.agentplus.engine.context.ExecutionContext;
 import com.iusofts.agentplus.engine.context.NodeOutput;
@@ -23,6 +22,7 @@ import com.iusofts.agentplus.llm.dto.AiChatResponse;
 import com.iusofts.agentplus.llm.dto.LlmModelConfigDTO;
 import com.iusofts.agentplus.llm.dto.ToolCall;
 import com.iusofts.agentplus.llm.dto.ToolDefinition;
+import com.iusofts.agentplus.trace.TraceUtil;
 import com.iusofts.agentplus.tool.dto.ToolDTO;
 import com.iusofts.agentplus.tool.dto.ToolExecuteRequest;
 import com.iusofts.agentplus.tool.dto.ToolExecuteResult;
@@ -49,8 +49,8 @@ import java.util.Map;
  *   <li>输出映射: 单输出直接放模型文本;多输出尝试解析 JSON,失败则全部放同一 key。</li>
  * </ol>
  *
- * <p>每次模型调用后由 {@link ChatModelProvider#chat(AiChatRequest, com.iusofts.agentplus.ailog.dto.AiTraceContext)}
- * 统一写一条 {@code ai_llm_call_log},含消息体与 token 使用量,本执行器不再手动记日志。</p>
+ * <p>方案一：链路信息通过 OpenTelemetry Span Attributes 传递，
+ * 每次模型调用后由 {@link ChatModelProvider#chat(AiChatRequest)} 统一写一条 {@code ai_llm_call_log}。
  *
  * @author Ivan
  */
@@ -102,8 +102,8 @@ public class LLMNodeExecutor implements NodeExecutor {
         String systemPrompt = ParamResolver.renderTemplate(data.getSystemPrompt(), ctx, inputs);
         String userPromptTemplate = data.getUserPrompt();
         String userPrompt = userPromptTemplate != null
-                ? ParamResolver.renderTemplate(userPromptTemplate, ctx, inputs)
-                : buildUserPrompt(inputs);
+            ? ParamResolver.renderTemplate(userPromptTemplate, ctx, inputs)
+            : buildUserPrompt(inputs);
 
         // 构建消息列表
         List<AiChatMessage> msgList = new ArrayList<>();
@@ -149,10 +149,10 @@ public class LLMNodeExecutor implements NodeExecutor {
 
                 // 将本轮 assistant 的工具调用请求追加到上下文
                 msgList.add(AiChatMessage.builder()
-                        .role("assistant")
-                        .content(response.getContent())
-                        .toolCalls(response.getToolCalls())
-                        .build());
+                    .role("assistant")
+                    .content(response.getContent())
+                    .toolCalls(response.getToolCalls())
+                    .build());
 
                 // 逐个执行工具，并把结果作为 tool 消息回填
                 for (ToolCall toolCall : response.getToolCalls()) {
@@ -178,20 +178,17 @@ public class LLMNodeExecutor implements NodeExecutor {
         LlmModelConfigDTO config = new LlmModelConfigDTO();
         config.setTemperature(data.getTemperature());
         AiChatRequest request = AiChatRequest.builder()
-                .modelId(data.getModelId())
-                .messages(messages)
-                .config(config)
-                .tools(tools)
-                .build();
-        AiTraceContext traceContext = AiTraceContext.builder()
-                .traceId(ctx.getRunId())
-                .callSource("FLOW")
-                .sourceId(ctx.getFlowId())
-                .sourceNodeId(node.getId())
-                .operatorId(ctx.getOperatorId())
-                .orgId(ctx.getOrgId())
-                .build();
-        return chatModelProvider.chat(request, traceContext);
+            .modelId(data.getModelId())
+            .messages(messages)
+            .config(config)
+            .tools(tools)
+            .build();
+
+        // 方案一：设置业务属性到 Span Attributes
+        TraceUtil.setAiAttributes("FLOW", ctx.getFlowId(), node.getId(),
+            ctx.getOperatorId(), ctx.getOrgId());
+
+        return chatModelProvider.chat(request);
     }
 
     /**
@@ -211,10 +208,10 @@ public class LLMNodeExecutor implements NodeExecutor {
                 continue;
             }
             definitions.add(ToolDefinition.builder()
-                    .name(tool.getName())
-                    .description(tool.getDescription())
-                    .parameters(tool.getParamsSchema())
-                    .build());
+                .name(tool.getName())
+                .description(tool.getDescription())
+                .parameters(tool.getParamsSchema())
+                .build());
         }
         return definitions.isEmpty() ? null : definitions;
     }
@@ -294,9 +291,9 @@ public class LLMNodeExecutor implements NodeExecutor {
         // 添加到消息列表（system 已经在数据库查询层面过滤掉了）
         for (AiMessageVo msg : history) {
             msgList.add(AiChatMessage.builder()
-                    .role(msg.getRole())
-                    .content(msg.getContent())
-                    .build());
+                .role(msg.getRole())
+                .content(msg.getContent())
+                .build());
         }
     }
 
@@ -312,18 +309,18 @@ public class LLMNodeExecutor implements NodeExecutor {
             result = ToolExecuteResult.error("未找到工具: " + toolCall.getName());
         } else {
             result = toolRegistry.execute(ToolExecuteRequest.builder()
-                    .toolId(toolId)
-                    .params(params)
-                    .build());
+                .toolId(toolId)
+                .params(params)
+                .build());
         }
 
         // 回填工具执行结果，供模型下一轮推理
         msgList.add(AiChatMessage.builder()
-                .role("tool")
-                .toolCallId(toolCall.getId())
-                .name(toolCall.getName())
-                .content(serializeToolResult(result))
-                .build());
+            .role("tool")
+            .toolCallId(toolCall.getId())
+            .name(toolCall.getName())
+            .content(serializeToolResult(result))
+            .build());
     }
 
     /**

@@ -11,8 +11,8 @@ import com.iusofts.agentplus.library.mapper.AiKnowledgeDocumentMapper;
 import com.iusofts.agentplus.basic.redis.RedisLock;
 import com.iusofts.agentplus.id.service.IdService;
 import com.iusofts.agentplus.id.service.IdService.UidTypeEnum;
-import com.iusofts.agentplus.ailog.dto.AiTraceContext;
 import com.iusofts.agentplus.llm.log.LlmLogRecorder;
+import com.iusofts.agentplus.trace.TraceUtil;
 import com.iusofts.agentplus.trace.annotation.TraceSpan;
 import com.iusofts.agentplus.plugin.document.DocumentContentExtractor;
 import com.iusofts.agentplus.plugin.document.TextChunker;
@@ -32,6 +32,8 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * 知识库文档分块存储管线核心。
+ *
+ * <p>方案一：链路信息通过 OpenTelemetry Span Attributes 传递。
  *
  * @author Ivan
  */
@@ -104,6 +106,9 @@ public class KnowledgeIngestionService {
 
         updateStatus(documentId, STATUS_PROCESSING, null);
 
+        // 方案一：设置操作人信息到 Span
+        TraceUtil.setOperator(doc.getCreateBy(), doc.getOrgId());
+
         try {
             String text = contentExtractor.extract(doc.getDocUrl());
             int totalCharCount = text != null ? text.length() : 0;
@@ -144,14 +149,9 @@ public class KnowledgeIngestionService {
             List<String> vectorIds = chunkRows.stream().map(AiKnowledgeChunk::getVectorId).toList();
             List<Map<String, Object>> chunkMetadatas = buildChunkMetadatas(chunkRows, doc);
 
-            AiTraceContext ctx = AiTraceContext.builder()
-                    .traceId(LlmLogRecorder.generateTraceId())
-                    .operatorId(doc.getCreateBy())
-                    .orgId(doc.getOrgId())
-                    .build();
             int embeddingTokens = knowledgeStoreService.batchEmbedAndStore(
-                    kb.getCollectionName(), vectorIds, chunkTextsForStore, chunkMetadatas,
-                    kb.getEmbeddingModelId(), kb.getId(), ctx);
+                kb.getCollectionName(), vectorIds, chunkTextsForStore, chunkMetadatas,
+                kb.getEmbeddingModelId(), kb.getId());
 
             saveChunkRows(chunkRows);
 
@@ -210,7 +210,7 @@ public class KnowledgeIngestionService {
         List<Map<String, Object>> result = new ArrayList<>();
         for (AiKnowledgeChunk chunkRow : chunkRows) {
             result.add(KnowledgeMetadata.build(
-                    chunkRow.getId(), doc.getId(), doc.getName(), doc.getDocUrl()));
+                chunkRow.getId(), doc.getId(), doc.getName(), doc.getDocUrl()));
         }
         return result;
     }
