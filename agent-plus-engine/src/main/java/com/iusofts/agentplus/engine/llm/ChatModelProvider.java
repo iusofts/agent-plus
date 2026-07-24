@@ -1,12 +1,9 @@
 package com.iusofts.agentplus.engine.llm;
 
 import com.iusofts.agentplus.aiflow.vo.workflow.data.llm.LLMNodeData;
-import com.iusofts.agentplus.llm.dto.ChatMessage;
-import com.iusofts.agentplus.llm.dto.ChatResponse;
-import com.iusofts.agentplus.llm.dto.ToolDefinition;
+import com.iusofts.agentplus.llm.dto.AiChatRequest;
+import com.iusofts.agentplus.llm.dto.AiChatResponse;
 import dev.langchain4j.model.chat.ChatModel;
-
-import java.util.List;
 
 /**
  * LLM 模型工厂。
@@ -29,13 +26,8 @@ public interface ChatModelProvider {
     /**
      * 执行聊天请求（支持工具调用）。
      *
-     * @param modelId 模型ID
-     * @param messages 消息列表
-     * @param config 模型配置
-     * @param tools 工具定义列表（可为 null 表示无工具）
+     * @param request 聊天请求参数（模型 id、消息、配置、工具）
      * @return 聊天响应
      */
-    ChatResponse chat(Long modelId, List<ChatMessage> messages,
-                      com.iusofts.agentplus.llm.dto.LlmModelConfigDTO config,
-                      List<ToolDefinition> tools);
+    AiChatResponse chat(AiChatRequest request);
 }

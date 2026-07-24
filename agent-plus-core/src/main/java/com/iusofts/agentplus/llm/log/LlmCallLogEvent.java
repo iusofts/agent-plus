@@ -1,6 +1,6 @@
 package com.iusofts.agentplus.llm.log;
 
-import com.iusofts.agentplus.llm.dto.ChatMessage;
+import com.iusofts.agentplus.llm.dto.AiChatMessage;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -68,7 +68,7 @@ public class LlmCallLogEvent {
     /**
      * 输入消息列表。
      */
-    private List<ChatMessage> inputMessages;
+    private List<AiChatMessage> inputMessages;
 
     /**
      * 输入字符数。

@@ -1,6 +1,6 @@
 package com.iusofts.agentplus.llm.log;
 
-import com.iusofts.agentplus.llm.dto.ChatMessage;
+import com.iusofts.agentplus.llm.dto.AiChatMessage;
 import com.iusofts.agentplus.llm.dto.LlmModelConfigDTO;
 import com.iusofts.agentplus.llm.dto.LlmModelDTO;
 import com.iusofts.agentplus.llm.dto.ToolCall;
@@ -8,7 +8,6 @@ import com.iusofts.agentplus.llm.dto.ToolDefinition;
 import com.iusofts.agentplus.knowledge.dto.EmbeddingModelDTO;
 import com.iusofts.agentplus.knowledge.dto.KnowledgeRetrieveResult;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -108,7 +107,7 @@ public interface LlmLogRecorder {
 
         LlmCallRecorder config(LlmModelConfigDTO config);
 
-        LlmCallRecorder inputMessages(List<ChatMessage> messages);
+        LlmCallRecorder inputMessages(List<AiChatMessage> messages);
 
         /**
          * 手动设置输入内容（不走 inputMessages 时使用）。

@@ -17,8 +17,9 @@ import com.iusofts.agentplus.engine.llm.ChatModelProvider;
 import com.iusofts.agentplus.engine.tool.ToolRegistry;
 import com.iusofts.agentplus.engine.util.ParamResolver;
 import com.iusofts.agentplus.llm.LlmModelQueryProvider;
-import com.iusofts.agentplus.llm.dto.ChatMessage;
-import com.iusofts.agentplus.llm.dto.ChatResponse;
+import com.iusofts.agentplus.llm.dto.AiChatMessage;
+import com.iusofts.agentplus.llm.dto.AiChatRequest;
+import com.iusofts.agentplus.llm.dto.AiChatResponse;
 import com.iusofts.agentplus.llm.dto.LlmModelConfigDTO;
 import com.iusofts.agentplus.llm.dto.LlmModelDTO;
 import com.iusofts.agentplus.llm.dto.ToolCall;
@@ -117,16 +118,16 @@ public class LLMNodeExecutor implements NodeExecutor {
                 : buildUserPrompt(inputs);
 
         // 构建消息列表
-        List<ChatMessage> msgList = new ArrayList<>();
+        List<AiChatMessage> msgList = new ArrayList<>();
         if (systemPrompt != null && !systemPrompt.isBlank()) {
-            msgList.add(ChatMessage.builder().role("system").content(systemPrompt).build());
+            msgList.add(AiChatMessage.builder().role("system").content(systemPrompt).build());
         }
 
         // 如果开启了会话历史加载并且有 conversationId，则加载历史消息
         loadHistoryMessagesIfEnabled(data, ctx, msgList);
 
         // 添加当前用户提示词
-        msgList.add(ChatMessage.builder().role("user").content(userPrompt).build());
+        msgList.add(AiChatMessage.builder().role("user").content(userPrompt).build());
 
         // 构建工具定义
         List<ToolDefinition> toolDefinitions = buildToolDefinitions(data);
@@ -141,7 +142,7 @@ public class LLMNodeExecutor implements NodeExecutor {
 
         try {
             // 工具调用循环: 调用 LLM -> 执行工具 -> 回填结果 -> 再次推理
-            ChatResponse response = null;
+            AiChatResponse response = null;
             for (int iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
                 llmCallStart = LocalDateTime.now();
                 response = invokeWithTools(data, msgList, toolDefinitions);
@@ -164,7 +165,7 @@ public class LLMNodeExecutor implements NodeExecutor {
                 }
 
                 // 将本轮 assistant 的工具调用请求追加到上下文
-                msgList.add(ChatMessage.builder()
+                msgList.add(AiChatMessage.builder()
                         .role("assistant")
                         .content(response.getContent())
                         .toolCalls(response.getToolCalls())
@@ -189,11 +190,17 @@ public class LLMNodeExecutor implements NodeExecutor {
         return new NodeOutput(node.getId(), mapOutputs(text, reasoningContent, usage, data.getOutputParams()));
     }
 
-    private ChatResponse invokeWithTools(LLMNodeData data, List<ChatMessage> messages, List<ToolDefinition> tools) throws Exception {
+    private AiChatResponse invokeWithTools(LLMNodeData data, List<AiChatMessage> messages, List<ToolDefinition> tools) throws Exception {
         // 由内部 AiChatService 统一处理，包括工具调用
         LlmModelConfigDTO config = new LlmModelConfigDTO();
         config.setTemperature(data.getTemperature());
-        return chatModelProvider.chat(data.getModelId(), messages, config, tools);
+        AiChatRequest request = AiChatRequest.builder()
+                .modelId(data.getModelId())
+                .messages(messages)
+                .config(config)
+                .tools(tools)
+                .build();
+        return chatModelProvider.chat(request);
     }
 
     /**
@@ -246,7 +253,7 @@ public class LLMNodeExecutor implements NodeExecutor {
      * 如果开启了会话历史加载，则从数据库加载历史消息添加到上下文。
      * 节点配置的携带轮数不能超过智能体设置的上限。
      */
-    private void loadHistoryMessagesIfEnabled(LLMNodeData data, ExecutionContext ctx, List<ChatMessage> msgList) {
+    private void loadHistoryMessagesIfEnabled(LLMNodeData data, ExecutionContext ctx, List<AiChatMessage> msgList) {
         // 检查是否开启历史
         if (data.getEnableHistory() == null || !data.getEnableHistory()) {
             return;
@@ -295,7 +302,7 @@ public class LLMNodeExecutor implements NodeExecutor {
 
         // 添加到消息列表（system 已经在数据库查询层面过滤掉了）
         for (AiMessageVo msg : history) {
-            msgList.add(ChatMessage.builder()
+            msgList.add(AiChatMessage.builder()
                     .role(msg.getRole())
                     .content(msg.getContent())
                     .build());
@@ -305,7 +312,7 @@ public class LLMNodeExecutor implements NodeExecutor {
     /**
      * 执行一次模型请求的工具调用，将结果作为 tool 消息追加到上下文。
      */
-    private void executeToolCall(ToolCall toolCall, Map<String, Long> toolNameToId, List<ChatMessage> msgList) {
+    private void executeToolCall(ToolCall toolCall, Map<String, Long> toolNameToId, List<AiChatMessage> msgList) {
         Map<String, Object> params = parseArguments(toolCall.getArguments());
 
         Long toolId = toolNameToId.get(toolCall.getName());
@@ -320,7 +327,7 @@ public class LLMNodeExecutor implements NodeExecutor {
         }
 
         // 回填工具执行结果，供模型下一轮推理
-        msgList.add(ChatMessage.builder()
+        msgList.add(AiChatMessage.builder()
                 .role("tool")
                 .toolCallId(toolCall.getId())
                 .name(toolCall.getName())
@@ -360,8 +367,8 @@ public class LLMNodeExecutor implements NodeExecutor {
 
     /** 记录一次迭代的 LLM 调用日志。 */
     private void recordLlmLogIteration(Node node, LLMNodeData data, ExecutionContext ctx,
-                                       String systemPrompt, String userPrompt, ChatResponse response,
-                                       int iteration, String traceId, List<ChatMessage> msgList,
+                                       String systemPrompt, String userPrompt, AiChatResponse response,
+                                       int iteration, String traceId, List<AiChatMessage> msgList,
                                        LocalDateTime llmCallStart, List<ToolDefinition> toolDefinitions) {
         if (llmLogRecorder == null) {
             return;
@@ -379,7 +386,7 @@ public class LLMNodeExecutor implements NodeExecutor {
             config.setTemperature(data.getTemperature());
 
             // 记录当前消息列表用于日志
-            List<com.iusofts.agentplus.llm.dto.ChatMessage> logMessages = new ArrayList<>(msgList);
+            List<AiChatMessage> logMessages = new ArrayList<>(msgList);
 
             LlmLogRecorder.LlmCallRecorder recorder = llmLogRecorder.recordLlmCall()
                     .traceId(traceId)
@@ -420,12 +427,12 @@ public class LLMNodeExecutor implements NodeExecutor {
             LlmModelConfigDTO config = new LlmModelConfigDTO();
             config.setTemperature(data.getTemperature());
 
-            List<com.iusofts.agentplus.llm.dto.ChatMessage> logMessages = new ArrayList<>();
+            List<AiChatMessage> logMessages = new ArrayList<>();
             if (systemPrompt != null && !systemPrompt.isBlank()) {
-                logMessages.add(com.iusofts.agentplus.llm.dto.ChatMessage.builder()
+                logMessages.add(AiChatMessage.builder()
                         .role("system").content(systemPrompt).build());
             }
-            logMessages.add(com.iusofts.agentplus.llm.dto.ChatMessage.builder()
+            logMessages.add(AiChatMessage.builder()
                     .role("user").content(userPrompt).build());
 
             LlmLogRecorder.LlmCallRecorder recorder = llmLogRecorder.recordLlmCall()

@@ -16,8 +16,8 @@ import com.iusofts.agentplus.basic.utils.StringUtils;
 import com.iusofts.agentplus.id.service.IdService;
 import com.iusofts.agentplus.id.service.IdService.UidTypeEnum;
 import com.iusofts.agentplus.llm.AiChatService;
-import com.iusofts.agentplus.llm.dto.ChatMessage;
-import com.iusofts.agentplus.llm.dto.ChatResponse;
+import com.iusofts.agentplus.llm.dto.AiChatMessage;
+import com.iusofts.agentplus.llm.dto.AiChatResponse;
 import com.iusofts.agentplus.llm.dto.LlmModelConfigDTO;
 import com.iusofts.agentplus.llm.dto.ToolCall;
 import com.iusofts.agentplus.llm.dto.ToolDefinition;
@@ -134,9 +134,9 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
         String knowledgeContext = retrieveKnowledge(aiAgent, userQuestion, traceId, reqVo.getOperatorId(), reqVo.getOrgId());
         String systemContent = buildSystemPrompt(aiAgent, knowledgeContext);
 
-        List<ChatMessage> msgList = new ArrayList<>();
+        List<AiChatMessage> msgList = new ArrayList<>();
         if (StringUtils.isNotBlank(systemContent)) {
-            msgList.add(ChatMessage.builder().role("system").content(systemContent).build());
+            msgList.add(AiChatMessage.builder().role("system").content(systemContent).build());
         }
         msgList.addAll(buildDialogContext(dialog, aiAgent));
 
@@ -148,7 +148,7 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
         Map<String, Long> toolNameToId = buildToolNameToIdMap(aiAgent);
         List<ToolCallTraceVo> toolTraces = new ArrayList<>();
 
-        ChatResponse response = null;
+        AiChatResponse response = null;
         for (int iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
             LocalDateTime llmCallStart = LocalDateTime.now();
             response = aiChatService.chat(msgList, modelId, config, toolDefinitions);
@@ -173,7 +173,7 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
             }
 
             // 将本轮 assistant 的工具调用请求追加到上下文
-            msgList.add(ChatMessage.builder()
+            msgList.add(AiChatMessage.builder()
                 .role("assistant")
                 .content(response.getContent())
                 .toolCalls(response.getToolCalls())
@@ -274,7 +274,7 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
      * 构建对话上下文：仅保留 user/assistant 消息（过滤历史中残留的 system 脏数据），
      * 按配置的上下文轮数裁剪，并保证裁剪后首条为 user。
      */
-    private List<ChatMessage> buildDialogContext(List<AiMessageVo> messageVoList, AiAgent aiAgent) {
+    private List<AiChatMessage> buildDialogContext(List<AiMessageVo> messageVoList, AiAgent aiAgent) {
         List<AiMessageVo> dialogMsgs = new ArrayList<>();
         for (AiMessageVo msg : messageVoList) {
             if (!"system".equalsIgnoreCase(msg.getRole())) {
@@ -295,9 +295,9 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
             dialogMsgs.remove(0);
         }
 
-        List<ChatMessage> msgList = new ArrayList<>();
+        List<AiChatMessage> msgList = new ArrayList<>();
         for (AiMessageVo msg : dialogMsgs) {
-            msgList.add(ChatMessage.builder().role(msg.getRole()).content(msg.getContent()).build());
+            msgList.add(AiChatMessage.builder().role(msg.getRole()).content(msg.getContent()).build());
         }
         return msgList;
     }
@@ -401,7 +401,7 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
     /**
      * 执行一次模型请求的工具调用，将结果作为 tool 消息追加到上下文，并返回可展示的调用轨迹。
      */
-    private ToolCallTraceVo executeToolCall(ToolCall toolCall, Map<String, Long> toolNameToId, List<ChatMessage> msgList) {
+    private ToolCallTraceVo executeToolCall(ToolCall toolCall, Map<String, Long> toolNameToId, List<AiChatMessage> msgList) {
         ToolCallTraceVo trace = new ToolCallTraceVo();
         trace.setToolName(toolCall.getName());
 
@@ -425,7 +425,7 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
         trace.setErrorMessage(result.getErrorMessage());
 
         // 回填工具执行结果，供模型下一轮推理
-        msgList.add(ChatMessage.builder()
+        msgList.add(AiChatMessage.builder()
             .role("tool")
             .toolCallId(toolCall.getId())
             .name(toolCall.getName())

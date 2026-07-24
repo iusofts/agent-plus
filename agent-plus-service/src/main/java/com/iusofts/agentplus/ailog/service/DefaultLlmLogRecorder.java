@@ -5,7 +5,7 @@ import com.iusofts.agentplus.ailog.entity.AiKnowledgeRetrievalLog;
 import com.iusofts.agentplus.ailog.entity.AiLlmCallLog;
 import com.iusofts.agentplus.ailog.entity.AiKnowledgeRetrievalLog.ChunkEntry;
 import com.iusofts.agentplus.ailog.entity.AiLlmCallLog.MessageEntry;
-import com.iusofts.agentplus.llm.dto.ChatMessage;
+import com.iusofts.agentplus.llm.dto.AiChatMessage;
 import com.iusofts.agentplus.llm.dto.LlmModelConfigDTO;
 import com.iusofts.agentplus.llm.dto.LlmModelDTO;
 import com.iusofts.agentplus.llm.dto.ToolCall;
@@ -157,11 +157,11 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
         }
 
         @Override
-        public LlmCallRecorder inputMessages(List<ChatMessage> messages) {
+        public LlmCallRecorder inputMessages(List<AiChatMessage> messages) {
             if (messages != null) {
                 List<MessageEntry> entries = new ArrayList<>();
                 int totalChars = 0;
-                for (ChatMessage msg : messages) {
+                for (AiChatMessage msg : messages) {
                     MessageEntry entry = new MessageEntry();
                     entry.setRole(msg.getRole());
                     entry.setContent(msg.getContent());

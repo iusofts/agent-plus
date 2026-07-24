@@ -1,9 +1,9 @@
 package com.iusofts.agentplus.engine.llm;
 
 import com.iusofts.agentplus.aiflow.vo.workflow.data.llm.LLMNodeData;
-import com.iusofts.agentplus.llm.dto.ChatMessage;
-import com.iusofts.agentplus.llm.dto.LlmModelConfigDTO;
-import com.iusofts.agentplus.llm.dto.ToolDefinition;
+import com.iusofts.agentplus.llm.dto.AiChatMessage;
+import com.iusofts.agentplus.llm.dto.AiChatRequest;
+import com.iusofts.agentplus.llm.dto.AiChatResponse;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.request.ChatRequest;
@@ -70,26 +70,25 @@ public class DefaultChatModelProvider implements ChatModelProvider {
     }
 
     @Override
-    public com.iusofts.agentplus.llm.dto.ChatResponse chat(Long modelId, List<ChatMessage> messages,
-                                                            LlmModelConfigDTO config, List<ToolDefinition> tools) {
+    public AiChatResponse chat(AiChatRequest request) {
         // 兜底实现：将消息转换为 LangChain4j 格式调用
         ChatModel model = provide(null);
-        List<dev.langchain4j.data.message.ChatMessage> lcMessages = convertToLangChain4j(messages);
-        ChatRequest request = ChatRequest.builder().messages(lcMessages).build();
-        dev.langchain4j.model.chat.response.ChatResponse response = model.chat(request);
+        List<dev.langchain4j.data.message.ChatMessage> lcMessages = convertToLangChain4j(request.getMessages());
+        ChatRequest chatRequest = ChatRequest.builder().messages(lcMessages).build();
+        dev.langchain4j.model.chat.response.ChatResponse response = model.chat(chatRequest);
         AiMessage aiMessage = response.aiMessage();
         TokenUsage tokenUsage = response.tokenUsage();
 
-        return com.iusofts.agentplus.llm.dto.ChatResponse.builder()
+        return AiChatResponse.builder()
                 .content(aiMessage.text())
                 .inputTokens(tokenUsage != null ? tokenUsage.inputTokenCount() : null)
                 .outputTokens(tokenUsage != null ? tokenUsage.outputTokenCount() : null)
                 .build();
     }
 
-    private List<dev.langchain4j.data.message.ChatMessage> convertToLangChain4j(List<ChatMessage> messages) {
+    private List<dev.langchain4j.data.message.ChatMessage> convertToLangChain4j(List<AiChatMessage> messages) {
         List<dev.langchain4j.data.message.ChatMessage> result = new java.util.ArrayList<>();
-        for (ChatMessage msg : messages) {
+        for (AiChatMessage msg : messages) {
             switch (msg.getRole().toLowerCase()) {
                 case "system":
                     result.add(dev.langchain4j.data.message.SystemMessage.from(msg.getContent()));

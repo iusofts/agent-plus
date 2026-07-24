@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.common.OutputParam;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.llm.LLMNodeData;
 import com.iusofts.agentplus.engine.llm.ChatModelProvider;
+import com.iusofts.agentplus.llm.dto.AiChatRequest;
+import com.iusofts.agentplus.llm.dto.AiChatResponse;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.UserMessage;
@@ -56,11 +58,9 @@ public class MockChatModelProvider implements ChatModelProvider {
     }
 
     @Override
-    public com.iusofts.agentplus.llm.dto.ChatResponse chat(Long modelId, List<com.iusofts.agentplus.llm.dto.ChatMessage> messages,
-                                                             com.iusofts.agentplus.llm.dto.LlmModelConfigDTO config,
-                                                             List<com.iusofts.agentplus.llm.dto.ToolDefinition> tools) {
-        com.iusofts.agentplus.llm.dto.ChatResponse response = new com.iusofts.agentplus.llm.dto.ChatResponse();
-        response.setContent("[mock:" + modelId + "] test response");
+    public AiChatResponse chat(AiChatRequest request) {
+        AiChatResponse response = new AiChatResponse();
+        response.setContent("[mock:" + request.getModelId() + "] test response");
         response.setInputTokens(0);
         response.setOutputTokens(0);
         response.setTotalTokens(0);
