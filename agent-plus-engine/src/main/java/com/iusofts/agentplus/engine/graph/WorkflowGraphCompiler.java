@@ -264,6 +264,12 @@ public class WorkflowGraphCompiler {
                 NodeOutput out = TraceUtil.span("node." + node.getId(), SpanKind.INTERNAL, span -> {
                     span.setAttribute("nodeId", node.getId());
                     span.setAttribute("nodeType", node.getType());
+                    // 取节点名称:优先 data.label,其次 node.label
+                    String label = node.getData() == null ? null : node.getData().getLabel();
+                    if (label == null || label.isBlank()) {
+                        label = node.getLabel();
+                    }
+                    span.setAttribute("label", label);
 
                     // 入参载荷：已解析的实际入参值（仅 InputParamNodeData 子类有入参）
                     if (node.getData() instanceof InputParamNodeData inputParamNode) {

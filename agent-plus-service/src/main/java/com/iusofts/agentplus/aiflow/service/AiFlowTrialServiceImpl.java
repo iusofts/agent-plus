@@ -13,15 +13,12 @@ import com.iusofts.agentplus.aiflow.enums.NodeRunStatusEnum;
 import com.iusofts.agentplus.aiflow.enums.RunStatusEnum;
 import com.iusofts.agentplus.aiflow.interfaces.IAiFlowExecutorService;
 import com.iusofts.agentplus.aiflow.interfaces.IAiFlowTrialService;
-import com.iusofts.agentplus.aiflow.vo.FlowExecuteResult;
 import com.iusofts.agentplus.aiflow.mapper.AiFlowMapper;
 import com.iusofts.agentplus.aiflow.mapper.AiFlowRuntimeMapper;
 import com.iusofts.agentplus.aiflow.mapper.AiFlowRuntimeNodeMapper;
 import com.iusofts.agentplus.aiflow.mapper.AiFlowVersionMapper;
-import com.iusofts.agentplus.aiflow.vo.AiFlowTrialNodeResultVo;
-import com.iusofts.agentplus.aiflow.vo.AiFlowTrialRunFlowReqVo;
-import com.iusofts.agentplus.aiflow.vo.AiFlowTrialRunNodeReqVo;
-import com.iusofts.agentplus.aiflow.vo.AiFlowTrialRunResultVo;
+import com.iusofts.agentplus.aiflow.vo.*;
+import com.iusofts.agentplus.aiflow.vo.FlowExecuteResult.FlowNodeResult;
 import com.iusofts.agentplus.aiflow.vo.workflow.Node;
 import com.iusofts.agentplus.aiflow.vo.workflow.Workflow;
 import com.iusofts.agentplus.aiflow.vo.workflow.config.WorkflowConfig;
@@ -88,7 +85,7 @@ public class AiFlowTrialServiceImpl implements IAiFlowTrialService {
     @Override
     public AiFlowTrialRunResultVo runFlow(AiFlowTrialRunFlowReqVo reqVo) {
         // 调用公共执行服务
-        com.iusofts.agentplus.aiflow.vo.FlowExecuteResult result = aiFlowExecutorService.executeVersion(
+        FlowExecuteResult result = aiFlowExecutorService.executeVersion(
                 reqVo.getVersionId(),
                 reqVo.getFlowId(),
                 reqVo.getInputs() == null ? new LinkedHashMap<>() : reqVo.getInputs(),
@@ -109,7 +106,7 @@ public class AiFlowTrialServiceImpl implements IAiFlowTrialService {
         // 转换节点结果
         List<AiFlowTrialNodeResultVo> nodeResults = new ArrayList<>();
         if (result.getNodeResults() != null) {
-            for (com.iusofts.agentplus.aiflow.vo.FlowExecuteResult.FlowNodeResult nodeResult : result.getNodeResults()) {
+            for (FlowNodeResult nodeResult : result.getNodeResults()) {
                 AiFlowTrialNodeResultVo nodeVo = new AiFlowTrialNodeResultVo();
                 nodeVo.setNodeId(nodeResult.getNodeId());
                 nodeVo.setNodeType(nodeResult.getNodeType());
@@ -156,6 +153,7 @@ public class AiFlowTrialServiceImpl implements IAiFlowTrialService {
                         : placeholderTraceId;
                 span.setAttribute("nodeId", target.getId());
                 span.setAttribute("nodeType", target.getType());
+                span.setAttribute("label", resolveNodeName(target));
                 span.setAttribute("trialFlag", true);
                 if (reqVo.getOrgId() != null) {
                     span.setAttribute("orgId", reqVo.getOrgId().longValue());
