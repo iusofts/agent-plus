@@ -43,4 +43,7 @@ public class AiSpanDetailVo {
     @Schema(description = "节点返回值(JSON)")
     private String outputPayload;
 
+    @Schema(description = "链路追踪ID")
+    private String traceId;
+
 }

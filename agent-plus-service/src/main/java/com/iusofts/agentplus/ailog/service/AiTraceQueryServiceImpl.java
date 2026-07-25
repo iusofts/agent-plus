@@ -236,6 +236,7 @@ public class AiTraceQueryServiceImpl implements IAiTraceQueryService {
 
         AiSpanDetailVo vo = new AiSpanDetailVo();
         vo.setId(span.getId());
+        vo.setTraceId(span.getTraceId());
         vo.setLabel(getSpanLabel(span));
         vo.setDur(span.getDurationMs() == null ? 0L : span.getDurationMs() * 1000L);
         vo.setCat(getSpanCat(span));
