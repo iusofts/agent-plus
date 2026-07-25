@@ -254,7 +254,7 @@ public class RedisKnowledgeRetriever implements KnowledgeRetriever {
     }
 
     @Override
-    @TraceSpan(name = "knowledge.multi_retrieve", kind = SpanKind.INTERNAL)
+    @TraceSpan(name = "knowledge.multi_retrieve", label = "多库召回", kind = SpanKind.INTERNAL)
     public KnowledgeRetrieveResult retrieve(List<Long> knowledgeIds, String query, int topK) {
         if (knowledgeIds == null || knowledgeIds.isEmpty()) {
             return self.retrieve((Long) null, query, topK);
