@@ -135,7 +135,6 @@ public class AiTraceQueryServiceImpl implements IAiTraceQueryService {
         vo.setNodeId(getNodeId(span));
         vo.setTokens(getTokens(span));
         vo.setStatus("UNSET".equals(span.getStatus()) ? "OK" : span.getStatus());
-        vo.setStatusMessage(span.getStatusMessage());
 
         List<AiTraceSpan> children = childrenMap.get(span.getSpanId());
         if (children != null) {
