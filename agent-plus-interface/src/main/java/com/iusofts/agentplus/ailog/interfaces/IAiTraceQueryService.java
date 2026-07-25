@@ -3,6 +3,7 @@ package com.iusofts.agentplus.ailog.interfaces;
 import com.iusofts.agentplus.aiflow.vo.AiFlowRuntimeTraceReqVo;
 import com.iusofts.agentplus.aiflow.vo.AiFlowTraceTreeVo;
 import com.iusofts.agentplus.aiflow.vo.AiFlowTraceVo;
+import com.iusofts.agentplus.aiflow.vo.AiSpanDetailVo;
 
 import java.util.List;
 
@@ -29,5 +30,13 @@ public interface IAiTraceQueryService {
      * @return 树形结构数据
      */
     List<AiFlowTraceTreeVo> queryTraceTree(AiFlowRuntimeTraceReqVo reqVo);
+
+    /**
+     * 根据span主键ID查询span详情。
+     *
+     * @param id span表主键ID
+     * @return span详情，含出入参
+     */
+    AiSpanDetailVo querySpanDetail(Long id);
 
 }

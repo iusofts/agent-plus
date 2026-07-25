@@ -2,12 +2,15 @@ package com.iusofts.agentplus.ailog.service;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.iusofts.agentplus.ailog.entity.AiTraceSpan;
+import com.iusofts.agentplus.ailog.entity.AiTraceSpanPayload;
 import com.iusofts.agentplus.ailog.interfaces.IAiTraceQueryService;
 import com.iusofts.agentplus.ailog.mapper.AiTraceSpanMapper;
+import com.iusofts.agentplus.ailog.mapper.AiTraceSpanPayloadMapper;
 import com.iusofts.agentplus.aiflow.vo.AiFlowRuntimeTraceReqVo;
 import com.iusofts.agentplus.aiflow.vo.AiFlowTraceEventVo;
 import com.iusofts.agentplus.aiflow.vo.AiFlowTraceTreeVo;
 import com.iusofts.agentplus.aiflow.vo.AiFlowTraceVo;
+import com.iusofts.agentplus.aiflow.vo.AiSpanDetailVo;
 import com.iusofts.agentplus.basic.exception.SystemBusinessException;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
@@ -31,6 +34,9 @@ public class AiTraceQueryServiceImpl implements IAiTraceQueryService {
 
     @Resource
     private AiTraceSpanMapper aiTraceSpanMapper;
+
+    @Resource
+    private AiTraceSpanPayloadMapper aiTraceSpanPayloadMapper;
 
     @Override
     public AiFlowTraceVo queryTrace(AiFlowRuntimeTraceReqVo reqVo) {
@@ -218,6 +224,37 @@ public class AiTraceQueryServiceImpl implements IAiTraceQueryService {
         }
         var instant = time.atZone(ZoneId.systemDefault()).toInstant();
         return instant.getEpochSecond() * 1_000_000L + instant.getNano() / 1000L;
+    }
+
+    @Override
+    public AiSpanDetailVo querySpanDetail(Long id) {
+        AiTraceSpan span = aiTraceSpanMapper.selectById(id);
+        if (span == null) {
+            throw new SystemBusinessException("Span数据不存在");
+        }
+
+        AiSpanDetailVo vo = new AiSpanDetailVo();
+        vo.setId(span.getId());
+        vo.setLabel(getSpanLabel(span));
+        vo.setDur(span.getDurationMs() == null ? 0L : span.getDurationMs() * 1000L);
+        vo.setCat(getSpanCat(span));
+        vo.setNodeId(getNodeId(span));
+        vo.setTokens(getTokens(span));
+        vo.setStatus(span.getStatus());
+        vo.setStatusMessage(span.getStatusMessage());
+
+        // 查询出入参
+        AiTraceSpanPayload payload = aiTraceSpanPayloadMapper.selectOne(
+                Wrappers.<AiTraceSpanPayload>lambdaQuery()
+                        .eq(AiTraceSpanPayload::getTraceId, span.getTraceId())
+                        .eq(AiTraceSpanPayload::getSpanId, span.getSpanId())
+                        .last("LIMIT 1"));
+        if (payload != null) {
+            vo.setInputPayload(payload.getInputPayload());
+            vo.setOutputPayload(payload.getOutputPayload());
+        }
+
+        return vo;
     }
 
 }

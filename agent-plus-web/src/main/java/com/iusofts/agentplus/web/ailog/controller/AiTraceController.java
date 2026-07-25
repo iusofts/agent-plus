@@ -4,7 +4,9 @@ import com.iusofts.agentplus.ailog.interfaces.IAiTraceQueryService;
 import com.iusofts.agentplus.aiflow.vo.AiFlowRuntimeTraceReqVo;
 import com.iusofts.agentplus.aiflow.vo.AiFlowTraceTreeVo;
 import com.iusofts.agentplus.aiflow.vo.AiFlowTraceVo;
+import com.iusofts.agentplus.aiflow.vo.AiSpanDetailVo;
 import com.iusofts.agentplus.basic.web.annotation.OperationLogExclude;
+import com.iusofts.agentplus.common.vo.IdReqVo;
 import com.iusofts.agentplus.web.common.controller.BApiController;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -44,6 +46,13 @@ public class AiTraceController extends BApiController {
     @PostMapping("/queryTraceTree")
     public List<AiFlowTraceTreeVo> queryTraceTree(@RequestBody AiFlowRuntimeTraceReqVo reqVo) {
         return aiTraceQueryService.queryTraceTree(reqVo);
+    }
+
+    @Operation(description = "根据span主键ID查询span详情")
+    @OperationLogExclude(type = RES)
+    @PostMapping("/querySpanDetail")
+    public AiSpanDetailVo querySpanDetail(@RequestBody IdReqVo reqVo) {
+        return aiTraceQueryService.querySpanDetail(reqVo.getId());
     }
 
 }
