@@ -74,22 +74,6 @@ public class AiFlowRuntimeController extends BApiController {
         aiFlowRuntimeService.terminate(reqVo);
     }
 
-    @Deprecated
-    @Operation(description = "查询流程运行时序火焰图(已废弃,请使用 /bapi/ai/trace/queryTrace)")
-    @OperationLogExclude(type = RES)
-    @PostMapping("/queryTrace")
-    public AiFlowTraceVo queryTrace(@RequestBody AiFlowRuntimeTraceReqVo reqVo) {
-        return aiFlowRuntimeService.queryTrace(reqVo);
-    }
-
-    @Deprecated
-    @Operation(description = "查询流程运行时序树形结构(已废弃,请使用 /bapi/ai/trace/queryTraceTree)")
-    @OperationLogExclude(type = RES)
-    @PostMapping("/queryTraceTree")
-    public java.util.List<AiFlowTraceTreeVo> queryTraceTree(@RequestBody AiFlowRuntimeTraceReqVo reqVo) {
-        return aiFlowRuntimeService.queryTraceTree(reqVo);
-    }
-
     @Operation(description = "查询流程运行时序列表(下拉框选择)")
     @OperationLogExclude(type = RES)
     @PostMapping("/queryTraceList")
