@@ -36,6 +36,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 
+import static com.iusofts.agentplus.trace.TraceUtil.ATTR_LABEL;
+
 /**
  * 工作流执行引擎入口。
  *
@@ -64,79 +66,46 @@ public class WorkflowEngine {
         return new Builder();
     }
 
-    public WorkflowExecutionResult execute(Workflow workflow,
-                                           WorkflowConfig config,
-                                           Map<String, Object> inputs) {
-        return execute(workflow, config, inputs, UUID.randomUUID().toString());
-    }
-
-    public WorkflowExecutionResult execute(Workflow workflow,
-                                           WorkflowConfig config,
-                                           Map<String, Object> inputs,
-                                           String runId) {
-        return execute(workflow, config, inputs, runId, null, null, null);
-    }
 
     /**
-     * 带运行元数据的执行入口。元数据(flowId/operatorId/orgId)会传递给
-     * LLM / 知识库等执行器,用于 AI 日志的 fromFlow / operator 记录。
-     */
-    public WorkflowExecutionResult execute(Workflow workflow,
-                                           WorkflowConfig config,
-                                           Map<String, Object> inputs,
-                                           String runId,
-                                           Long flowId,
-                                           Long operatorId,
-                                           Integer orgId) {
-        return execute(workflow, config, inputs, runId, flowId, operatorId, orgId, null);
-    }
-
-    /**
-     * 带运行元数据与试运行标记的执行入口。
+     * 使用请求对象执行工作流。
      *
      * <p>在最外层开启 OTel root span,并以 span 的 traceId 作为本次执行的 runId
      * (即业务 traceId),经 {@link WorkflowExecutionResult#getRunId()} 回传给调用方落库。
      * 若 OTel SDK 未初始化(如单元测试),span context 无效时回退使用传入的 {@code runId}。</p>
-     *
-     * @param trialFlag 试运行标记(0正式/1试运行),写入 root span attribute,可空
      */
-    public WorkflowExecutionResult execute(Workflow workflow,
-                                           WorkflowConfig config,
-                                           Map<String, Object> inputs,
-                                           String runId,
-                                           Long flowId,
-                                           Long operatorId,
-                                           Integer orgId,
-                                           Integer trialFlag) {
+    public WorkflowExecutionResult execute(WorkflowExecuteRequest request) {
         return TraceUtil.span("workflow.execute", SpanKind.INTERNAL, span -> {
             // 以 OTel traceId 作为 runId;SDK 未初始化时回退传入值
             String effectiveRunId = span.getSpanContext().isValid()
                     ? span.getSpanContext().getTraceId()
-                    : runId;
+                    : request.getRunId();
 
+            span.setAttribute(ATTR_LABEL, request.getFlowName() != null ? request.getFlowName() : "");
             span.setAttribute("workflow.runId", effectiveRunId);
-            if (flowId != null) {
-                span.setAttribute("flowId", flowId);
+            if (request.getFlowId() != null) {
+                span.setAttribute("flowId", request.getFlowId());
             }
-            if (operatorId != null) {
-                span.setAttribute("operatorId", operatorId);
+            if (request.getOperatorId() != null) {
+                span.setAttribute("operatorId", request.getOperatorId());
             }
-            if (orgId != null) {
-                span.setAttribute("orgId", orgId.longValue());
+            if (request.getOrgId() != null) {
+                span.setAttribute("orgId", request.getOrgId().longValue());
             }
-            if (trialFlag != null) {
-                span.setAttribute("trialFlag", trialFlag != 0);
+            if (request.getTrialFlag() != null) {
+                span.setAttribute("trialFlag", request.getTrialFlag() != 0);
             }
 
             // 入参载荷
-            if (inputs != null && !inputs.isEmpty()) {
-                span.setAttribute("ap.payload.input", JSON.toJSONString(inputs));
+            if (request.getInputs() != null && !request.getInputs().isEmpty()) {
+                span.setAttribute("ap.payload.input", JSON.toJSONString(request.getInputs()));
             }
 
             // 保存当前 context 作为 root context，供后续节点 span 使用
             io.opentelemetry.context.Context rootContext = io.opentelemetry.context.Context.current();
 
-            WorkflowExecutionResult result = doExecute(workflow, config, inputs, effectiveRunId, flowId, operatorId, orgId, rootContext);
+            WorkflowExecutionResult result = doExecute(request.getWorkflow(), request.getConfig(), request.getInputs(),
+                    effectiveRunId, request.getFlowId(), request.getOperatorId(), request.getOrgId(), rootContext);
 
             // 出参载荷
             if (result.getOutput() != null && !result.getOutput().isEmpty()) {

@@ -52,7 +52,9 @@ class WorkflowSmokeTest {
                 .knowledgeRetriever(new MockKnowledgeRetriever())
                 .build();
 
-        WorkflowExecutionResult result = engine.execute(workflow, new WorkflowConfig(), inputs);
+        WorkflowExecutionResult result = engine.execute(
+                WorkflowExecuteRequest.simple(workflow, new WorkflowConfig(), inputs, "简单流程测试")
+        );
 
         System.out.println("=== runId: " + result.getRunId());
         System.out.println("=== final output: " + result.getOutput());

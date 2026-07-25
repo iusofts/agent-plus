@@ -290,8 +290,6 @@ public class AiFlowRuntimeServiceImpl extends ServiceImpl<AiFlowRuntimeMapper, A
         root.setLabel(runtime.getFlowName() == null ? "工作流运行" : runtime.getFlowName());
         root.setDur(runtime.getCostMs() == null ? 0L : runtime.getCostMs() * 1000L);
         root.setCat("workflow");
-        root.setBusinessType("runtime");
-        root.setBusinessId(runtime.getId());
 
         // 知识库检索日志按 source_node_id 分组
         List<AiKnowledgeRetrievalLog> knowledgeLogs = aiKnowledgeRetrievalLogMapper.selectList(
@@ -326,8 +324,6 @@ public class AiFlowRuntimeServiceImpl extends ServiceImpl<AiFlowRuntimeMapper, A
             nodeVo.setLabel(node.getNodeName() == null ? node.getNodeId() : node.getNodeName());
             nodeVo.setDur(node.getCostMs() == null ? 0L : node.getCostMs() * 1000L);
             nodeVo.setCat(node.getNodeType());
-            nodeVo.setBusinessType("runtimeNode");
-            nodeVo.setBusinessId(node.getId());
             nodeVo.setNodeId(node.getNodeId());
 
             // 该节点下的知识检索,子级继承节点类型作为 cat
@@ -369,8 +365,6 @@ public class AiFlowRuntimeServiceImpl extends ServiceImpl<AiFlowRuntimeMapper, A
         vo.setLabel(log.getKnowledgeBaseName() == null ? "知识检索" : log.getKnowledgeBaseName());
         vo.setDur(log.getDuration() == null ? 0L : log.getDuration() * 1000L);
         vo.setCat(cat);
-        vo.setBusinessType("knowledgeLog");
-        vo.setBusinessId(log.getId());
         vo.setNodeId(log.getSourceNodeId());
         return vo;
     }
@@ -380,8 +374,6 @@ public class AiFlowRuntimeServiceImpl extends ServiceImpl<AiFlowRuntimeMapper, A
         vo.setLabel(log.getModelName() == null ? "LLM推理" : log.getModelName());
         vo.setDur(log.getDuration() == null ? 0L : log.getDuration() * 1000L);
         vo.setCat(cat);
-        vo.setBusinessType("llmLog");
-        vo.setBusinessId(log.getId());
         vo.setNodeId(log.getSourceNodeId());
         return vo;
     }

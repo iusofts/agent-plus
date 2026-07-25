@@ -21,6 +21,7 @@ import com.iusofts.agentplus.aiflow.vo.workflow.config.WorkflowConfig;
 import com.iusofts.agentplus.basic.exception.SystemBusinessException;
 import com.iusofts.agentplus.engine.WorkflowEngine;
 import com.iusofts.agentplus.engine.WorkflowExecutionResult;
+import com.iusofts.agentplus.engine.WorkflowExecuteRequest;
 import com.iusofts.agentplus.engine.context.NodeExecutionStatus;
 import com.iusofts.agentplus.engine.context.NodeOutput;
 import com.iusofts.agentplus.engine.context.NodeTiming;
@@ -113,14 +114,17 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
         try {
             // 4. 执行工作流(引擎内开 root span,返回真实 OTel traceId)
             WorkflowExecutionResult execResult = workflowEngine.execute(
-                    workflow,
-                    config,
-                    inputs,
-                    placeholderTraceId,
-                    flowId,
-                    operatorId,
-                    orgId,
-                    trialFlag
+                    WorkflowExecuteRequest.builder()
+                            .workflow(workflow)
+                            .config(config)
+                            .inputs(inputs)
+                            .runId(placeholderTraceId)
+                            .flowId(flowId)
+                            .operatorId(operatorId)
+                            .orgId(orgId)
+                            .trialFlag(trialFlag)
+                            .flowName(aiFlow.getName())
+                            .build()
             );
 
             // 回填真实 traceId
@@ -233,14 +237,17 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
         try {
             // 执行(引擎内开 root span,返回真实 OTel traceId)
             WorkflowExecutionResult execResult = workflowEngine.execute(
-                    workflow,
-                    config,
-                    inputs,
-                    placeholderTraceId,
-                    version.getFlowId(),
-                    operatorId,
-                    orgId,
-                    trialFlag
+                    WorkflowExecuteRequest.builder()
+                            .workflow(workflow)
+                            .config(config)
+                            .inputs(inputs)
+                            .runId(placeholderTraceId)
+                            .flowId(version.getFlowId())
+                            .operatorId(operatorId)
+                            .orgId(orgId)
+                            .trialFlag(trialFlag)
+                            .flowName(aiFlow != null ? aiFlow.getName() : null)
+                            .build()
             );
 
             // 回填真实 traceId
