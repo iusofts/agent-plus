@@ -34,6 +34,9 @@ public class AiFlowTraceTreeVo {
     @Schema(description = "节点ID，业务类型为节点类型时有值")
     private String nodeId;
 
+    @Schema(description = "span状态: OK/ERROR")
+    private String status;
+
     @Schema(description = "子级")
     private List<AiFlowTraceTreeVo> children = new ArrayList<>();
 

@@ -134,6 +134,8 @@ public class AiTraceQueryServiceImpl implements IAiTraceQueryService {
         vo.setCat(getSpanCat(span));
         vo.setNodeId(getNodeId(span));
         vo.setTokens(getTokens(span));
+        vo.setStatus("UNSET".equals(span.getStatus()) ? "OK" : span.getStatus());
+        vo.setStatusMessage(span.getStatusMessage());
 
         List<AiTraceSpan> children = childrenMap.get(span.getSpanId());
         if (children != null) {
@@ -240,7 +242,7 @@ public class AiTraceQueryServiceImpl implements IAiTraceQueryService {
         vo.setCat(getSpanCat(span));
         vo.setNodeId(getNodeId(span));
         vo.setTokens(getTokens(span));
-        vo.setStatus(span.getStatus());
+        vo.setStatus("UNSET".equals(span.getStatus()) ? "OK" : span.getStatus());
         vo.setStatusMessage(span.getStatusMessage());
 
         // 查询出入参
