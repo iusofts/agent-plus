@@ -40,4 +40,7 @@ public class AiServiceChatReqVo {
     @Schema(description = "试运行标记(可选，0正式/1试运行)")
     private Integer trialFlag;
 
+    @Schema(description = "版本ID(可选，试运行指定版本时使用)")
+    private Long versionId;
+
 }
