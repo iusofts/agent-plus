@@ -1,5 +1,6 @@
 package com.iusofts.agentplus.engine.tool;
 
+import com.alibaba.fastjson2.JSON;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.iusofts.agentplus.tool.Tool;
 import com.iusofts.agentplus.tool.ToolQueryProvider;
@@ -62,7 +63,20 @@ public class ToolRegistry {
             if (toolId != null) {
                 span.setAttribute("ai.tool_id", toolId);
             }
-            return tool.execute(request);
+            // 记录输入参数
+            try {
+                span.setAttribute("ap.payload.input", JSON.toJSONString(request));
+            } catch (Exception ignore) {
+                // 序列化失败不影响主流程
+            }
+            ToolExecuteResult result = tool.execute(request);
+            // 记录输出结果
+            try {
+                span.setAttribute("ap.payload.output", JSON.toJSONString(result));
+            } catch (Exception ignore) {
+                // 序列化失败不影响主流程
+            }
+            return result;
         });
     }
 
