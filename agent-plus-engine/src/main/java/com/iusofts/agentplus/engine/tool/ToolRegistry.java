@@ -59,7 +59,6 @@ public class ToolRegistry {
         final Long toolId = request.getToolId();
         return TraceUtil.span("tool." + toolName, SpanKind.INTERNAL, span -> {
             TraceUtil.setLabel(toolName);
-            span.setAttribute("nodeType", "tool");
             if (toolId != null) {
                 span.setAttribute("ai.tool_id", toolId);
             }
