@@ -13,6 +13,9 @@ import lombok.Data;
 @Data
 public class AiFlowTraceEventVo {
 
+    @Schema(description = "span表主键ID")
+    private Long id;
+
     @Schema(description = "节点展示名称，前端火焰图显示文本")
     private String name;
 

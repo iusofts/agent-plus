@@ -56,6 +56,7 @@ public class AiTraceQueryServiceImpl implements IAiTraceQueryService {
 
         for (AiTraceSpan span : spans) {
             AiFlowTraceEventVo event = new AiFlowTraceEventVo();
+            event.setId(span.getId());
             event.setName(getSpanLabel(span));
             event.setPh("X");
             event.setTs(toMicros(span.getStartTime()));
