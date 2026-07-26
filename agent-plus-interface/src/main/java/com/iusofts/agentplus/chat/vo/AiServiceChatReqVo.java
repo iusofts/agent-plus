@@ -37,4 +37,7 @@ public class AiServiceChatReqVo {
     @Schema(description = "智能体类型 1:自主规划 2:对话流")
     private Integer agentType;
 
+    @Schema(description = "试运行标记(可选，0正式/1试运行)")
+    private Integer trialFlag;
+
 }

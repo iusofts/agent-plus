@@ -115,13 +115,14 @@ public class FlowChatServiceImpl implements IAiChatServiceInterface {
         inputs.put(FlowGlobalInputConstants.AGENT_ID, agentId);
 
         // 4. 调用公共执行服务执行流程（会自动落库 AiFlowRuntime 和 AiFlowRuntimeNode）
-        // trialFlag = 0 表示正式运行，不是试运行
+        // trialFlag: 0正式/1试运行，不传默认为0
+        Integer trialFlag = reqVo.getTrialFlag() != null ? reqVo.getTrialFlag() : 0;
         com.iusofts.agentplus.aiflow.vo.FlowExecuteResult executeResult = aiFlowExecutorService.executeFlow(
                 chatFlowId,
                 inputs,
                 reqVo.getOperatorId(),
                 reqVo.getOrgId(),
-                0
+                trialFlag
         );
 
         // 5. 根据 traceId 统计 token 消耗
