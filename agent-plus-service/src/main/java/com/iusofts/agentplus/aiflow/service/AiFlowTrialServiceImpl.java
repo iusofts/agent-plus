@@ -158,8 +158,14 @@ public class AiFlowTrialServiceImpl implements IAiFlowTrialService {
                 if (reqVo.getOrgId() != null) {
                     span.setAttribute("orgId", reqVo.getOrgId().longValue());
                 }
-                runtime.setTraceId(traceId);
                 result.setTraceId(traceId);
+                // 先单独更新 traceId 字段，避免后续 updateById 时唯一键冲突
+                AiFlowRuntime traceUpdate = new AiFlowRuntime();
+                traceUpdate.setId(runtime.getId());
+                traceUpdate.setTraceId(traceId);
+                aiFlowRuntimeMapper.updateById(traceUpdate);
+                // 更新本地对象的 traceId（但 finishRuntime 时要注意不要再修改它）
+                runtime.setTraceId(traceId);
 
                 ExecutionContext ctx = new ExecutionContext(traceId, config, new LinkedHashMap<>(),
                         version.getFlowId(), reqVo.getOperatorId(), reqVo.getOrgId());
@@ -263,12 +269,15 @@ public class AiFlowTrialServiceImpl implements IAiFlowTrialService {
 
     private void finishRuntime(AiFlowRuntime runtime, Integer runStatus, long costMs,
                                String outputResult, String errorMsg) {
-        runtime.setRunStatus(runStatus);
-        runtime.setEndTime(LocalDateTime.now());
-        runtime.setCostMs(costMs);
-        runtime.setErrorMsg(errorMsg);
-        runtime.setUpdateBy(runtime.getCreateBy());
-        aiFlowRuntimeMapper.updateById(runtime);
+        // 只更新需要的字段，不更新 traceId（已在前面单独更新过），避免唯一键冲突
+        AiFlowRuntime update = new AiFlowRuntime();
+        update.setId(runtime.getId());
+        update.setRunStatus(runStatus);
+        update.setEndTime(LocalDateTime.now());
+        update.setCostMs(costMs);
+        update.setErrorMsg(errorMsg);
+        update.setUpdateBy(runtime.getCreateBy());
+        aiFlowRuntimeMapper.updateById(update);
     }
 
     private AiFlowRuntimeNode buildRuntimeNode(Long runtimeId, String nodeId, String nodeName, String nodeType, int runStatus,

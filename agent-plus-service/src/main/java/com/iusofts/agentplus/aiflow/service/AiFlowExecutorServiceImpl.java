@@ -127,10 +127,16 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
                             .build()
             );
 
-            // 回填真实 traceId
+            // 回填真实 traceId - 先单独更新 traceId 字段，避免后续 updateById 时唯一键冲突
             String traceId = execResult.getRunId();
-            runtime.setTraceId(traceId);
             result.setTraceId(traceId);
+            // 先单独更新 traceId 字段
+            AiFlowRuntime traceUpdate = new AiFlowRuntime();
+            traceUpdate.setId(runtime.getId());
+            traceUpdate.setTraceId(traceId);
+            aiFlowRuntimeMapper.updateById(traceUpdate);
+            // 更新本地对象的 traceId（但 finishRuntime 时要注意不要再修改它）
+            runtime.setTraceId(traceId);
 
             // 5. 落库所有节点执行状态
             List<AiFlowRuntimeNode> nodeEntities = new ArrayList<>();
@@ -250,10 +256,16 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
                             .build()
             );
 
-            // 回填真实 traceId
+            // 回填真实 traceId - 先单独更新 traceId 字段，避免后续 updateById 时唯一键冲突
             String traceId = execResult.getRunId();
-            runtime.setTraceId(traceId);
             result.setTraceId(traceId);
+            // 先单独更新 traceId 字段
+            AiFlowRuntime traceUpdate = new AiFlowRuntime();
+            traceUpdate.setId(runtime.getId());
+            traceUpdate.setTraceId(traceId);
+            aiFlowRuntimeMapper.updateById(traceUpdate);
+            // 更新本地对象的 traceId（但 finishRuntime 时要注意不要再修改它）
+            runtime.setTraceId(traceId);
 
             // 落库节点
             List<AiFlowRuntimeNode> nodeEntities = new ArrayList<>();
@@ -323,12 +335,17 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
 
     private void finishRuntime(AiFlowRuntime runtime, Integer runStatus, long costMs,
                                String outputResult, String errorMsg) {
-        runtime.setRunStatus(runStatus);
-        runtime.setEndTime(LocalDateTime.now());
-        runtime.setCostMs(costMs);
-        runtime.setErrorMsg(errorMsg);
-        runtime.setUpdateBy(runtime.getCreateBy());
-        aiFlowRuntimeMapper.updateById(runtime);
+        // 只更新需要的字段，不更新 traceId（已在前面单独更新过），避免唯一键冲突
+        AiFlowRuntime update = new AiFlowRuntime();
+        update.setId(runtime.getId());
+        update.setRunStatus(runStatus);
+        update.setEndTime(LocalDateTime.now());
+        update.setCostMs(costMs);
+        update.setErrorMsg(errorMsg);
+        update.setUpdateBy(runtime.getCreateBy());
+        // 注意：不设置 outputResult，因为 AiFlowRuntime 类中没有这个字段？
+        // 如果需要保存 outputResult，需要确认实体类中有这个字段
+        aiFlowRuntimeMapper.updateById(update);
     }
 
     private AiFlowRuntimeNode buildRuntimeNode(Long runtimeId, String nodeId, String nodeName, String nodeType, int runStatus,

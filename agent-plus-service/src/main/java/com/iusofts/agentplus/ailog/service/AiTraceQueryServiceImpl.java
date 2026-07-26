@@ -168,18 +168,12 @@ public class AiTraceQueryServiceImpl implements IAiTraceQueryService {
         }
         String spanName = span.getSpanName();
         if (spanName != null) {
-            if (spanName.startsWith("node.")) {
-                return "workflow.node";
+            // 按 "." 分割取第一个部分
+            int dotIndex = spanName.indexOf('.');
+            if (dotIndex > 0) {
+                return spanName.substring(0, dotIndex);
             }
-            if (spanName.contains("llm") || spanName.contains("LLM")) {
-                return "llm";
-            }
-            if (spanName.contains("knowledge") || spanName.contains("Knowledge")) {
-                return "knowledge";
-            }
-            if (spanName.contains("workflow")) {
-                return "workflow";
-            }
+            return spanName;
         }
         return "internal";
     }
