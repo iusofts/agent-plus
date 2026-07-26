@@ -146,7 +146,8 @@ public class AiFlowTrialServiceImpl implements IAiFlowTrialService {
         result.setRuntimeId(runtime.getId());
 
         try {
-            return TraceUtil.span("flowTrial.runNode", SpanKind.INTERNAL, span -> {
+            // 使用 root() 作为父 Context，确保每次都是新的 trace，不继承上一次请求的残留 Context
+            return TraceUtil.span("flowTrial.runNode", SpanKind.INTERNAL, io.opentelemetry.context.Context.root(), span -> {
                 // 以 OTel traceId 作为本次单节点试运行的 traceId
                 String traceId = span.getSpanContext().isValid()
                         ? span.getSpanContext().getTraceId()
