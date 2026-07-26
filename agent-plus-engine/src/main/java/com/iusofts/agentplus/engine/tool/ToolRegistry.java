@@ -7,6 +7,8 @@ import com.iusofts.agentplus.tool.dto.HttpConfig;
 import com.iusofts.agentplus.tool.dto.ToolDTO;
 import com.iusofts.agentplus.tool.dto.ToolExecuteRequest;
 import com.iusofts.agentplus.tool.dto.ToolExecuteResult;
+import com.iusofts.agentplus.trace.TraceUtil;
+import io.opentelemetry.api.trace.SpanKind;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -52,7 +54,17 @@ public class ToolRegistry {
         if (tool == null) {
             return ToolExecuteResult.error("未找到工具: " + request.getToolId());
         }
-        return tool.execute(request);
+        // 创建 span 包装工具执行
+        final String toolName = tool.getName();
+        final Long toolId = request.getToolId();
+        return TraceUtil.span("tool." + toolName, SpanKind.INTERNAL, span -> {
+            TraceUtil.setLabel(toolName);
+            span.setAttribute("nodeType", "tool");
+            if (toolId != null) {
+                span.setAttribute("ai.tool_id", toolId);
+            }
+            return tool.execute(request);
+        });
     }
 
     private Tool resolveTool(ToolExecuteRequest request) {

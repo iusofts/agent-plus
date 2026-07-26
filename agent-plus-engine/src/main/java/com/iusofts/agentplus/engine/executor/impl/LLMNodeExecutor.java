@@ -24,7 +24,6 @@ import com.iusofts.agentplus.llm.dto.ToolCall;
 import com.iusofts.agentplus.llm.dto.ToolDefinition;
 import com.iusofts.agentplus.trace.TraceUtil;
 import com.iusofts.agentplus.tool.dto.ToolDTO;
-import io.opentelemetry.api.trace.SpanKind;
 import com.iusofts.agentplus.tool.dto.ToolExecuteRequest;
 import com.iusofts.agentplus.tool.dto.ToolExecuteResult;
 import com.iusofts.agentplus.tool.ToolQueryProvider;
@@ -309,17 +308,10 @@ public class LLMNodeExecutor implements NodeExecutor {
         if (toolId == null) {
             result = ToolExecuteResult.error("未找到工具: " + toolCall.getName());
         } else {
-            final Long finalToolId = toolId;
-            // 创建 span 包装工具执行
-            result = TraceUtil.span("tool." + toolCall.getName(), SpanKind.INTERNAL, span -> {
-                TraceUtil.setLabel(toolCall.getName());
-                span.setAttribute("nodeType", "tool");
-                span.setAttribute("ai.tool_id", finalToolId);
-                return toolRegistry.execute(ToolExecuteRequest.builder()
-                    .toolId(finalToolId)
-                    .params(params)
-                    .build());
-            });
+            result = toolRegistry.execute(ToolExecuteRequest.builder()
+                .toolId(toolId)
+                .params(params)
+                .build());
         }
 
         // 回填工具执行结果，供模型下一轮推理
