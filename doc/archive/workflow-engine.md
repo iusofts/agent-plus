@@ -21,8 +21,9 @@
 |------------|--------------|--------------------------|------------------------------------------|
 | 开始         | `Start`      | `StartNodeData`          | 装配全局输入,回填 `defaultValue`                  |
 | 结束         | `End`        | `EndNodeData`            | 采集上游输出组装最终结果                             |
-| 大模型        | `LLM`        | `LLMNodeData`            | 走 LangChain4j `ChatModel` 调用             |
+| 大模型        | `LLM`        | `LLMNodeData`            | 走 LangChain4j `ChatModel` 调用,支持工具调用循环与会话历史 |
 | 知识库检索      | `Knowledge`  | `KnowledgeNodeData`      | 委托 `KnowledgeRetriever`                  |
+| 工具         | `Tool`       | `ToolNodeData`           | 委托 `ToolRegistry` 执行工具(需注入 ToolRegistry + ToolQueryProvider) |
 | 条件分支       | `Condition`  | `ConditionNodeData`      | 命中分支通过 langgraph4j `addConditionalEdges` 剪枝 |
 | 变量聚合       | `Aggregator` | `AggregatorNodeData`     | 输出分组: list / map / first                 |
 | 批处理        | `Batch`      | `BatchNodeData`          | 通过 `parentNode` 归属子节点,子图预编译为独立 `StateGraph`,主图迭代时并行调用 |
@@ -56,29 +57,43 @@ Workflow(JSON) ──▶ WorkflowGraphCompiler ──▶ CompiledGraph(main) + C
 
 ```
 engine
-├── WorkflowEngine              // 门面 + Builder
-├── WorkflowExecutionResult     // 执行结果
+├── WorkflowEngine              // 门面 + Builder(execute(WorkflowExecuteRequest))
+├── WorkflowExecuteRequest      // 执行入参(workflow/config/inputs + flowId/operatorId/orgId/trialFlag/flowName)
+├── WorkflowExecutionResult     // 执行结果(runId/output/nodeOutputs/nodeStatus/nodeTimings)
 ├── graph
-│   ├── WorkflowState           // langgraph4j AgentState 子类,承载 ExecutionContext 引用
+│   ├── WorkflowState           // langgraph4j AgentState 子类,承载 ExecutionContextTracker 引用
+│   ├── ExecutionContextTracker // 按 runId 静态追踪原始 ctx,规避 langgraph4j 克隆状态问题
 │   └── WorkflowGraphCompiler   // Workflow → langgraph4j StateGraph(主图 + 批处理子图)
 ├── context
-│   ├── ExecutionContext        // 全局输入/环境变量/节点输出/状态/批处理子图注册表
+│   ├── ExecutionContext        // 全局输入/环境变量/节点输出/状态/时间/批处理子图注册表/OTel root context
 │   ├── NodeOutput              // 单节点产物 + chosenBranch(供条件路由读取)
+│   ├── NodeTiming              // 单节点起止时间与耗时(供落库)
 │   └── NodeExecutionStatus     // PENDING/RUNNING/SUCCESS/SKIPPED/FAILED
 ├── executor
 │   ├── NodeExecutor            // SPI 接口
 │   ├── NodeExecutorRegistry    // type → executor
-│   └── impl/*                  // 7 类内置执行器
+│   └── impl/*                  // 8 类内置执行器(Start/End/LLM/Knowledge/Tool/Condition/Aggregator/Batch)
 ├── llm
-│   └── ChatModelProvider       // 业务侧提供 LangChain4j ChatModel
+│   ├── ChatModelProvider       // 业务侧提供 LangChain4j ChatModel + chat(AiChatRequest)
+│   └── DefaultChatModelProvider// 千问/豆包兜底实现
 ├── knowledge
-│   ├── KnowledgeRetriever      // 业务侧提供向量检索
+│   ├── KnowledgeRetriever      // 业务侧提供向量检索(单/多知识库)
 │   └── NoopKnowledgeRetriever  // 默认空实现
+├── tool
+│   └── ToolRegistry            // 工具注册与执行
+├── history
+│   └── HistoryMessageProvider  // 可选:加载会话历史消息
+├── trace
+│   └── TraceSpanAspect         // @TraceSpan 注解的 AOP 切面(OTel span)
 ├── util
 │   └── ParamResolver           // paramMapKey / {{node.name}} 解析
 ├── exception/WorkflowExecutionException
-└── config/WorkflowEngineAutoConfiguration  // Spring Boot 自动装配
+└── config
+    ├── WorkflowEngineAutoConfiguration  // Spring Boot 自动装配
+    └── TraceAutoConfiguration           // OpenTelemetry SDK 初始化
 ```
+
+> 链路追踪:执行入口 `WorkflowEngine.execute` 在最外层开 OTel root span,其 `traceId` 即本次执行的 `runId`;各节点执行器统一 `TraceUtil.setAiAttributes(...)` 写业务属性,`chat`/落库由业务侧完成。详见 [`AI Trace日志纪录方案.md`](AI Trace日志纪录方案.md)。
 
 ---
 
@@ -95,13 +110,14 @@ engine
         - 无出边节点 → `addEdge(id, END)`
     - `StateGraph.compile()` 完成后,langgraph4j 自身会对环、悬挂节点等做静态校验
 
-2. **运行时** — `WorkflowEngine.execute(workflow, config, inputs)`
-    - `new ExecutionContext(runId, config, inputs)`:`envVars` 由 `WorkflowConfig.envVars` 的 `defaultValue` 初始化;`globalInputs` 复制传入的入参
+2. **运行时** — `WorkflowEngine.execute(WorkflowExecuteRequest)`
+    - 最外层开 OTel root span,以其 `traceId` 作为 `runId`(SDK 未初始化时回退请求里的 `runId`)
+    - `new ExecutionContext(runId, config, inputs, flowId, operatorId, orgId)`:`envVars` 由 `WorkflowConfig.envVars` 的 `defaultValue` 初始化;`globalInputs` 复制传入的入参;并记录 root context 供节点 span 挂靠
     - 编译后的批处理子图逐个注册进 `ExecutionContext.batchSubGraphs`,供 `BatchNodeExecutor` 后续调用
-    - `mainGraph.invoke(Map.of("ctx", ctx))` 交由 langgraph4j 驱动:
-        - 每个节点动作从 `WorkflowState.ctx()` 拿到共享的 `ExecutionContext`
-        - 更新 `RUNNING` → 调用 `NodeExecutor.execute` → 写 `NodeOutput` → 更新 `SUCCESS/FAILED`
+    - ctx 注册进 `ExecutionContextTracker`(按 runId),`mainGraph.invoke(Map.of("ctx", tracker))` 交由 langgraph4j 驱动;节点动作通过 tracker 拿到**原始** ctx(规避 langgraph4j 克隆状态导致副本丢失的问题,见 [`../issues/2026-07-07-ctx.md`](../issues/2026-07-07-ctx.md))
+        - 更新 `RUNNING` → `wrapExecutor` 记录 `NodeTiming` 起止时间 → 调用 `NodeExecutor.execute` → 写 `NodeOutput` → 更新 `SUCCESS/FAILED`
         - `NodeAction` 返回空 map,状态合并只发生在 ctx 内部(原地并发写),不需要额外 Channel Reducer
+    - `finally` 中 `ExecutionContextTracker.removeRun(runId)` 清理,避免内存泄漏
     - 未被路由到的节点保持 `PENDING`,执行结束后统一置为 `SKIPPED` 并写入空输出
 
 3. **结果汇总** — 遍历所有 `type=End` 且状态为 `SUCCESS` 的节点,合并 `outputParams` 为最终 `output`
@@ -204,11 +220,15 @@ Batch 节点作为可视化"容器",通过两条通道识别子图:
 | `items` | 完整集合(便于聚合类子节点使用) |
 | ... | `inputParams` 解析后的所有键(直接透传) |
 
-**主作用域输出**(下游节点通过 `{{<batchId>.results}}` 等引用):
+**主作用域输出**(下游节点引用):
+
+- **未配置 `outputParams`**:输出默认键 `output`,类型 `List<Map<String, Map<String, Object>>>` —— 每个 item 对应一个 `{subNodeId: outputs}`,失败位为 null。
+- **配置了 `outputParams`**:按每个 outputParam 的 `name` 聚合,值为 `List<Object>`(逐 item 取 `paramMapKey` 指向的子节点输出,失败位为 null)。
+
+无论是否配置,都附带统计字段:
 
 | key | 类型 | 说明 |
 |-----|------|------|
-| `results` | `List<Map<String, Map<String, Object>>>` | 每个 item 对应一个 `{subNodeId: outputs}`,失败位为 null |
 | `total` | `Integer` | items 数量 |
 | `success` | `Integer` | 成功完成的迭代数 |
 | `failed` | `Integer` | `total - success` |
@@ -218,13 +238,13 @@ Batch 节点作为可视化"容器",通过两条通道识别子图:
 - `maxParallel` 未配置或 ≤ 0 → 默认并发数 4;传 1 则严格串行
 - 子作用域读取时,batch 之外的上游节点仍然可见(读取回退到父作用域),但**不能**跨迭代引用彼此的数据
 - 暂不支持嵌套 batch,编译期即报错
-- batch 上若未挂任何子节点,则退化为旧行为,仅输出 `items` / `size`
+- batch 上若未挂任何子节点,则退化为旧行为,仅输出 `output`(=items)/ `total` / `success` / `failed`
 
 ---
 
 ## 7. 与 LangChain4j 集成
 
-`LLMNodeExecutor` 直接依赖 `dev.langchain4j.model.chat.ChatModel`。业务侧只需实现 `ChatModelProvider`:
+`LLMNodeExecutor` 通过 `ChatModelProvider` 完成模型调用。接口有两个方法:`provide(LLMNodeData)` 返回 LangChain4j `ChatModel`(用于自建调用),`chat(AiChatRequest)` 直接完成一次对话(内部处理工具调用循环并统一落 `ai_llm_call_log`)。生产实现见 agent-plus-plugin 的 `AiModelChatModelProvider`(`@Primary`,按 `modelId` 查库路由):
 
 ```java
 @Component
@@ -234,8 +254,8 @@ public class DashScopeChatModelProvider implements ChatModelProvider {
 
     @Override
     public ChatModel provide(LLMNodeData nodeData) {
-        // 1. 根据 nodeData.getModel() 查询模型元数据 (baseUrl, apiKey, modelName)
-        var meta = modelService.getById(nodeData.getModel());
+        // 1. 根据 nodeData.getModelId() 查询模型元数据 (baseUrl, apiKey, modelName)
+        var meta = modelService.getById(nodeData.getModelId());
 
         // 2. 构造 LangChain4j 的 OpenAI 兼容渠道(DashScope 提供 OpenAI 兼容端点)
         return OpenAiChatModel.builder()
@@ -255,16 +275,18 @@ public class DashScopeChatModelProvider implements ChatModelProvider {
 ```
 LLMNodeData
   ├─ systemPrompt   → 经 ParamResolver.renderTemplate 渲染 {{...}} 占位
+  ├─ userPrompt     → 同样渲染;为空时由 inputParams 兜底拼装
   ├─ inputParams    → 经 ParamResolver.resolveInputs 装配为 userMessage 内容
-  ├─ retryCount     → 引擎在 provider 之外做重试兜底
-  └─ errorHandling  → throw / custom / continue
+  ├─ toolIds        → 绑定工具,模型请求时进入多轮工具调用循环(最多 MAX_TOOL_ITERATIONS 轮)
+  ├─ enableHistory  → 开启后经 HistoryMessageProvider 加载最近 N 轮会话历史
+  └─ errorHandling  → throw(默认) / custom(用 customErrorContent) / continue(空串)
 ```
 
-**输出映射策略**:
+**输出映射策略**(始终包含默认输出 `text` / `reasoningContent` / `usage`):
 
-- 单个 `outputParam` → 完整模型文本写入该字段
-- 多个 `outputParam` → 尝试将模型文本按 JSON 解析,失败则退化为写入首字段
-- 无 `outputParam` → 兜底 `text`
+- 单个自定义 `outputParam` → 尝试将模型文本按 JSON 解析,失败则原样写入该字段
+- 多个自定义 `outputParam` → 尝试将模型文本按 JSON 解析,按参数名取值填充(不覆盖默认输出)
+- 无自定义 `outputParam` → 仅默认输出
 
 **推荐**: 多字段结构化输出时,系统提示词里让模型返回严格 JSON。
 
@@ -294,7 +316,16 @@ public class WorkflowRunController {
 
     @PostMapping("/workflow/run")
     public WorkflowExecutionResult run(@RequestBody RunRequest req) {
-        return engine.execute(req.getWorkflow(), req.getConfig(), req.getInputs());
+        WorkflowExecuteRequest exec = WorkflowExecuteRequest.builder()
+                .workflow(req.getWorkflow())
+                .config(req.getConfig())
+                .inputs(req.getInputs())
+                .flowId(req.getFlowId())        // 可选,用于链路/日志关联
+                .operatorId(req.getOperatorId())
+                .orgId(req.getOrgId())
+                .flowName(req.getFlowName())    // 可选,作为 root span 的 label
+                .build();
+        return engine.execute(exec);
     }
 }
 ```
@@ -311,9 +342,12 @@ WorkflowEngine engine = WorkflowEngine.builder()
 Workflow wf = objectMapper.readValue(json, Workflow.class);
 Map<String, Object> inputs = Map.of("question", "帮我写一封请假邮件");
 
-WorkflowExecutionResult result = engine.execute(wf, wf.getConfig(), inputs);
+WorkflowExecutionResult result = engine.execute(
+        WorkflowExecuteRequest.simple(wf, wf.getConfig(), inputs, "请假邮件流程"));
+System.out.println(result.getRunId());           // 即 OTel traceId
 System.out.println(result.getOutput());          // End 节点合并结果
 System.out.println(result.getNodeStatus());      // 每个节点的执行态
+System.out.println(result.getNodeTimings());     // 每个节点起止时间/耗时
 ```
 
 ### 8.3 自定义节点执行器
@@ -341,7 +375,10 @@ public class HttpCallNodeExecutor implements NodeExecutor {
 |---------------------------|----------------------------------------|
 | `ChatModelProvider`       | 必须。对接你的模型元数据表 + LangChain4j 渠道         |
 | `KnowledgeRetriever`      | 使用了 Knowledge 节点时。默认 Noop 返回空          |
+| `ToolRegistry` + `ToolQueryProvider` | 使用了 Tool 节点或 LLM 工具调用时,注册工具并按 toolId 查元数据 |
+| `HistoryMessageProvider`  | LLM 节点需加载会话历史(`enableHistory`)时         |
 | `NodeExecutor` + register | 需要新增节点类型时(HTTP / SQL / Function 调用 等) |
+| `SpanExporter`            | 需要 span 落库时(agent-plus-service 提供 `MySqlSpanExporter`) |
 | `ParamResolver` 占位规则      | 需要更复杂的表达式(如 SpEL)时 fork 或包装             |
 
 ---
@@ -359,5 +396,9 @@ public class HttpCallNodeExecutor implements NodeExecutor {
 
 - 前端节点模型: `agent-plus-core/src/main/java/com/iusofts/agentplus/aiflow/vo/workflow/**`
 - 引擎实现: `agent-plus-engine/src/main/java/com/iusofts/agentplus/engine/**`
-- 自动装配: `agent-plus-engine/src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`
+- 链路追踪工具: `agent-plus-core/src/main/java/com/iusofts/agentplus/trace/**`
+- 生产模型/向量库实现: `agent-plus-plugin/src/main/java/com/iusofts/agentplus/plugin/**`
+- 自动装配: `agent-plus-engine/src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`(`WorkflowEngineAutoConfiguration` + `TraceAutoConfiguration`)
 - 依赖版本: `pom.xml` → `langgraph4j.version` / `langchain4j.version`
+- 链路追踪方案: [`AI Trace日志纪录方案.md`](AI Trace日志纪录方案.md)
+- 测试流程图与 JSON 示例: [`../test/测试流程图.md`](../test/测试流程图.md)
