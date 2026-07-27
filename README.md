@@ -148,8 +148,8 @@ storage:
     endPoint: XXX
     regionId: XXX
     roleArn: XXX
-    bucket: iusofts
-    domain: https://iusofts.oss-cn-hangzhou.aliyuncs.com
+    bucket: XXX
+    domain: https://xxxxxxx.aliyuncs.com
 
 ```
 
