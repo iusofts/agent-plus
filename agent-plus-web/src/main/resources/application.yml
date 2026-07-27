@@ -64,13 +64,13 @@ server:
   
 storage:
   oss:
-    accessKeyId: XXX
-    accessKeySecret: XXX
-    endPoint: XXX
-    regionId: XXX
-    roleArn: XXX
-    bucket: iusofts
-    domain: https://iusofts.oss-cn-hangzhou.aliyuncs.com
+    accessKeyId: 
+    accessKeySecret: 
+    endPoint: 
+    regionId: 
+    roleArn: 
+    bucket: 
+    domain: https://xxxxxx.aliyuncs.com
 
 # 知识库(向量库/分块/异步管线)配置。向量库复用 spring.data.redis 连接。
 knowledge:
