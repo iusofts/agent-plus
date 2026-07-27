@@ -116,9 +116,10 @@ web ──► service ──► interface ──► engine ──► plugin ─�
 
 - JDK 21
 - Spring Boot 3.5.2
-- LangChain4j
+- LangChain4j 1.17.2
+- Langgraph4j 1.8.20
 - MySQL 5.7/8 + MyBatis / MyBatis-Plus
-- 向量库：Redis 8.8
+- 缓存和向量库：Redis 8.8
 - SpringDoc OpenAPI、Fastjson2、Caffeine、Hibernate Validator
 
 ## 前置检查和配置
