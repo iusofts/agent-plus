@@ -4,7 +4,7 @@
  Source Server         : agent-plus
  Source Server Type    : MySQL
  Source Server Version : 50744 (5.7.44)
- Source Host           : 121.40.203.82:3306
+ Source Host           : 127.0.0.1:3306
  Source Schema         : agent-plus-sys
 
  Target Server Type    : MySQL
