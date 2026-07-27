@@ -15,6 +15,16 @@
 
 基于 Spring Boot 3.5 + JDK 21 + LangChain4j 构建的企业级 AI Agent 应用开发平台，提供模型接入、知识库（RAG）、工具调用、工作流编排、智能体（Agent）等完整能力。
 
+### 项目源码
+
+| 项目模块         | GitHub 仓库                                                                     | Gitee 仓库                                             | GitCode 仓库                                             |
+|--------------|-------------------------------------------------------------------------------|------------------------------------------------------|--------------------------------------------------------|
+| 🔧 后端服务      | [agent-plus](https://github.com/iusofts/agent-plus)                           | [agent-plus](https://gitee.com/iusofts/agent-plus)       | [agent-plus](https://gitcode.com/iusofts/agent-plus)       |
+| 🛠️ 管理后台     | [agent-plus-admin-front](https://github.com/iusofts/agent-plus-admin-front)   | [agent-plus-admin-front](https://gitee.com/iusofts/agent-plus-admin-front) | [agent-plus-admin-front](https://gitcode.com/iusofts/agent-plus-admin-front) |
+| 🎨 用户前端(计划中) | [agent-plus-client-front](https://github.com/iusofts/agent-plus-client-front) | [agent-plus-client-front](https://gitee.com/iusofts/agent-plus-client-front)     | [agent-plus-client-front](https://gitcode.com/iusofts/agent-plus-client-front)     |
+| 💻 客户端(计划中)  | [agent-plus-client](https://github.com/iusofts/agent-plus-client)             | [agent-plus-client](https://gitee.com/iusofts/agent-plus-client) | [agent-plus-client](https://gitcode.com/iusofts/agent-plus-client) |
+| 📱 移动端(计划中)  | [agent-plus-app](https://github.com/iusofts/agent-plus-app)                | [agent-plus-app](https://gitee.com/iusofts/agent-plus-app) | [agent-plus-app](https://gitcode.com/iusofts/agent-plus-app) |
+
 ## 模块结构
 
 ```
