@@ -6,7 +6,7 @@
 
 ## 1. 设计目标
 
-- **无侵入**: 直接消费前端 React Flow 序列化过来的 `Workflow` JSON,无需额外中间模型。
+- **无侵入**: 直接消费前端 AgentPlusFlow 序列化过来的 `Workflow` JSON,无需额外中间模型。
 - **借力开源**: DAG 编排、拓扑执行、条件分支、子图组合等重活交给 langgraph4j 的 `StateGraph`,引擎只负责节点语义与前端 JSON 的适配。
 - **可扩展**: 节点执行器、模型工厂、知识库检索均为可插拔接口,业务侧仅需实现少量 Bean。
 - **与 LangChain4j 对齐**: LLM 节点直接接受 `dev.langchain4j.model.chat.ChatModel`,便于复用 OpenAI / Ollama / DashScope 等社区实现。
