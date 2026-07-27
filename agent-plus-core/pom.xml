@@ -10,4 +10,18 @@
     </parent>
 
     <artifactId>agent-plus-core</artifactId>
+
+    <dependencies>
+        <!-- 通用工具依赖 -->
+        <dependency>
+            <groupId>com.iusofts</groupId>
+            <artifactId>agent-plus-common</artifactId>
+        </dependency>
+
+        <!-- OpenTelemetry API: @TraceSpan 注解与 TraceUtil 依赖的 Span/Tracer/Context 接口 -->
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-api</artifactId>
+        </dependency>
+    </dependencies>
 </project>

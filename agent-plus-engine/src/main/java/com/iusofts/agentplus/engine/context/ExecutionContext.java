@@ -32,15 +32,36 @@ public class ExecutionContext implements Serializable {
     private final Map<String, Object> envVars;
     private final Map<String, NodeOutput> nodeOutputs = new ConcurrentHashMap<>();
     private final Map<String, NodeExecutionStatus> nodeStatus = new ConcurrentHashMap<>();
+    /** 节点执行的起止时间,由 wrapExecutor 记录,供落库/查询取真实值。 */
+    private final Map<String, NodeTiming> nodeTimings = new ConcurrentHashMap<>();
     private transient final ExecutionContext parent;
     private final String scopeKey;
+
+    /** 关联的流程 ID,用于 AI 日志的 fromFlow 记录。 */
+    private final Long flowId;
+    /** 触发用户 ID,用于 AI 日志的 operator 记录。 */
+    private final Long operatorId;
+    /** 所属组织 ID,用于 AI 日志的 operator 记录。 */
+    private final Integer orgId;
 
     /** 主图运行时可用的批处理子图,由 {@code WorkflowGraphCompiler} 预编译写入,BatchNodeExecutor 直接调用。 */
     private transient final Map<String, CompiledGraph<?>> batchSubGraphs = new ConcurrentHashMap<>();
 
+    /** Root span 的 Context，用于节点 span 的父 context，确保所有节点都是平级。 */
+    private transient io.opentelemetry.context.Context rootContext;
+
     public ExecutionContext(String runId,
                             WorkflowConfig config,
                             Map<String, Object> globalInputs) {
+        this(runId, config, globalInputs, null, null, null);
+    }
+
+    public ExecutionContext(String runId,
+                            WorkflowConfig config,
+                            Map<String, Object> globalInputs,
+                            Long flowId,
+                            Long operatorId,
+                            Integer orgId) {
         this.runId = runId;
         this.config = config;
         this.globalInputs = globalInputs == null
@@ -49,6 +70,9 @@ public class ExecutionContext implements Serializable {
         this.envVars = buildEnvVars(config);
         this.parent = null;
         this.scopeKey = null;
+        this.flowId = flowId;
+        this.operatorId = operatorId;
+        this.orgId = orgId;
     }
 
     private ExecutionContext(ExecutionContext parent, String scopeKey) {
@@ -58,6 +82,9 @@ public class ExecutionContext implements Serializable {
         this.envVars = parent.envVars;
         this.parent = parent;
         this.scopeKey = scopeKey;
+        this.flowId = parent.flowId;
+        this.operatorId = parent.operatorId;
+        this.orgId = parent.orgId;
         this.batchSubGraphs.putAll(parent.batchSubGraphs);
     }
 
@@ -107,11 +134,46 @@ public class ExecutionContext implements Serializable {
         return Collections.unmodifiableMap(new LinkedHashMap<>(nodeOutputs));
     }
 
+    /** 记录节点起止时间,批处理子作用域也向根 ctx 写入,便于最终汇总。 */
+    public void recordTiming(String nodeId, java.time.LocalDateTime startTime, java.time.LocalDateTime endTime) {
+        NodeTiming timing = new NodeTiming(nodeId, startTime, endTime);
+        ExecutionContext root = this;
+        while (root.parent != null) {
+            root = root.parent;
+        }
+        root.nodeTimings.put(nodeId, timing);
+    }
+
+    /** 主 ctx 的节点起止时间快照;子作用域递归回退到根。 */
+    public Map<String, NodeTiming> snapshotTimings() {
+        ExecutionContext root = this;
+        while (root.parent != null) {
+            root = root.parent;
+        }
+        return Collections.unmodifiableMap(new LinkedHashMap<>(root.nodeTimings));
+    }
+
     public void registerBatchSubGraph(String batchId, CompiledGraph<?> subGraph) {
         batchSubGraphs.put(batchId, subGraph);
     }
 
     public CompiledGraph<?> getBatchSubGraph(String batchId) {
         return batchSubGraphs.get(batchId);
+    }
+
+    public io.opentelemetry.context.Context getRootContext() {
+        ExecutionContext root = this;
+        while (root.parent != null) {
+            root = root.parent;
+        }
+        return root.rootContext;
+    }
+
+    public void setRootContext(io.opentelemetry.context.Context rootContext) {
+        ExecutionContext root = this;
+        while (root.parent != null) {
+            root = root.parent;
+        }
+        root.rootContext = rootContext;
     }
 }

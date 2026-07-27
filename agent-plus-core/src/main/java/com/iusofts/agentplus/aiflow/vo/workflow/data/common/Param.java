@@ -41,6 +41,9 @@ public class Param {
 
     @Schema(description = "是否默认参数")
     private Boolean isDefault;
+    
+    @Schema(description = "是否只读参数")
+    private Boolean readonly;
 
     @Valid
     @Schema(description = "子参数列表")

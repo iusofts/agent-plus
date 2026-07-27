@@ -17,6 +17,7 @@ import com.iusofts.agentplus.engine.executor.impl.KnowledgeNodeExecutor;
 import com.iusofts.agentplus.engine.executor.impl.LLMNodeExecutor;
 import com.iusofts.agentplus.engine.executor.impl.StartNodeExecutor;
 import com.iusofts.agentplus.engine.executor.impl.ToolNodeExecutor;
+import com.iusofts.agentplus.engine.history.HistoryMessageProvider;
 import com.iusofts.agentplus.engine.tool.ToolRegistry;
 import com.iusofts.agentplus.tool.ToolQueryProvider;
 import com.iusofts.agentplus.engine.graph.ExecutionContextTracker;
@@ -25,11 +26,17 @@ import com.iusofts.agentplus.engine.graph.WorkflowState;
 import com.iusofts.agentplus.engine.knowledge.KnowledgeRetriever;
 import com.iusofts.agentplus.engine.knowledge.NoopKnowledgeRetriever;
 import com.iusofts.agentplus.engine.llm.ChatModelProvider;
+import com.iusofts.agentplus.trace.TraceUtil;
+import com.alibaba.fastjson2.JSON;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.SpanKind;
 import org.bsc.langgraph4j.CompiledGraph;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
+
+import static com.iusofts.agentplus.trace.TraceUtil.ATTR_LABEL;
 
 /**
  * 工作流执行引擎入口。
@@ -59,18 +66,68 @@ public class WorkflowEngine {
         return new Builder();
     }
 
-    public WorkflowExecutionResult execute(Workflow workflow,
-                                           WorkflowConfig config,
-                                           Map<String, Object> inputs) {
-        return execute(workflow, config, inputs, UUID.randomUUID().toString());
+
+    /**
+     * 使用请求对象执行工作流。
+     *
+     * <p>在最外层开启 OTel root span,并以 span 的 traceId 作为本次执行的 runId
+     * (即业务 traceId),经 {@link WorkflowExecutionResult#getRunId()} 回传给调用方落库。
+     * 若 OTel SDK 未初始化(如单元测试),span context 无效时回退使用传入的 {@code runId}。</p>
+     */
+    public WorkflowExecutionResult execute(WorkflowExecuteRequest request) {
+        // 使用 root() 作为父 Context，确保每次都是新的 trace，不继承上一次请求的残留 Context
+        return TraceUtil.span("workflow.execute", SpanKind.INTERNAL, io.opentelemetry.context.Context.root(), span -> {
+            // 以 OTel traceId 作为 runId;SDK 未初始化时回退传入值
+            String effectiveRunId = span.getSpanContext().isValid()
+                    ? span.getSpanContext().getTraceId()
+                    : request.getRunId();
+
+            span.setAttribute(ATTR_LABEL, request.getFlowName() != null ? request.getFlowName() : "");
+            span.setAttribute("workflow.runId", effectiveRunId);
+            if (request.getFlowId() != null) {
+                span.setAttribute("flowId", request.getFlowId());
+            }
+            if (request.getOperatorId() != null) {
+                span.setAttribute("operatorId", request.getOperatorId());
+            }
+            if (request.getOrgId() != null) {
+                span.setAttribute("orgId", request.getOrgId().longValue());
+            }
+            if (request.getTrialFlag() != null) {
+                span.setAttribute("trialFlag", request.getTrialFlag() != 0);
+            }
+
+            // 入参载荷
+            if (request.getInputs() != null && !request.getInputs().isEmpty()) {
+                span.setAttribute("ap.payload.input", JSON.toJSONString(request.getInputs()));
+            }
+
+            // 保存当前 context 作为 root context，供后续节点 span 使用
+            io.opentelemetry.context.Context rootContext = io.opentelemetry.context.Context.current();
+
+            WorkflowExecutionResult result = doExecute(request.getWorkflow(), request.getConfig(), request.getInputs(),
+                    effectiveRunId, request.getFlowId(), request.getOperatorId(), request.getOrgId(), rootContext);
+
+            // 出参载荷
+            if (result.getOutput() != null && !result.getOutput().isEmpty()) {
+                span.setAttribute("ap.payload.output", JSON.toJSONString(result.getOutput()));
+            }
+
+            return result;
+        });
     }
 
-    public WorkflowExecutionResult execute(Workflow workflow,
-                                           WorkflowConfig config,
-                                           Map<String, Object> inputs,
-                                           String runId) {
+    private WorkflowExecutionResult doExecute(Workflow workflow,
+                                              WorkflowConfig config,
+                                              Map<String, Object> inputs,
+                                              String runId,
+                                              Long flowId,
+                                              Long operatorId,
+                                              Integer orgId,
+                                              io.opentelemetry.context.Context rootContext) {
         WorkflowGraphCompiler.Compiled compiled = compiler.compile(workflow);
-        ExecutionContext ctx = new ExecutionContext(runId, config, inputs);
+        ExecutionContext ctx = new ExecutionContext(runId, config, inputs, flowId, operatorId, orgId);
+        ctx.setRootContext(rootContext);
         compiled.batchSubGraphs().forEach(ctx::registerBatchSubGraph);
 
         CompiledGraph<WorkflowState> mainGraph = compiled.mainGraph();
@@ -89,7 +146,8 @@ public class WorkflowEngine {
 
         fillSkipped(compiled.nodeIds(), ctx);
         Map<String, Object> finalOutput = collectEndOutputs(compiled.endNodeIds(), workflow, ctx);
-        return new WorkflowExecutionResult(runId, finalOutput, ctx.snapshotOutputs(), ctx.getNodeStatus());
+        return new WorkflowExecutionResult(runId, finalOutput,
+                ctx.snapshotOutputs(), ctx.getNodeStatus(), ctx.snapshotTimings());
     }
 
     private void fillSkipped(java.util.Set<String> allNodeIds, ExecutionContext ctx) {
@@ -130,6 +188,7 @@ public class WorkflowEngine {
         private KnowledgeRetriever knowledgeRetriever;
         private ToolRegistry toolRegistry;
         private ToolQueryProvider toolQueryProvider;
+        private HistoryMessageProvider historyMessageProvider;
         private final NodeExecutorRegistry registry = new NodeExecutorRegistry();
 
         public Builder chatModelProvider(ChatModelProvider provider) {
@@ -149,6 +208,12 @@ public class WorkflowEngine {
 
         public Builder toolQueryProvider(ToolQueryProvider toolQueryProvider) {
             this.toolQueryProvider = toolQueryProvider;
+            return this;
+        }
+
+        /** 可选:注入历史消息提供者,用于加载会话历史消息。 */
+        public Builder historyMessageProvider(HistoryMessageProvider provider) {
+            this.historyMessageProvider = provider;
             return this;
         }
 
@@ -172,7 +237,7 @@ public class WorkflowEngine {
                     .register(new AggregatorNodeExecutor())
                     .register(new BatchNodeExecutor())
                     .register(new KnowledgeNodeExecutor(retriever))
-                    .register(new LLMNodeExecutor(chatModelProvider));
+                    .register(new LLMNodeExecutor(chatModelProvider, toolQueryProvider, toolRegistry, historyMessageProvider));
 
             if (toolRegistry != null && toolQueryProvider != null) {
                 registry.register(new ToolNodeExecutor(toolRegistry, toolQueryProvider));

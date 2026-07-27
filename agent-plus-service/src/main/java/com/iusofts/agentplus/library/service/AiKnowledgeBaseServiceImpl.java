@@ -14,6 +14,8 @@ import com.iusofts.agentplus.library.knowledge.KnowledgeIngestionService;
 import com.iusofts.agentplus.library.mapper.AiKnowledgeBaseMapper;
 import com.iusofts.agentplus.library.mapper.AiKnowledgeChunkMapper;
 import com.iusofts.agentplus.library.mapper.AiKnowledgeDocumentMapper;
+import com.iusofts.agentplus.llm.log.LlmLogRecorder;
+import com.iusofts.agentplus.trace.TraceUtil;
 import com.iusofts.agentplus.plugin.vectorstore.KnowledgeMetadata;
 import com.iusofts.agentplus.plugin.vectorstore.KnowledgeStoreService;
 import com.iusofts.agentplus.library.vo.knowledge.AiKnowledgeBaseAddReqVo;
@@ -43,6 +45,8 @@ import java.util.Map;
  * AI知识库 服务实现类
  * </p>
  *
+ * <p>方案一：链路信息通过 OpenTelemetry Span Attributes 传递。
+ *
  * @author Ivan
  * @since 2026-07-08
  */
@@ -64,6 +68,9 @@ public class AiKnowledgeBaseServiceImpl extends ServiceImpl<AiKnowledgeBaseMappe
 
     @Resource
     private IAiKnowledgeDocumentService aiKnowledgeDocumentService;
+
+    @Resource
+    private LlmLogRecorder llmLogRecorder;
 
     @Override
     public Long add(AiKnowledgeBaseAddReqVo reqVo) {
@@ -225,11 +232,39 @@ public class AiKnowledgeBaseServiceImpl extends ServiceImpl<AiKnowledgeBaseMappe
                 }
             }
             if (!vectorIds.isEmpty()) {
+                int embeddingTokens = 0;
+                // 方案一：设置操作人信息到 Span
+                TraceUtil.setOperator(reqVo.getOperatorId(), reqVo.getOrgId());
                 try {
-                    knowledgeStoreService.batchEmbedAndStore(
-                            kb.getCollectionName(), vectorIds, contents, metadatas, kb.getEmbeddingModelId());
+                    embeddingTokens = knowledgeStoreService.batchEmbedAndStore(
+                            kb.getCollectionName(), vectorIds, contents, metadatas,
+                            kb.getEmbeddingModelId(), kb.getId());
                 } catch (Exception e) {
+                    try {
+                        llmLogRecorder.recordKnowledgeDoc()
+                                .knowledgeBase(kb.getId(), kb.getName())
+                                .document(doc.getId(), doc.getName())
+                                .update()
+                                .operator(reqVo.getOperatorId(), reqVo.getOrgId())
+                                .error(e.getMessage())
+                                .record();
+                    } catch (Exception logEx) {
+                        // 忽略日志记录异常,不影响主流程抛出
+                    }
                     throw new SystemBusinessException("重建文档[" + doc.getName() + "]向量失败:" + e.getMessage());
+                }
+                int totalCharCount = contents.stream().mapToInt(c -> c == null ? 0 : c.length()).sum();
+                try {
+                    llmLogRecorder.recordKnowledgeDoc()
+                            .knowledgeBase(kb.getId(), kb.getName())
+                            .document(doc.getId(), doc.getName())
+                            .update()
+                            .operator(reqVo.getOperatorId(), reqVo.getOrgId())
+                            .chunks(vectorIds.size(), totalCharCount, embeddingTokens)
+                            .success()
+                            .record();
+                } catch (Exception logEx) {
+                    // 忽略日志记录异常
                 }
             }
 

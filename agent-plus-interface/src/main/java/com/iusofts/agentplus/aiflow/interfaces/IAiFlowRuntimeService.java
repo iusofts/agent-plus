@@ -28,4 +28,6 @@ public interface IAiFlowRuntimeService {
 
     void terminate(AiFlowRuntimeTerminateReqVo reqVo);
 
+    List<AiFlowRuntimeTraceListVo> queryTraceList(AiFlowRuntimeTraceListReqVo reqVo);
+
 }

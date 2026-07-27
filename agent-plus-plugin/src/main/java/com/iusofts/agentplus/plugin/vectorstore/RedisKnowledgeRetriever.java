@@ -1,27 +1,46 @@
 package com.iusofts.agentplus.plugin.vectorstore;
 
 import com.iusofts.agentplus.engine.knowledge.KnowledgeRetriever;
+import com.iusofts.agentplus.knowledge.EmbeddingModelQueryProvider;
+import com.iusofts.agentplus.knowledge.dto.EmbeddingModelDTO;
 import com.iusofts.agentplus.knowledge.dto.KnowledgeBaseDTO;
 import com.iusofts.agentplus.knowledge.dto.KnowledgeChunk;
 import com.iusofts.agentplus.knowledge.dto.KnowledgeRetrieveResult;
 import com.iusofts.agentplus.knowledge.KnowledgeBaseQueryProvider;
+import com.iusofts.agentplus.llm.log.LlmLogRecorder;
+import com.iusofts.agentplus.trace.TraceUtil;
+import com.iusofts.agentplus.trace.annotation.TraceSpan;
 import dev.langchain4j.data.embedding.Embedding;
+import io.opentelemetry.api.trace.SpanKind;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.output.Response;
 import dev.langchain4j.store.embedding.EmbeddingMatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
+import org.springframework.beans.factory.annotation.Autowired;
+
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static com.iusofts.agentplus.trace.TraceUtil.ATTR_MODELNAME;
+import static com.iusofts.agentplus.trace.TraceUtil.ATTR_TOKENS;
+
 /**
  * 基于 Redis 向量库的知识库检索实现（无 DB 依赖，依赖抽象）。
+ *
+ * <p>方案一：链路信息自动从 OpenTelemetry Span Attributes 获取，
+ * 检索时的 query 向量化调用按 {@code EMBED_RETRIEVE} 来源记录到 {@code ai_llm_call_log}；
+ * 每次单库检索另记一条 {@code ai_knowledge_retrieval_log}（含召回明细与 topK）。
+ * 多知识库场景逐库各记一条。
  *
  * @author Ivan
  */
@@ -31,21 +50,36 @@ public class RedisKnowledgeRetriever implements KnowledgeRetriever {
 
     private static final Logger log = LoggerFactory.getLogger(RedisKnowledgeRetriever.class);
 
+    /** embedding 向量化调用来源：检索场景。 */
+    private static final String CALL_SOURCE_EMBED_RETRIEVE = "EMBED_RETRIEVE";
+
     private final KnowledgeBaseQueryProvider knowledgeBaseQueryProvider;
     private final EmbeddingModelProvider embeddingModelProvider;
+    private final EmbeddingModelQueryProvider embeddingModelQueryProvider;
     private final RedisVectorStoreManager vectorStoreManager;
+    private final ObjectProvider<LlmLogRecorder> llmLogRecorderProvider;
+
+    @Lazy
+    @Autowired
+    private KnowledgeRetriever self;
 
     public RedisKnowledgeRetriever(
-            KnowledgeBaseQueryProvider knowledgeBaseQueryProvider,
-            EmbeddingModelProvider embeddingModelProvider,
-            RedisVectorStoreManager vectorStoreManager) {
+        KnowledgeBaseQueryProvider knowledgeBaseQueryProvider,
+        EmbeddingModelProvider embeddingModelProvider,
+        EmbeddingModelQueryProvider embeddingModelQueryProvider,
+        RedisVectorStoreManager vectorStoreManager,
+        ObjectProvider<LlmLogRecorder> llmLogRecorderProvider) {
         this.knowledgeBaseQueryProvider = knowledgeBaseQueryProvider;
         this.embeddingModelProvider = embeddingModelProvider;
+        this.embeddingModelQueryProvider = embeddingModelQueryProvider;
         this.vectorStoreManager = vectorStoreManager;
+        this.llmLogRecorderProvider = llmLogRecorderProvider;
     }
 
     @Override
+    @TraceSpan(name = "knowledge.retrieve", kind = SpanKind.INTERNAL)
     public KnowledgeRetrieveResult retrieve(Long knowledgeId, String query, int topK) {
+        LocalDateTime retrieveStart = LocalDateTime.now();
         KnowledgeRetrieveResult result = new KnowledgeRetrieveResult();
         result.setQuery(query);
         result.setRewriteQuery(query);
@@ -59,8 +93,9 @@ public class RedisKnowledgeRetriever implements KnowledgeRetriever {
             return result;
         }
 
+        KnowledgeBaseDTO kb = null;
         try {
-            KnowledgeBaseDTO kb = knowledgeBaseQueryProvider.getKnowledgeBase(knowledgeId);
+            kb = knowledgeBaseQueryProvider.getKnowledgeBase(knowledgeId);
             if (kb == null) {
                 log.warn("知识库不存在: knowledgeId={}", knowledgeId);
                 result.setSuccess(true);
@@ -71,16 +106,30 @@ public class RedisKnowledgeRetriever implements KnowledgeRetriever {
                 return result;
             }
 
+            TraceUtil.setLabel(kb.getName());
+
+            EmbeddingModelDTO modelDTO = null;
+            try {
+                modelDTO = embeddingModelQueryProvider.getModel(kb.getEmbeddingModelId());
+                if (modelDTO != null) {
+                    TraceUtil.setSpanAttribute(ATTR_MODELNAME, modelDTO.getModelName());
+                }
+            } catch (Exception e) {
+                log.debug("查询嵌入模型信息失败,日志将不带模型详情", e);
+            }
+
             EmbeddingModel embeddingModel = embeddingModelProvider.provide(kb.getEmbeddingModelId());
-            Response<Embedding> embeddingResponse = embeddingModel.embed(query);
+            Response<Embedding> embeddingResponse = embedQueryWithLog(embeddingModel, kb, modelDTO, query);
             Embedding queryEmbedding = embeddingResponse.content();
             Integer embeddingTokens = embeddingResponse.tokenUsage() != null
-                    ? embeddingResponse.tokenUsage().totalTokenCount()
-                    : null;
+                ? embeddingResponse.tokenUsage().totalTokenCount()
+                : null;
+
+            TraceUtil.setSpanAttribute(ATTR_TOKENS, embeddingTokens);
 
             int limit = topK > 0 ? topK : 3;
             List<EmbeddingMatch<TextSegment>> matches =
-                    vectorStoreManager.search(kb.getCollectionName(), queryEmbedding, limit);
+                vectorStoreManager.search(kb.getCollectionName(), queryEmbedding, limit);
 
             List<KnowledgeChunk> chunks = new ArrayList<>();
             for (int i = 0; i < matches.size(); i++) {
@@ -97,8 +146,8 @@ public class RedisKnowledgeRetriever implements KnowledgeRetriever {
             }
 
             String contextText = chunks.stream()
-                    .map(KnowledgeChunk::getContent)
-                    .collect(Collectors.joining("\n\n"));
+                .map(KnowledgeChunk::getContent)
+                .collect(Collectors.joining("\n\n"));
 
             result.setSuccess(true);
             result.setChunks(chunks);
@@ -115,23 +164,110 @@ public class RedisKnowledgeRetriever implements KnowledgeRetriever {
             result.setTotalHit(0);
             result.setHasResult(false);
         }
+        recordRetrievalCall(knowledgeId, kb, query, topK, result, retrieveStart);
         return result;
     }
 
+    /**
+     * 记录一次检索日志到 {@code ai_knowledge_retrieval_log}。
+     * 无 active span 或无记录器时静默跳过。
+     * 多知识库场景由上层循环调用单库检索，此处每库各记一条,召回明细精确到单库。
+     */
+    private void recordRetrievalCall(Long knowledgeId, KnowledgeBaseDTO kb, String query, int topK,
+                                     KnowledgeRetrieveResult result, LocalDateTime start) {
+        if (!TraceUtil.hasActiveSpan()) {
+            return;
+        }
+        LlmLogRecorder recorder = llmLogRecorderProvider.getIfAvailable();
+        if (recorder == null) {
+            return;
+        }
+        try {
+            String kbName = kb != null ? kb.getName() : null;
+            LlmLogRecorder.KnowledgeRetrievalRecorder call = recorder.recordKnowledgeRetrieval()
+                .traceId(LlmLogRecorder.generateTraceId())
+                .startTime(start)
+                .source(TraceUtil.getCallSource(), TraceUtil.getSourceId(), TraceUtil.getSourceNodeId())
+                .knowledgeBase(knowledgeId, kbName)
+                .query(query)
+                .topK(topK)
+                .operator(TraceUtil.getOperatorId(), TraceUtil.getOrgId());
+            if (result != null && Boolean.TRUE.equals(result.getSuccess())) {
+                call.retrievedResult(result).success();
+            } else {
+                call.error(result != null ? result.getErrorMessage() : "检索失败");
+            }
+            call.record();
+        } catch (Exception e) {
+            log.warn("记录知识库检索日志失败: knowledgeId={}", knowledgeId, e);
+        }
+    }
+
+    /**
+     * 执行 query 向量化，并把这次 embedding 调用落库到 {@code ai_llm_call_log}。
+     */
+    private Response<Embedding> embedQueryWithLog(EmbeddingModel embeddingModel, KnowledgeBaseDTO kb, EmbeddingModelDTO modelDTO,
+                                                  String query) {
+        LocalDateTime start = LocalDateTime.now();
+        Response<Embedding> embeddingResponse;
+        try {
+            embeddingResponse = embeddingModel.embed(query);
+        } catch (RuntimeException e) {
+            recordEmbeddingCall(kb, modelDTO, query, null, start, e.getMessage());
+            throw e;
+        }
+        recordEmbeddingCall(kb, modelDTO, query, embeddingResponse.tokenUsage(), start, null);
+        return embeddingResponse;
+    }
+
+    /** 记录一次检索场景的 embedding 调用日志。无 active span 或无记录器时静默跳过。 */
+    private void recordEmbeddingCall(KnowledgeBaseDTO kb, EmbeddingModelDTO modelDTO, String query,
+                                     dev.langchain4j.model.output.TokenUsage tokenUsage,
+                                     LocalDateTime start, String errorMessage) {
+        if (!TraceUtil.hasActiveSpan()) {
+            return;
+        }
+        LlmLogRecorder recorder = llmLogRecorderProvider.getIfAvailable();
+        if (recorder == null) {
+            return;
+        }
+        try {
+            
+            LlmLogRecorder.LlmCallRecorder call = recorder.recordLlmCall()
+                .traceId(LlmLogRecorder.generateTraceId())
+                .startTime(start)
+                .source(CALL_SOURCE_EMBED_RETRIEVE, kb.getId(), TraceUtil.getSourceNodeId())
+                .embeddingModel(modelDTO)
+                .inputContent(query)
+                .operator(TraceUtil.getOperatorId(), TraceUtil.getOrgId());
+            if (errorMessage != null) {
+                call.error(null, errorMessage);
+            } else {
+                Integer inputTokens = tokenUsage != null ? tokenUsage.inputTokenCount() : null;
+                Integer outputTokens = tokenUsage != null ? tokenUsage.outputTokenCount() : null;
+                call.output(null, inputTokens, outputTokens).success();
+            }
+            call.record();
+        } catch (Exception e) {
+            log.warn("记录检索 embedding 调用日志失败: knowledgeId={}", kb.getId(), e);
+        }
+    }
+
     @Override
+    @TraceSpan(name = "knowledge.multi_retrieve", label = "多库召回", kind = SpanKind.INTERNAL)
     public KnowledgeRetrieveResult retrieve(List<Long> knowledgeIds, String query, int topK) {
         if (knowledgeIds == null || knowledgeIds.isEmpty()) {
-            return retrieve((Long) null, query, topK);
+            return self.retrieve((Long) null, query, topK);
         }
         if (knowledgeIds.size() == 1) {
-            return retrieve(knowledgeIds.get(0), query, topK);
+            return self.retrieve(knowledgeIds.get(0), query, topK);
         }
         // 多个知识库时，从每个知识库检索后合并
         int perKbK = Math.max(1, topK / knowledgeIds.size());
         List<KnowledgeChunk> allChunks = new ArrayList<>();
         Integer totalEmbeddingTokens = null;
         for (Long knowledgeId : knowledgeIds) {
-            KnowledgeRetrieveResult singleResult = retrieve(knowledgeId, query, perKbK);
+            KnowledgeRetrieveResult singleResult = self.retrieve(knowledgeId, query, perKbK);
             if (singleResult.getChunks() != null) {
                 allChunks.addAll(singleResult.getChunks());
             }
@@ -145,8 +281,8 @@ public class RedisKnowledgeRetriever implements KnowledgeRetriever {
             allChunks = allChunks.subList(0, topK);
         }
         String contextText = allChunks.stream()
-                .map(KnowledgeChunk::getContent)
-                .collect(Collectors.joining("\n\n"));
+            .map(KnowledgeChunk::getContent)
+            .collect(Collectors.joining("\n\n"));
 
         KnowledgeRetrieveResult result = new KnowledgeRetrieveResult();
         result.setSuccess(true);

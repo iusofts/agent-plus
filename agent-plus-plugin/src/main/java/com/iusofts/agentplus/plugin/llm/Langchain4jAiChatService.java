@@ -3,29 +3,15 @@ package com.iusofts.agentplus.plugin.llm;
 import com.iusofts.agentplus.common.enums.ParamTypeEnum;
 import com.iusofts.agentplus.llm.AiChatService;
 import com.iusofts.agentplus.llm.LlmModelCacheEvictor;
-import com.iusofts.agentplus.llm.dto.ChatMessage;
-import com.iusofts.agentplus.llm.dto.ChatResponse;
-import com.iusofts.agentplus.llm.dto.LlmModelConfigDTO;
-import com.iusofts.agentplus.llm.dto.LlmModelDTO;
-import com.iusofts.agentplus.llm.dto.ToolCall;
-import com.iusofts.agentplus.llm.dto.ToolDefinition;
 import com.iusofts.agentplus.llm.LlmModelQueryProvider;
+import com.iusofts.agentplus.llm.dto.*;
 import com.iusofts.agentplus.tool.dto.ToolParam;
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.agent.tool.ToolSpecification;
-import dev.langchain4j.data.message.AiMessage;
-import dev.langchain4j.data.message.SystemMessage;
-import dev.langchain4j.data.message.ToolExecutionResultMessage;
-import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.data.message.*;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.request.ChatRequest;
-import dev.langchain4j.model.chat.request.json.JsonArraySchema;
-import dev.langchain4j.model.chat.request.json.JsonBooleanSchema;
-import dev.langchain4j.model.chat.request.json.JsonIntegerSchema;
-import dev.langchain4j.model.chat.request.json.JsonNumberSchema;
-import dev.langchain4j.model.chat.request.json.JsonObjectSchema;
-import dev.langchain4j.model.chat.request.json.JsonSchemaElement;
-import dev.langchain4j.model.chat.request.json.JsonStringSchema;
+import dev.langchain4j.model.chat.request.json.*;
 import dev.langchain4j.model.output.FinishReason;
 import dev.langchain4j.model.output.TokenUsage;
 import org.springframework.stereotype.Service;
@@ -69,7 +55,7 @@ public class Langchain4jAiChatService implements AiChatService, LlmModelCacheEvi
     }
 
     @Override
-    public ChatResponse chat(List<ChatMessage> messages, Long modelId, LlmModelConfigDTO config, List<ToolDefinition> tools) {
+    public AiChatResponse chat(List<AiChatMessage> messages, Long modelId, LlmModelConfigDTO config, List<ToolDefinition> tools) {
         String cacheKey = buildCacheKey(modelId, config);
         ChatModel chatModel = cache.computeIfAbsent(cacheKey, k -> {
             LlmModelDTO modelDTO = modelQueryProvider.getModel(modelId);
@@ -77,8 +63,8 @@ public class Langchain4jAiChatService implements AiChatService, LlmModelCacheEvi
         });
 
         // 转换消息格式
-        List<dev.langchain4j.data.message.ChatMessage> lc4jMessages = new ArrayList<>();
-        for (ChatMessage msg : messages) {
+        List<ChatMessage> lc4jMessages = new ArrayList<>();
+        for (AiChatMessage msg : messages) {
             lc4jMessages.add(toLc4jMessage(msg));
         }
 
@@ -99,7 +85,7 @@ public class Langchain4jAiChatService implements AiChatService, LlmModelCacheEvi
         return toChatResponse(response);
     }
 
-    private dev.langchain4j.data.message.ChatMessage toLc4jMessage(ChatMessage message) {
+    private ChatMessage toLc4jMessage(AiChatMessage message) {
         String role = message.getRole();
         String content = message.getContent();
 
@@ -132,7 +118,7 @@ public class Langchain4jAiChatService implements AiChatService, LlmModelCacheEvi
         }
     }
 
-    private ChatResponse toChatResponse(dev.langchain4j.model.chat.response.ChatResponse lc4jResponse) {
+    private AiChatResponse toChatResponse(dev.langchain4j.model.chat.response.ChatResponse lc4jResponse) {
         AiMessage aiMessage = lc4jResponse.aiMessage();
         String content = aiMessage.text();
 
@@ -160,7 +146,7 @@ public class Langchain4jAiChatService implements AiChatService, LlmModelCacheEvi
 
         FinishReason finishReason = lc4jResponse.finishReason();
 
-        return ChatResponse.builder()
+        return AiChatResponse.builder()
                 .content(content)
                 .inputTokens(inputTokens)
                 .outputTokens(outputTokens)

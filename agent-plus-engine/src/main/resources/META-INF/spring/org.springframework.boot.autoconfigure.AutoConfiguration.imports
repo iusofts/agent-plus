@@ -1,1 +1,2 @@
 com.iusofts.agentplus.engine.config.WorkflowEngineAutoConfiguration
+com.iusofts.agentplus.engine.config.TraceAutoConfiguration

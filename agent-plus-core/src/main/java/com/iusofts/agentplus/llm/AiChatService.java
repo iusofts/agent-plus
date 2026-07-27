@@ -1,7 +1,7 @@
 package com.iusofts.agentplus.llm;
 
-import com.iusofts.agentplus.llm.dto.ChatMessage;
-import com.iusofts.agentplus.llm.dto.ChatResponse;
+import com.iusofts.agentplus.llm.dto.AiChatMessage;
+import com.iusofts.agentplus.llm.dto.AiChatResponse;
 import com.iusofts.agentplus.llm.dto.LlmModelConfigDTO;
 import com.iusofts.agentplus.llm.dto.ToolDefinition;
 
@@ -22,7 +22,7 @@ public interface AiChatService {
      * @param config   生成参数配置 (可为 null，使用模型默认)
      * @return AI 响应
      */
-    default ChatResponse chat(List<ChatMessage> messages, Long modelId, LlmModelConfigDTO config) {
+    default AiChatResponse chat(List<AiChatMessage> messages, Long modelId, LlmModelConfigDTO config) {
         return chat(messages, modelId, config, null);
     }
 
@@ -33,7 +33,7 @@ public interface AiChatService {
      * @param modelId  模型 ID
      * @param config   生成参数配置 (可为 null，使用模型默认)
      * @param tools    可用工具规格列表 (可为 null 或空，表示不启用工具调用)
-     * @return AI 响应，若 {@link ChatResponse#getToolCalls()} 非空则需执行工具后再次调用
+     * @return AI 响应，若 {@link AiChatResponse#getToolCalls()} 非空则需执行工具后再次调用
      */
-    ChatResponse chat(List<ChatMessage> messages, Long modelId, LlmModelConfigDTO config, List<ToolDefinition> tools);
+    AiChatResponse chat(List<AiChatMessage> messages, Long modelId, LlmModelConfigDTO config, List<ToolDefinition> tools);
 }

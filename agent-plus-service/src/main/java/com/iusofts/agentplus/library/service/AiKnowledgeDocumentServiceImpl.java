@@ -11,6 +11,8 @@ import com.iusofts.agentplus.library.entity.AiKnowledgeDocument;
 import com.iusofts.agentplus.library.interfaces.IAiKnowledgeDocumentService;
 import com.iusofts.agentplus.library.knowledge.KnowledgeIngestExecutor;
 import com.iusofts.agentplus.library.knowledge.KnowledgeIngestionService;
+import com.iusofts.agentplus.llm.log.LlmLogRecorder;
+import com.iusofts.agentplus.trace.TraceUtil;
 import com.iusofts.agentplus.plugin.vectorstore.KnowledgeMetadata;
 import com.iusofts.agentplus.plugin.vectorstore.KnowledgeStoreService;
 import com.iusofts.agentplus.plugin.vectorstore.RedisVectorStoreManager;
@@ -47,6 +49,8 @@ import java.util.Map;
  * <p>新增时仅登记文档元数据(OSS url + 文件名),status=0(待处理),随后在事务提交后
  * 异步提交到有界线程池执行「下载->解析->分块->向量化->落库」管线。</p>
  *
+ * <p>方案一：链路信息通过 OpenTelemetry Span Attributes 传递。
+ *
  * @author Ivan
  * @since 2026-07-08
  */
@@ -74,6 +78,9 @@ public class AiKnowledgeDocumentServiceImpl extends ServiceImpl<AiKnowledgeDocum
 
     @Resource
     private KnowledgeStoreService knowledgeStoreService;
+
+    @Resource
+    private LlmLogRecorder llmLogRecorder;
 
     @Override
     public Long add(AiKnowledgeDocumentAddReqVo reqVo) {
@@ -227,7 +234,7 @@ public class AiKnowledgeDocumentServiceImpl extends ServiceImpl<AiKnowledgeDocum
 
         boolean enable = target == KnowledgeIngestionService.STATUS_COMPLETED;
         if (enable) {
-            enableChunks(kb, doc, chunks);
+            enableChunks(kb, doc, chunks, reqVo.getOperatorId(), reqVo.getOrgId());
         } else {
             disableChunks(kb, chunks);
         }
@@ -242,7 +249,8 @@ public class AiKnowledgeDocumentServiceImpl extends ServiceImpl<AiKnowledgeDocum
     /**
      * 启用文档下所有分块:置 status=1,并用 DB 保存的内容重建向量。
      */
-    private void enableChunks(AiKnowledgeBase kb, AiKnowledgeDocument doc, List<AiKnowledgeChunk> chunks) {
+    private void enableChunks(AiKnowledgeBase kb, AiKnowledgeDocument doc, List<AiKnowledgeChunk> chunks,
+                              Long operatorId, Integer orgId) {
         if (chunks.isEmpty()) {
             return;
         }
@@ -257,12 +265,20 @@ public class AiKnowledgeDocumentServiceImpl extends ServiceImpl<AiKnowledgeDocum
             }
         }
         if (!vectorIds.isEmpty()) {
+            int embeddingTokens;
+            // 方案一：设置操作人信息到 Span
+            TraceUtil.setOperator(operatorId, orgId);
             try {
-                knowledgeStoreService.batchEmbedAndStore(
-                        kb.getCollectionName(), vectorIds, contents, metadatas, kb.getEmbeddingModelId());
+                embeddingTokens = knowledgeStoreService.batchEmbedAndStore(
+                        kb.getCollectionName(), vectorIds, contents, metadatas,
+                        kb.getEmbeddingModelId(), kb.getId());
             } catch (Exception e) {
+                recordDocLogSafely(kb, doc, operatorId, orgId, null, null, null, e.getMessage());
                 throw new SystemBusinessException("重建向量数据失败:" + e.getMessage());
             }
+            int totalCharCount = contents.stream().mapToInt(c -> c == null ? 0 : c.length()).sum();
+            recordDocLogSafely(kb, doc, operatorId, orgId, vectorIds.size(), totalCharCount,
+                    embeddingTokens, null);
         }
         updateChunkStatus(chunks, KnowledgeIngestionService.CHUNK_STATUS_ENABLED);
     }
@@ -365,12 +381,21 @@ public class AiKnowledgeDocumentServiceImpl extends ServiceImpl<AiKnowledgeDocum
             }
         }
         if (!vectorIds.isEmpty()) {
+            int embeddingTokens;
+            // 方案一：设置操作人信息到 Span
+            TraceUtil.setOperator(reqVo.getOperatorId(), reqVo.getOrgId());
             try {
-                knowledgeStoreService.batchEmbedAndStore(
-                        kb.getCollectionName(), vectorIds, contents, metadatas, kb.getEmbeddingModelId());
+                embeddingTokens = knowledgeStoreService.batchEmbedAndStore(
+                        kb.getCollectionName(), vectorIds, contents, metadatas,
+                        kb.getEmbeddingModelId(), kb.getId());
             } catch (Exception e) {
+                recordDocLogSafely(kb, doc, reqVo.getOperatorId(), reqVo.getOrgId(),
+                        null, null, null, e.getMessage());
                 throw new SystemBusinessException("重建向量数据失败:" + e.getMessage());
             }
+            int totalCharCount = contents.stream().mapToInt(c -> c == null ? 0 : c.length()).sum();
+            recordDocLogSafely(kb, doc, reqVo.getOperatorId(), reqVo.getOrgId(),
+                    vectorIds.size(), totalCharCount, embeddingTokens, null);
         }
 
         // 更新文档更新时间
@@ -402,7 +427,7 @@ public class AiKnowledgeDocumentServiceImpl extends ServiceImpl<AiKnowledgeDocum
             List<AiKnowledgeChunk> chunks = aiKnowledgeChunkMapper.selectList(
                     Wrappers.<AiKnowledgeChunk>lambdaQuery().eq(AiKnowledgeChunk::getDocumentId, doc.getId()));
             if (enable) {
-                enableChunks(kb, doc, chunks);
+                enableChunks(kb, doc, chunks, operatorId, kb.getOrgId());
             } else {
                 disableChunks(kb, chunks);
             }
@@ -411,6 +436,31 @@ public class AiKnowledgeDocumentServiceImpl extends ServiceImpl<AiKnowledgeDocum
             update.setStatus(toStatus);
             update.setUpdateBy(operatorId);
             super.updateById(update);
+        }
+    }
+
+    /**
+     * 文档粒度的向量重建日志。errorMessage 非空表示失败;为空表示成功。
+     * 日志记录失败不影响主流程。
+     */
+    private void recordDocLogSafely(AiKnowledgeBase kb, AiKnowledgeDocument doc,
+                                     Long operatorId, Integer orgId,
+                                     Integer chunkCount, Integer totalChars,
+                                     Integer embeddingTokens, String errorMessage) {
+        try {
+            LlmLogRecorder.KnowledgeDocRecorder recorder = llmLogRecorder.recordKnowledgeDoc()
+                    .knowledgeBase(kb == null ? null : kb.getId(), kb == null ? null : kb.getName())
+                    .document(doc == null ? null : doc.getId(), doc == null ? null : doc.getName())
+                    .update()
+                    .operator(operatorId, orgId);
+            if (errorMessage != null) {
+                recorder.error(errorMessage);
+            } else {
+                recorder.chunks(chunkCount, totalChars, embeddingTokens).success();
+            }
+            recorder.record();
+        } catch (Exception logEx) {
+            // 日志失败不影响主流程
         }
     }
 

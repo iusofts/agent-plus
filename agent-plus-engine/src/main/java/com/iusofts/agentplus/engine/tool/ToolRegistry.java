@@ -1,5 +1,6 @@
 package com.iusofts.agentplus.engine.tool;
 
+import com.alibaba.fastjson2.JSON;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.iusofts.agentplus.tool.Tool;
 import com.iusofts.agentplus.tool.ToolQueryProvider;
@@ -7,6 +8,8 @@ import com.iusofts.agentplus.tool.dto.HttpConfig;
 import com.iusofts.agentplus.tool.dto.ToolDTO;
 import com.iusofts.agentplus.tool.dto.ToolExecuteRequest;
 import com.iusofts.agentplus.tool.dto.ToolExecuteResult;
+import com.iusofts.agentplus.trace.TraceUtil;
+import io.opentelemetry.api.trace.SpanKind;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -52,7 +55,29 @@ public class ToolRegistry {
         if (tool == null) {
             return ToolExecuteResult.error("未找到工具: " + request.getToolId());
         }
-        return tool.execute(request);
+        // 创建 span 包装工具执行
+        final String toolName = tool.getName();
+        final Long toolId = request.getToolId();
+        return TraceUtil.span("tool." + toolName, SpanKind.INTERNAL, span -> {
+            TraceUtil.setLabel(toolName);
+            if (toolId != null) {
+                span.setAttribute("ai.tool_id", toolId);
+            }
+            // 记录输入参数
+            try {
+                span.setAttribute("ap.payload.input", JSON.toJSONString(request));
+            } catch (Exception ignore) {
+                // 序列化失败不影响主流程
+            }
+            ToolExecuteResult result = tool.execute(request);
+            // 记录输出结果
+            try {
+                span.setAttribute("ap.payload.output", JSON.toJSONString(result));
+            } catch (Exception ignore) {
+                // 序列化失败不影响主流程
+            }
+            return result;
+        });
     }
 
     private Tool resolveTool(ToolExecuteRequest request) {

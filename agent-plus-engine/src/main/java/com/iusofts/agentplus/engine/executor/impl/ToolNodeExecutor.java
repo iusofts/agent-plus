@@ -12,6 +12,7 @@ import com.iusofts.agentplus.engine.util.ParamResolver;
 import com.iusofts.agentplus.tool.ToolQueryProvider;
 import com.iusofts.agentplus.tool.dto.ToolExecuteRequest;
 import com.iusofts.agentplus.tool.dto.ToolExecuteResult;
+import com.iusofts.agentplus.trace.TraceUtil;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -24,9 +25,11 @@ import java.util.Map;
 public class ToolNodeExecutor implements NodeExecutor {
 
     private final ToolRegistry toolRegistry;
+    private final ToolQueryProvider toolQueryProvider;
 
     public ToolNodeExecutor(ToolRegistry toolRegistry, ToolQueryProvider toolQueryProvider) {
         this.toolRegistry = toolRegistry;
+        this.toolQueryProvider = toolQueryProvider;
     }
 
     @Override
@@ -43,6 +46,10 @@ public class ToolNodeExecutor implements NodeExecutor {
             .toolId(data.getToolId())
             .params(inputs)
             .build();
+
+        // 设置业务属性到 Span Attributes
+        TraceUtil.setAiAttributes("FLOW", ctx.getFlowId(), node.getId(),
+            ctx.getOperatorId(), ctx.getOrgId());
 
         ToolExecuteResult result = toolRegistry.execute(request);
 

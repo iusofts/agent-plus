@@ -58,4 +58,13 @@ public class LLMNodeData extends InputParamNodeData {
     @Schema(description = "自定义错误内容")
     private String customErrorContent;
 
+    @Schema(description = "是否开启会话历史")
+    private Boolean enableHistory;
+
+    @Schema(description = "携带上下文轮数")
+    private Integer contextRounds;
+
+    @Schema(description = "插件工具ID集合")
+    private List<Long> toolIds;
+
 }

@@ -5,16 +5,18 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.iusofts.agentplus.aiflow.interfaces.IAiFlowRuntimeService;
 import com.iusofts.agentplus.aiflow.entity.AiFlow;
 import com.iusofts.agentplus.aiflow.entity.AiFlowRuntime;
+import com.iusofts.agentplus.aiflow.entity.AiFlowVersion;
 import com.iusofts.agentplus.aiflow.enums.RunStatusEnum;
+import com.iusofts.agentplus.aiflow.interfaces.IAiFlowRuntimeService;
 import com.iusofts.agentplus.aiflow.mapper.AiFlowMapper;
 import com.iusofts.agentplus.aiflow.mapper.AiFlowRuntimeMapper;
+import com.iusofts.agentplus.aiflow.mapper.AiFlowVersionMapper;
 import com.iusofts.agentplus.aiflow.vo.*;
 import com.iusofts.agentplus.basic.exception.SystemBusinessException;
-import com.iusofts.agentplus.basic.web.vo.page.PageResult;
 import com.iusofts.agentplus.basic.utils.ModelMapperUtil;
+import com.iusofts.agentplus.basic.web.vo.page.PageResult;
 import com.iusofts.agentplus.common.vo.IdReqVo;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
@@ -35,6 +37,9 @@ public class AiFlowRuntimeServiceImpl extends ServiceImpl<AiFlowRuntimeMapper, A
 
     @Resource
     private AiFlowMapper aiFlowMapper;
+
+    @Resource
+    private AiFlowVersionMapper aiFlowVersionMapper;
 
     @Override
     public void add(AiFlowRuntimeAddReqVo reqVo) {
@@ -124,6 +129,45 @@ public class AiFlowRuntimeServiceImpl extends ServiceImpl<AiFlowRuntimeMapper, A
         runtime.setRunStatus(RunStatusEnum.TERMINATED.getCode());
         runtime.setUpdateBy(reqVo.getOperatorId());
         updateById(runtime);
+    }
+
+    @Override
+    public List<AiFlowRuntimeTraceListVo> queryTraceList(AiFlowRuntimeTraceListReqVo reqVo) {
+        // 版本ID -> flowId + versionNo
+        AiFlowVersion version = aiFlowVersionMapper.selectById(reqVo.getVersionId());
+        if (version == null) {
+            throw new SystemBusinessException("流程版本不存在");
+        }
+
+        LambdaQueryWrapper<AiFlowRuntime> wrapper = Wrappers.lambdaQuery();
+        wrapper.eq(AiFlowRuntime::getFlowId, version.getFlowId());
+        wrapper.eq(AiFlowRuntime::getVersionNo, version.getVersionNo());
+        wrapper.in(AiFlowRuntime::getTrialFlag, 1, 2);
+
+        // 状态:指定成功/失败则精确匹配,否则默认只取成功和失败
+        Integer status = reqVo.getStatus();
+        if (RunStatusEnum.SUCCESS.getCode().equals(status)
+                || RunStatusEnum.FAILED.getCode().equals(status)) {
+            wrapper.eq(AiFlowRuntime::getRunStatus, status);
+        } else {
+            wrapper.in(AiFlowRuntime::getRunStatus,
+                    RunStatusEnum.SUCCESS.getCode(), RunStatusEnum.FAILED.getCode());
+        }
+
+        // 日期范围(按开始时间)
+        if (reqVo.getStartDate() != null) {
+            wrapper.ge(AiFlowRuntime::getStartTime, reqVo.getStartDate().atStartOfDay());
+        }
+        if (reqVo.getEndDate() != null) {
+            wrapper.lt(AiFlowRuntime::getStartTime, reqVo.getEndDate().plusDays(1).atStartOfDay());
+        }
+
+        wrapper.orderByDesc(AiFlowRuntime::getStartTime);
+
+        List<AiFlowRuntime> list = list(wrapper);
+        return list.stream()
+                .map(item -> ModelMapperUtil.strictMap(item, AiFlowRuntimeTraceListVo.class))
+                .toList();
     }
 
 }

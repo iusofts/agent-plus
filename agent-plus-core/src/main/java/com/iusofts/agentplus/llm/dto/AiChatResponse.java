@@ -14,7 +14,7 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ChatResponse {
+public class AiChatResponse {
     private String content;
     private Integer inputTokens;
     private Integer outputTokens;

@@ -20,9 +20,27 @@ public interface IAiAgentService {
 
     void edit(AiAgentEditReqVo reqVo);
 
+    /**
+     * 新增对话流类型智能体
+     */
+    void addChat(AiAgentAddChatReqVo reqVo);
+
+    /**
+     * 编辑对话流类型智能体
+     */
+    void editChat(AiAgentEditChatReqVo reqVo);
+
     PageResult<AiAgentVo> queryPage(AiAgentQueryPageReqVo reqVo);
 
     List<AiAgentVo> queryAll(Integer orgId);
+
+    /**
+     * 根据对话流ID查询关联的智能体列表
+     *
+     * @param chatFlowId 对话流ID
+     * @param orgId      组织ID
+     */
+    List<AiAgentVo> queryByChatFlowId(Long chatFlowId, Integer orgId);
 
     void remove(IdReqVo reqVo);
 

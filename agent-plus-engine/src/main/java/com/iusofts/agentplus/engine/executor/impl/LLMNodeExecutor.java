@@ -1,26 +1,38 @@
 package com.iusofts.agentplus.engine.executor.impl;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.iusofts.agentplus.aiflow.constants.FlowGlobalInputConstants;
 import com.iusofts.agentplus.aiflow.enums.FlowNodeType;
 import com.iusofts.agentplus.aiflow.vo.workflow.Node;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.common.OutputParam;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.llm.LLMNodeData;
+import com.iusofts.agentplus.chat.vo.AiMessageVo;
 import com.iusofts.agentplus.engine.context.ExecutionContext;
 import com.iusofts.agentplus.engine.context.NodeOutput;
 import com.iusofts.agentplus.engine.exception.WorkflowExecutionException;
 import com.iusofts.agentplus.engine.executor.NodeExecutor;
+import com.iusofts.agentplus.engine.history.HistoryMessageProvider;
 import com.iusofts.agentplus.engine.llm.ChatModelProvider;
+import com.iusofts.agentplus.engine.tool.ToolRegistry;
 import com.iusofts.agentplus.engine.util.ParamResolver;
-import dev.langchain4j.data.message.ChatMessage;
-import dev.langchain4j.data.message.SystemMessage;
-import dev.langchain4j.data.message.UserMessage;
-import dev.langchain4j.model.chat.ChatModel;
-import dev.langchain4j.model.chat.request.ChatRequest;
-import dev.langchain4j.model.chat.response.ChatResponse;
+import com.iusofts.agentplus.llm.dto.AiChatMessage;
+import com.iusofts.agentplus.llm.dto.AiChatRequest;
+import com.iusofts.agentplus.llm.dto.AiChatResponse;
+import com.iusofts.agentplus.llm.dto.LlmModelConfigDTO;
+import com.iusofts.agentplus.llm.dto.ToolCall;
+import com.iusofts.agentplus.llm.dto.ToolDefinition;
+import com.iusofts.agentplus.trace.TraceUtil;
+import com.iusofts.agentplus.tool.dto.ToolDTO;
+import com.iusofts.agentplus.tool.dto.ToolExecuteRequest;
+import com.iusofts.agentplus.tool.dto.ToolExecuteResult;
+import com.iusofts.agentplus.tool.ToolQueryProvider;
+import org.apache.commons.collections4.CollectionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,17 +49,41 @@ import java.util.Map;
  *   <li>输出映射: 单输出直接放模型文本;多输出尝试解析 JSON,失败则全部放同一 key。</li>
  * </ol>
  *
+ * <p>方案一：链路信息通过 OpenTelemetry Span Attributes 传递，
+ * 每次模型调用后由 {@link ChatModelProvider#chat(AiChatRequest)} 统一写一条 {@code ai_llm_call_log}。
+ *
  * @author Ivan
  */
 public class LLMNodeExecutor implements NodeExecutor {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(LLMNodeExecutor.class);
     private static final ObjectMapper JSON = new ObjectMapper();
+    /** 单轮执行中工具调用的最大迭代次数，防止模型陷入无限调用 */
+    private static final int MAX_TOOL_ITERATIONS = 5;
 
     private final ChatModelProvider chatModelProvider;
+    private final ToolQueryProvider toolQueryProvider;
+    private final ToolRegistry toolRegistry;
+    private final HistoryMessageProvider historyMessageProvider;
 
     public LLMNodeExecutor(ChatModelProvider chatModelProvider) {
+        this(chatModelProvider, null, null, null);
+    }
+
+    public LLMNodeExecutor(ChatModelProvider chatModelProvider,
+                           ToolQueryProvider toolQueryProvider,
+                           ToolRegistry toolRegistry) {
+        this(chatModelProvider, toolQueryProvider, toolRegistry, null);
+    }
+
+    public LLMNodeExecutor(ChatModelProvider chatModelProvider,
+                           ToolQueryProvider toolQueryProvider,
+                           ToolRegistry toolRegistry,
+                           HistoryMessageProvider historyMessageProvider) {
         this.chatModelProvider = chatModelProvider;
+        this.toolQueryProvider = toolQueryProvider;
+        this.toolRegistry = toolRegistry;
+        this.historyMessageProvider = historyMessageProvider;
     }
 
     @Override
@@ -66,21 +102,69 @@ public class LLMNodeExecutor implements NodeExecutor {
         String systemPrompt = ParamResolver.renderTemplate(data.getSystemPrompt(), ctx, inputs);
         String userPromptTemplate = data.getUserPrompt();
         String userPrompt = userPromptTemplate != null
-                ? ParamResolver.renderTemplate(userPromptTemplate, ctx, inputs)
-                : buildUserPrompt(inputs);
+            ? ParamResolver.renderTemplate(userPromptTemplate, ctx, inputs)
+            : buildUserPrompt(inputs);
 
-        List<ChatMessage> messages = new ArrayList<>();
+        // 构建消息列表
+        List<AiChatMessage> msgList = new ArrayList<>();
         if (systemPrompt != null && !systemPrompt.isBlank()) {
-            messages.add(SystemMessage.from(systemPrompt));
+            msgList.add(AiChatMessage.builder().role("system").content(systemPrompt).build());
         }
-        messages.add(UserMessage.from(userPrompt));
 
-        String text;
+        // 如果开启了会话历史加载并且有 conversationId，则加载历史消息
+        loadHistoryMessagesIfEnabled(data, ctx, msgList);
+
+        // 添加当前用户提示词
+        msgList.add(AiChatMessage.builder().role("user").content(userPrompt).build());
+
+        // 构建工具定义
+        List<ToolDefinition> toolDefinitions = buildToolDefinitions(data);
+        Map<String, Long> toolNameToId = buildToolNameToIdMap(data);
+
+        String text = null;
         String reasoningContent = null;
-        Map<String, Object> usage = null;
+        Map<String, Object> usage = new LinkedHashMap<>();
+        int totalInputTokens = 0;
+        int totalOutputTokens = 0;
+
         try {
-            // 注：当前LangChain4j ChatResponse仅返回text，后续如需支持reasoning/usage需扩展ChatModelProvider
-            text = invokeWithRetry(data, messages);
+            // 工具调用循环: 调用 LLM -> 执行工具 -> 回填结果 -> 再次推理
+            AiChatResponse response = null;
+            for (int iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
+                response = invokeWithTools(node, data, ctx, msgList, toolDefinitions);
+
+                // 累加 token 消耗
+                if (response.getInputTokens() != null) {
+                    totalInputTokens += response.getInputTokens();
+                }
+                if (response.getOutputTokens() != null) {
+                    totalOutputTokens += response.getOutputTokens();
+                }
+
+                // 模型未请求工具调用，得到最终回答，结束循环
+                if (CollectionUtils.isEmpty(response.getToolCalls())) {
+                    text = response.getContent();
+                    break;
+                }
+
+                // 将本轮 assistant 的工具调用请求追加到上下文
+                msgList.add(AiChatMessage.builder()
+                    .role("assistant")
+                    .content(response.getContent())
+                    .toolCalls(response.getToolCalls())
+                    .build());
+
+                // 逐个执行工具，并把结果作为 tool 消息回填
+                for (ToolCall toolCall : response.getToolCalls()) {
+                    executeToolCall(toolCall, toolNameToId, msgList);
+                }
+            }
+
+            // 汇总 token 使用量
+            usage.put("inputTokens", totalInputTokens);
+            usage.put("outputTokens", totalOutputTokens);
+            usage.put("totalTokens", totalInputTokens + totalOutputTokens);
+
         } catch (Exception e) {
             text = handleFailure(node, data, e);
         }
@@ -88,20 +172,185 @@ public class LLMNodeExecutor implements NodeExecutor {
         return new NodeOutput(node.getId(), mapOutputs(text, reasoningContent, usage, data.getOutputParams()));
     }
 
-    private String invokeWithRetry(LLMNodeData data, List<ChatMessage> messages) throws Exception {
-        int maxAttempts = 1 + Math.max(0, data.getRetryCount() == null ? 0 : data.getRetryCount());
-        ChatModel model = chatModelProvider.provide(data);
-        Exception last = null;
-        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
-            try {
-                ChatResponse resp = model.chat(ChatRequest.builder().messages(messages).build());
-                return resp.aiMessage().text();
-            } catch (Exception e) {
-                last = e;
-                LOGGER.warn("LLM 调用失败 attempt={}/{} err={}", attempt, maxAttempts, e.getMessage());
-            }
+    private AiChatResponse invokeWithTools(Node node, LLMNodeData data, ExecutionContext ctx,
+                                           List<AiChatMessage> messages, List<ToolDefinition> tools) throws Exception {
+        // 由内部 AiChatService 统一处理，包括工具调用；日志由 ChatModelProvider 统一落库
+        LlmModelConfigDTO config = new LlmModelConfigDTO();
+        config.setTemperature(data.getTemperature());
+        AiChatRequest request = AiChatRequest.builder()
+            .modelId(data.getModelId())
+            .messages(messages)
+            .config(config)
+            .tools(tools)
+            .build();
+
+        // 方案一：设置业务属性到 Span Attributes
+        TraceUtil.setAiAttributes("FLOW", ctx.getFlowId(), node.getId(),
+            ctx.getOperatorId(), ctx.getOrgId());
+
+        return chatModelProvider.chat(request);
+    }
+
+    /**
+     * 根据节点绑定的 toolIds 构建下发给模型的工具规格列表（过滤禁用工具）。
+     */
+    private List<ToolDefinition> buildToolDefinitions(LLMNodeData data) {
+        if (toolQueryProvider == null || CollectionUtils.isEmpty(data.getToolIds())) {
+            return null;
         }
-        throw last;
+        List<ToolDefinition> definitions = new ArrayList<>();
+        for (Long toolId : data.getToolIds()) {
+            if (toolId == null) {
+                continue;
+            }
+            ToolDTO tool = toolQueryProvider.getById(toolId);
+            if (tool == null || tool.getStatus() == null || tool.getStatus() != 1) {
+                continue;
+            }
+            definitions.add(ToolDefinition.builder()
+                .name(tool.getName())
+                .description(tool.getDescription())
+                .parameters(tool.getParamsSchema())
+                .build());
+        }
+        return definitions.isEmpty() ? null : definitions;
+    }
+
+    /**
+     * 构建工具名称到工具 ID 的映射，用于将模型返回的工具名解析回 toolId 以便执行。
+     */
+    private Map<String, Long> buildToolNameToIdMap(LLMNodeData data) {
+        Map<String, Long> map = new HashMap<>();
+        if (toolQueryProvider == null || CollectionUtils.isEmpty(data.getToolIds())) {
+            return map;
+        }
+        for (Long toolId : data.getToolIds()) {
+            if (toolId == null) {
+                continue;
+            }
+            ToolDTO tool = toolQueryProvider.getById(toolId);
+            if (tool == null || tool.getStatus() == null || tool.getStatus() != 1) {
+                continue;
+            }
+            map.put(tool.getName(), toolId);
+        }
+        return map;
+    }
+
+    /**
+     * 如果开启了会话历史加载，则从数据库加载历史消息添加到上下文。
+     * 节点配置的携带轮数不能超过智能体设置的上限。
+     */
+    private void loadHistoryMessagesIfEnabled(LLMNodeData data, ExecutionContext ctx, List<AiChatMessage> msgList) {
+        // 检查是否开启历史
+        if (data.getEnableHistory() == null || !data.getEnableHistory()) {
+            return;
+        }
+        // 检查是否有 HistoryMessageProvider 实例
+        if (historyMessageProvider == null) {
+            LOGGER.debug("HistoryMessageProvider not injected, skip loading history messages");
+            return;
+        }
+        // 从全局输入获取 conversationId
+        Object convIdObj = ctx.getGlobalInputs().get(FlowGlobalInputConstants.CONVERSATION_ID);
+        if (!(convIdObj instanceof Long)) {
+            return;
+        }
+        Long conversationId = (Long) convIdObj;
+
+        // 获取节点配置的上下文轮数
+        Integer nodeRounds = data.getContextRounds();
+        if (nodeRounds == null || nodeRounds <= 0) {
+            return;
+        }
+
+        // 从全局输入获取 agentId，如果有智能体配置的上限则应用
+        Object agentIdObj = ctx.getGlobalInputs().get(FlowGlobalInputConstants.AGENT_ID);
+        if (historyMessageProvider != null && agentIdObj instanceof Long) {
+            nodeRounds = historyMessageProvider.clampRoundsByAgentLimit(nodeRounds, (Long) agentIdObj);
+        }
+
+        // 硬上限保护，防止加载过多历史
+        if (nodeRounds > 10) {
+            nodeRounds = 10;
+        }
+        if (nodeRounds <= 0) {
+            return;
+        }
+
+        // 只保留最近 N 轮，过滤掉 system 角色
+        // 每轮对话包含 user + assistant 两条消息，所以消息数是 rounds * 2
+        int keepMessages = nodeRounds * 2;
+
+        // 加载历史消息（按时间升序），直接从数据库查询只返回最后 keepMessages 条
+        List<AiMessageVo> history = historyMessageProvider.getHistoryMessages(conversationId, keepMessages);
+        if (CollectionUtils.isEmpty(history)) {
+            return;
+        }
+
+        // 添加到消息列表（system 已经在数据库查询层面过滤掉了）
+        for (AiMessageVo msg : history) {
+            msgList.add(AiChatMessage.builder()
+                .role(msg.getRole())
+                .content(msg.getContent())
+                .build());
+        }
+    }
+
+    /**
+     * 执行一次模型请求的工具调用，将结果作为 tool 消息追加到上下文。
+     */
+    private void executeToolCall(ToolCall toolCall, Map<String, Long> toolNameToId, List<AiChatMessage> msgList) {
+        Map<String, Object> params = parseArguments(toolCall.getArguments());
+
+        Long toolId = toolNameToId.get(toolCall.getName());
+        ToolExecuteResult result;
+        if (toolId == null) {
+            result = ToolExecuteResult.error("未找到工具: " + toolCall.getName());
+        } else {
+            result = toolRegistry.execute(ToolExecuteRequest.builder()
+                .toolId(toolId)
+                .params(params)
+                .build());
+        }
+
+        // 回填工具执行结果，供模型下一轮推理
+        msgList.add(AiChatMessage.builder()
+            .role("tool")
+            .toolCallId(toolCall.getId())
+            .name(toolCall.getName())
+            .content(serializeToolResult(result))
+            .build());
+    }
+
+    /**
+     * 解析模型返回的工具调用参数（JSON 字符串）为 Map。
+     */
+    private Map<String, Object> parseArguments(String arguments) {
+        if (org.apache.commons.lang3.StringUtils.isBlank(arguments)) {
+            return new HashMap<>();
+        }
+        try {
+            return JSON.readValue(arguments, new TypeReference<Map<String, Object>>() {});
+        } catch (Exception e) {
+            LOGGER.warn("解析工具调用参数失败, arguments={}", arguments, e);
+            return new HashMap<>();
+        }
+    }
+
+    /**
+     * 将工具执行结果序列化为回填给模型的文本。
+     */
+    private String serializeToolResult(ToolExecuteResult result) {
+        try {
+            if (result.isSuccess()) {
+                return JSON.writeValueAsString(result.getData());
+            }
+            return "工具执行失败: " + result.getErrorMessage();
+        } catch (Exception e) {
+            LOGGER.warn("序列化工具执行结果失败", e);
+            return String.valueOf(result.getData());
+        }
     }
 
     private String handleFailure(Node node, LLMNodeData data, Exception e) {
@@ -171,4 +420,5 @@ public class LLMNodeExecutor implements NodeExecutor {
             return out;
         }
     }
+
 }

@@ -1,11 +1,14 @@
 package com.iusofts.agentplus.llm.log;
 
-import com.iusofts.agentplus.llm.dto.ChatMessage;
+import com.iusofts.agentplus.llm.dto.AiChatMessage;
 import com.iusofts.agentplus.llm.dto.LlmModelConfigDTO;
 import com.iusofts.agentplus.llm.dto.LlmModelDTO;
+import com.iusofts.agentplus.llm.dto.ToolCall;
+import com.iusofts.agentplus.llm.dto.ToolDefinition;
+import com.iusofts.agentplus.knowledge.dto.EmbeddingModelDTO;
 import com.iusofts.agentplus.knowledge.dto.KnowledgeRetrieveResult;
 
-import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -44,8 +47,14 @@ public interface LlmLogRecorder {
 
     /**
      * 生成链路追踪 ID。
+     * <p>优先取当前 OTel Span 的 traceId（与工作流 / chat 链路对齐）；
+     * 无 active span 时回退为 UUID。</p>
      */
     static String generateTraceId() {
+        String otelTraceId = com.iusofts.agentplus.trace.TraceUtil.currentTraceId();
+        if (otelTraceId != null) {
+            return otelTraceId;
+        }
         return UUID.randomUUID().toString().replace("-", "");
     }
 
@@ -71,6 +80,12 @@ public interface LlmLogRecorder {
 
         LlmCallRecorder traceId(String traceId);
 
+        /**
+         * 覆盖调用开始时间。默认取 {@code recordLlmCall()} 被调用的时刻，
+         * 但当 LLM 先调用、日志后补记时，应显式传入调用真正开始的时刻以正确统计耗时。
+         */
+        LlmCallRecorder startTime(LocalDateTime startTime);
+
         LlmCallRecorder fromAgent(Long agentId);
 
         LlmCallRecorder fromChat(Long conversationId);
@@ -79,11 +94,36 @@ public interface LlmLogRecorder {
 
         LlmCallRecorder fromApi();
 
+        /**
+         * 自定义来源三元组。用于内置枚举无法覆盖的来源，
+         * 如 embedding 向量化：{@code EMBED_RETRIEVE}（检索）/ {@code EMBED_INDEX}（索引）。
+         *
+         * @param callSource   调用来源
+         * @param sourceId     来源 ID（如知识库 ID）
+         * @param sourceNodeId 来源节点 ID，可空
+         */
+        LlmCallRecorder source(String callSource, Long sourceId, String sourceNodeId);
+
         LlmCallRecorder model(LlmModelDTO modelDTO);
+
+        /**
+         * 使用嵌入模型配置填充模型信息。
+         */
+        LlmCallRecorder embeddingModel(EmbeddingModelDTO modelDTO);
 
         LlmCallRecorder config(LlmModelConfigDTO config);
 
-        LlmCallRecorder inputMessages(List<ChatMessage> messages);
+        LlmCallRecorder inputMessages(List<AiChatMessage> messages);
+
+        /**
+         * 手动设置输入内容（不走 inputMessages 时使用）。
+         */
+        LlmCallRecorder inputContent(String content);
+
+        /**
+         * 记录下发给模型的工具规格列表。
+         */
+        LlmCallRecorder toolDefinitions(List<ToolDefinition> toolDefinitions);
 
         LlmCallRecorder operator(Long userId, Integer orgId);
 
@@ -96,6 +136,11 @@ public interface LlmLogRecorder {
          * 手动设置输出和 Token 信息。
          */
         LlmCallRecorder output(String content, Integer inputTokens, Integer outputTokens);
+
+        /**
+         * 记录模型返回的工具调用列表与结束原因。
+         */
+        LlmCallRecorder toolCalls(List<ToolCall> toolCalls, String finishReason);
 
         /**
          * 标记为成功。
@@ -120,6 +165,12 @@ public interface LlmLogRecorder {
 
         KnowledgeRetrievalRecorder traceId(String traceId);
 
+        /**
+         * 覆盖检索开始时间。默认取 {@code recordKnowledgeRetrieval()} 被调用的时刻，
+         * 但当检索先执行、日志后补记时，应显式传入检索真正开始的时刻以正确统计耗时。
+         */
+        KnowledgeRetrievalRecorder startTime(LocalDateTime startTime);
+
         KnowledgeRetrievalRecorder fromAgent(Long agentId);
 
         KnowledgeRetrievalRecorder fromChat(Long conversationId);
@@ -127,6 +178,16 @@ public interface LlmLogRecorder {
         KnowledgeRetrievalRecorder fromFlow(Long flowId, String nodeId);
 
         KnowledgeRetrievalRecorder fromApi();
+
+        /**
+         * 自定义来源三元组。用于内置枚举无法覆盖的来源，或由调用方透传
+         * {@link com.iusofts.agentplus.ailog.dto.AiTraceContext} 直接落库。
+         *
+         * @param callSource   调用来源
+         * @param sourceId     来源 ID（如智能体 ID/流程 ID）
+         * @param sourceNodeId 来源节点 ID，可空
+         */
+        KnowledgeRetrievalRecorder source(String callSource, Long sourceId, String sourceNodeId);
 
         KnowledgeRetrievalRecorder knowledgeBase(Long kbId, String kbName);
 

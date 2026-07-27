@@ -74,4 +74,11 @@ public class AiFlowRuntimeController extends BApiController {
         aiFlowRuntimeService.terminate(reqVo);
     }
 
+    @Operation(description = "查询流程运行时序列表(下拉框选择)")
+    @OperationLogExclude(type = RES)
+    @PostMapping("/queryTraceList")
+    public java.util.List<AiFlowRuntimeTraceListVo> queryTraceList(@RequestBody AiFlowRuntimeTraceListReqVo reqVo) {
+        return aiFlowRuntimeService.queryTraceList(reqVo);
+    }
+
 }

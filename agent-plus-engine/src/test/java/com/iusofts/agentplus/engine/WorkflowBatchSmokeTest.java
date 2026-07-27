@@ -54,7 +54,9 @@ class WorkflowBatchSmokeTest {
                 .knowledgeRetriever(new MockKnowledgeRetriever())
                 .build();
 
-        WorkflowExecutionResult result = engine.execute(workflow, config, inputs);
+        WorkflowExecutionResult result = engine.execute(
+                WorkflowExecuteRequest.simple(workflow, config, inputs, "批处理流程测试")
+        );
 
         System.out.println("=== runId: " + result.getRunId());
         System.out.println("=== final output: " + result.getOutput());

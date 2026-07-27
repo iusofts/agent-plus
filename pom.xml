@@ -67,7 +67,7 @@
         <aliyun-sdk-core.version>4.1.0</aliyun-sdk-core.version>
         <aliyun-sdk-sts.version>3.0.0</aliyun-sdk-sts.version>
         <aliyun-sdk-oss.version>3.7.0</aliyun-sdk-oss.version>
-        <dashscope-sdk.version>2.22.13</dashscope-sdk.version>
+        <dashscope-sdk.version>2.22.22</dashscope-sdk.version>
         <easyexcel.version>4.0.3</easyexcel.version>
         <okhttp.version>4.12.0</okhttp.version>
         <freemarker.version>2.3.23</freemarker.version>
@@ -83,10 +83,8 @@
         <maven-war-plugin.version>3.3.2</maven-war-plugin.version>
 
         <!-- AI / LangChain4j -->
-        <langchain4j.version>1.17.1</langchain4j.version>
-        <langchain4j-community.version>1.13.0-beta23</langchain4j-community.version>
-        <!-- Redis 向量库集成(社区版,单独版本) -->
-        <langchain4j-community-redis.version>1.17.2-beta27</langchain4j-community-redis.version>
+        <langchain4j.version>1.17.2</langchain4j.version>
+        <langchain4j-community.version>1.17.2-beta27</langchain4j-community.version>
         <!-- 覆盖 Spring Boot BOM 管理的 Jedis 版本(默认6.0.0)。
              langchain4j-community-redis 编译于 Jedis 7.2.1,其 UnifiedJedis.pipelined()
              返回 AbstractPipeline,6.0.0 无此签名会抛 NoSuchMethodError -->
@@ -94,6 +92,8 @@
         <langgraph4j.version>1.8.20</langgraph4j.version>
         <!-- 文档解析 -->
         <tika.version>2.9.2</tika.version>
+        <!-- OpenTelemetry: AI Trace 链路追踪(手动 SDK 模式) -->
+        <opentelemetry.version>1.64.0</opentelemetry.version>
     </properties>
 
     <dependencyManagement>
@@ -355,7 +355,7 @@
             <dependency>
                 <groupId>dev.langchain4j</groupId>
                 <artifactId>langchain4j-community-redis</artifactId>
-                <version>${langchain4j-community-redis.version}</version>
+                <version>${langchain4j-community.version}</version>
             </dependency>
 
             <!-- ================= 文档解析 (Apache Tika) ================= -->
@@ -375,6 +375,15 @@
                 <groupId>org.bsc.langgraph4j</groupId>
                 <artifactId>langgraph4j-bom</artifactId>
                 <version>${langgraph4j.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- ================= OpenTelemetry ================= -->
+            <dependency>
+                <groupId>io.opentelemetry</groupId>
+                <artifactId>opentelemetry-bom</artifactId>
+                <version>${opentelemetry.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>

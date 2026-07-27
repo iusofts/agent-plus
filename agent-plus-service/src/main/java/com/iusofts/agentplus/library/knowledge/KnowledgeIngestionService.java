@@ -12,11 +12,14 @@ import com.iusofts.agentplus.basic.redis.RedisLock;
 import com.iusofts.agentplus.id.service.IdService;
 import com.iusofts.agentplus.id.service.IdService.UidTypeEnum;
 import com.iusofts.agentplus.llm.log.LlmLogRecorder;
+import com.iusofts.agentplus.trace.TraceUtil;
+import com.iusofts.agentplus.trace.annotation.TraceSpan;
 import com.iusofts.agentplus.plugin.document.DocumentContentExtractor;
 import com.iusofts.agentplus.plugin.document.TextChunker;
 import com.iusofts.agentplus.plugin.vectorstore.KnowledgeMetadata;
 import com.iusofts.agentplus.plugin.vectorstore.KnowledgeStoreService;
 import com.iusofts.agentplus.plugin.vectorstore.RedisVectorStoreManager;
+import io.opentelemetry.api.trace.SpanKind;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +32,8 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * 知识库文档分块存储管线核心。
+ *
+ * <p>方案一：链路信息通过 OpenTelemetry Span Attributes 传递。
  *
  * @author Ivan
  */
@@ -69,6 +74,7 @@ public class KnowledgeIngestionService {
     @Resource
     private LlmLogRecorder llmLogRecorder;
 
+    @TraceSpan(name = "knowledge.index", kind = SpanKind.INTERNAL)
     public void process(Long documentId) {
         String lockKey = LOCK_PREFIX + documentId;
         if (!redisLock.tryLock(lockKey, LOCK_EXPIRE_SECONDS, TimeUnit.SECONDS)) {
@@ -99,6 +105,9 @@ public class KnowledgeIngestionService {
         }
 
         updateStatus(documentId, STATUS_PROCESSING, null);
+
+        // 方案一：设置操作人信息到 Span
+        TraceUtil.setOperator(doc.getCreateBy(), doc.getOrgId());
 
         try {
             String text = contentExtractor.extract(doc.getDocUrl());
@@ -140,7 +149,9 @@ public class KnowledgeIngestionService {
             List<String> vectorIds = chunkRows.stream().map(AiKnowledgeChunk::getVectorId).toList();
             List<Map<String, Object>> chunkMetadatas = buildChunkMetadatas(chunkRows, doc);
 
-            int embeddingTokens = knowledgeStoreService.batchEmbedAndStore(kb.getCollectionName(), vectorIds, chunkTextsForStore, chunkMetadatas, kb.getEmbeddingModelId());
+            int embeddingTokens = knowledgeStoreService.batchEmbedAndStore(
+                kb.getCollectionName(), vectorIds, chunkTextsForStore, chunkMetadatas,
+                kb.getEmbeddingModelId(), kb.getId());
 
             saveChunkRows(chunkRows);
 
@@ -199,7 +210,7 @@ public class KnowledgeIngestionService {
         List<Map<String, Object>> result = new ArrayList<>();
         for (AiKnowledgeChunk chunkRow : chunkRows) {
             result.add(KnowledgeMetadata.build(
-                    chunkRow.getId(), doc.getId(), doc.getName(), doc.getDocUrl()));
+                chunkRow.getId(), doc.getId(), doc.getName(), doc.getDocUrl()));
         }
         return result;
     }

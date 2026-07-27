@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 import static com.iusofts.agentplus.basic.enums.OperationLogExcludeTypeEnums.RES;
 import static com.iusofts.agentplus.common.constants.SysConstant.SYSCODE;
 
@@ -48,6 +50,20 @@ public class AiAgentController extends BApiController {
         aiAgentService.edit(reqVo);
     }
 
+    @Operation(description = "新增ai对话流智能体")
+    @PostMapping("/addChat")
+    public void addChat(@Valid @RequestBody AiAgentAddChatReqVo reqVo) {
+        reqVo.setOrgId(SYSCODE);
+        aiAgentService.addChat(reqVo);
+    }
+
+    @Operation(description = "编辑ai对话流智能体")
+    @PostMapping("/editChat")
+    public void editChat(@Valid @RequestBody AiAgentEditChatReqVo reqVo) {
+        reqVo.setOrgId(SYSCODE);
+        aiAgentService.editChat(reqVo);
+    }
+
     @Operation(description = "分页查询ai智能体")
     @OperationLogExclude(type = RES)
     @PostMapping("/queryPage")
@@ -68,6 +84,14 @@ public class AiAgentController extends BApiController {
     public AiAgentDetailVo getById(@RequestBody IdReqVo reqVo) {
         reqVo.setOrgId(SYSCODE);
         return aiAgentService.getById(reqVo);
+    }
+
+    @Operation(description = "根据对话流ID查询关联的智能体列表")
+    @OperationLogExclude(type = RES)
+    @PostMapping("/queryByChatFlowId")
+    public List<AiAgentVo> queryByChatFlowId(@Valid @RequestBody AiAgentQueryByChatFlowReqVo reqVo) {
+        reqVo.setOrgId(SYSCODE);
+        return aiAgentService.queryByChatFlowId(reqVo.getChatFlowId(), reqVo.getOrgId());
     }
 
     @Operation(description = "变更智能体状态")

@@ -36,6 +36,9 @@ public class AiFlowRuntime implements Serializable {
     @Schema(description = "流程ID")
     private Long flowId;
 
+    @Schema(description = "流程名称(冗余)")
+    private String flowName;
+
     @Schema(description = "执行使用的语义化版本v1.0.0")
     private String versionNo;
 
@@ -45,7 +48,7 @@ public class AiFlowRuntime implements Serializable {
     @Schema(description = "运行状态 0等待 1运行中 2成功 3失败 4终止")
     private Integer runStatus;
 
-    @Schema(description = "是否试运行 0:正式 1:试运行")
+    @Schema(description = "是否试运行 0:正式 1:流程试运行 2:节点试运行")
     private Integer trialFlag;
 
     @Schema(description = "开始时间")
@@ -53,12 +56,6 @@ public class AiFlowRuntime implements Serializable {
 
     @Schema(description = "结束时间")
     private LocalDateTime endTime;
-
-    @Schema(description = "本次执行入参JSON")
-    private String inputParams;
-
-    @Schema(description = "全局输出结果")
-    private String outputResult;
 
     @Schema(description = "错误信息")
     private String errorMsg;

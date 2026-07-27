@@ -22,6 +22,9 @@ public class AiFlowRuntimeDetailVo {
     @Schema(description = "流程ID")
     private Long flowId;
 
+    @Schema(description = "流程名称")
+    private String flowName;
+
     @Schema(description = "执行使用的语义化版本v1.0.0")
     private String versionNo;
 
@@ -39,12 +42,6 @@ public class AiFlowRuntimeDetailVo {
 
     @Schema(description = "结束时间")
     private LocalDateTime endTime;
-
-    @Schema(description = "本次执行入参JSON")
-    private String inputParams;
-
-    @Schema(description = "全局输出结果")
-    private String outputResult;
 
     @Schema(description = "错误信息")
     private String errorMsg;

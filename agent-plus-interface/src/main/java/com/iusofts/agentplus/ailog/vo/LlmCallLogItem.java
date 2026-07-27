@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * LLM 调用日志明细。
@@ -59,6 +60,15 @@ public class LlmCallLogItem {
 
     @Schema(description = "总 Token 数")
     private Integer totalTokens;
+
+    @Schema(description = "结束原因(STOP/TOOL_EXECUTION等)")
+    private String finishReason;
+
+    @Schema(description = "下发给模型的工具规格列表")
+    private List<com.iusofts.agentplus.llm.dto.ToolDefinition> toolDefinitions;
+
+    @Schema(description = "模型请求的工具调用列表")
+    private List<com.iusofts.agentplus.llm.dto.ToolCall> toolCalls;
 
     @Schema(description = "是否成功")
     private Boolean success;

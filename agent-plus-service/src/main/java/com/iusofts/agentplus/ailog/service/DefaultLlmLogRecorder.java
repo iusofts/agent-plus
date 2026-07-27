@@ -3,11 +3,12 @@ package com.iusofts.agentplus.ailog.service;
 import com.iusofts.agentplus.ailog.entity.AiKnowledgeDocLog;
 import com.iusofts.agentplus.ailog.entity.AiKnowledgeRetrievalLog;
 import com.iusofts.agentplus.ailog.entity.AiLlmCallLog;
-import com.iusofts.agentplus.ailog.entity.AiKnowledgeRetrievalLog.ChunkEntry;
-import com.iusofts.agentplus.ailog.entity.AiLlmCallLog.MessageEntry;
-import com.iusofts.agentplus.llm.dto.ChatMessage;
+import com.iusofts.agentplus.llm.dto.AiChatMessage;
 import com.iusofts.agentplus.llm.dto.LlmModelConfigDTO;
 import com.iusofts.agentplus.llm.dto.LlmModelDTO;
+import com.iusofts.agentplus.llm.dto.ToolCall;
+import com.iusofts.agentplus.llm.dto.ToolDefinition;
+import com.iusofts.agentplus.knowledge.dto.EmbeddingModelDTO;
 import com.iusofts.agentplus.knowledge.dto.KnowledgeChunk;
 import com.iusofts.agentplus.knowledge.dto.KnowledgeRetrieveResult;
 import com.iusofts.agentplus.llm.log.LlmLogRecorder;
@@ -62,7 +63,7 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
 
         private final AiLlmCallLogService service;
         private final AiLlmCallLog entity;
-        private final LocalDateTime startTime;
+        private LocalDateTime startTime;
 
         public DefaultLlmCallRecorder(AiLlmCallLogService service) {
             this.service = service;
@@ -76,6 +77,15 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
         @Override
         public LlmCallRecorder traceId(String traceId) {
             entity.setTraceId(traceId);
+            return this;
+        }
+
+        @Override
+        public LlmCallRecorder startTime(LocalDateTime startTime) {
+            if (startTime != null) {
+                this.startTime = startTime;
+                entity.setStartTime(startTime);
+            }
             return this;
         }
 
@@ -108,7 +118,25 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
         }
 
         @Override
+        public LlmCallRecorder source(String callSource, Long sourceId, String sourceNodeId) {
+            entity.setCallSource(callSource);
+            entity.setSourceId(sourceId);
+            entity.setSourceNodeId(sourceNodeId);
+            return this;
+        }
+
+        @Override
         public LlmCallRecorder model(LlmModelDTO modelDTO) {
+            if (modelDTO != null) {
+                entity.setModelId(modelDTO.getId());
+                entity.setModelName(modelDTO.getModelName());
+                entity.setModelProvider(modelDTO.getProvider());
+            }
+            return this;
+        }
+
+        @Override
+        public LlmCallRecorder embeddingModel(EmbeddingModelDTO modelDTO) {
             if (modelDTO != null) {
                 entity.setModelId(modelDTO.getId());
                 entity.setModelName(modelDTO.getModelName());
@@ -127,21 +155,23 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
         }
 
         @Override
-        public LlmCallRecorder inputMessages(List<ChatMessage> messages) {
+        public LlmCallRecorder inputMessages(List<AiChatMessage> messages) {
             if (messages != null) {
-                List<MessageEntry> entries = new ArrayList<>();
                 int totalChars = 0;
-                for (ChatMessage msg : messages) {
-                    MessageEntry entry = new MessageEntry();
-                    entry.setRole(msg.getRole());
-                    entry.setContent(msg.getContent());
-                    entries.add(entry);
+                for (AiChatMessage msg : messages) {
                     if (msg.getContent() != null) {
                         totalChars += msg.getContent().length();
                     }
                 }
-                entity.setInputMessages(entries);
                 entity.setInputCharCount(totalChars);
+            }
+            return this;
+        }
+
+        @Override
+        public LlmCallRecorder inputContent(String content) {
+            if (content != null) {
+                entity.setInputCharCount(content.length());
             }
             return this;
         }
@@ -150,6 +180,19 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
         public LlmCallRecorder operator(Long userId, Integer orgId) {
             entity.setCreateBy(userId);
             entity.setOrgId(orgId);
+            return this;
+        }
+
+        @Override
+        public LlmCallRecorder toolDefinitions(List<ToolDefinition> toolDefinitions) {
+            // 大字段不再保存到业务表，通过 Span payload 保存到 ai_trace_span_payload
+            return this;
+        }
+
+        @Override
+        public LlmCallRecorder toolCalls(List<ToolCall> toolCalls, String finishReason) {
+            // 大字段不再保存到业务表，通过 Span payload 保存到 ai_trace_span_payload
+            entity.setFinishReason(finishReason);
             return this;
         }
 
@@ -167,7 +210,6 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
 
         @Override
         public LlmCallRecorder output(String content, Integer inputTokens, Integer outputTokens) {
-            entity.setOutputContent(content);
             entity.setOutputCharCount(content != null ? content.length() : 0);
             entity.setInputTokens(inputTokens);
             entity.setOutputTokens(outputTokens);
@@ -214,7 +256,7 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
 
         private final AiKnowledgeRetrievalLogService service;
         private final AiKnowledgeRetrievalLog entity;
-        private final LocalDateTime startTime;
+        private LocalDateTime startTime;
 
         public DefaultKnowledgeRetrievalRecorder(AiKnowledgeRetrievalLogService service) {
             this.service = service;
@@ -228,6 +270,15 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
         @Override
         public KnowledgeRetrievalRecorder traceId(String traceId) {
             entity.setTraceId(traceId);
+            return this;
+        }
+
+        @Override
+        public KnowledgeRetrievalRecorder startTime(LocalDateTime startTime) {
+            if (startTime != null) {
+                this.startTime = startTime;
+                entity.setStartTime(startTime);
+            }
             return this;
         }
 
@@ -260,6 +311,14 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
         }
 
         @Override
+        public KnowledgeRetrievalRecorder source(String callSource, Long sourceId, String sourceNodeId) {
+            entity.setCallSource(callSource);
+            entity.setSourceId(sourceId);
+            entity.setSourceNodeId(sourceNodeId);
+            return this;
+        }
+
+        @Override
         public KnowledgeRetrievalRecorder knowledgeBase(Long kbId, String kbName) {
             entity.setKnowledgeBaseId(kbId);
             entity.setKnowledgeBaseName(kbName);
@@ -268,7 +327,6 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
 
         @Override
         public KnowledgeRetrievalRecorder query(String query) {
-            entity.setQuery(query);
             entity.setQueryCharCount(query != null ? query.length() : 0);
             return this;
         }
@@ -303,13 +361,6 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
         public KnowledgeRetrievalRecorder retrievedChunks(List<String> chunks, Integer embeddingTokens) {
             if (chunks != null) {
                 entity.setRetrievedCount(chunks.size());
-                List<ChunkEntry> entries = new ArrayList<>();
-                for (String chunk : chunks) {
-                    ChunkEntry entry = new ChunkEntry();
-                    entry.setContent(truncate(chunk));
-                    entries.add(entry);
-                }
-                entity.setRetrievedChunks(entries);
             }
             entity.setQueryEmbeddingTokens(embeddingTokens);
             return this;
@@ -323,15 +374,6 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
             List<KnowledgeChunk> chunks = result.getChunks();
             if (chunks != null) {
                 entity.setRetrievedCount(chunks.size());
-                List<ChunkEntry> entries = new ArrayList<>();
-                for (KnowledgeChunk chunk : chunks) {
-                    ChunkEntry entry = new ChunkEntry();
-                    entry.setChunkId(chunk.getChunkId());
-                    entry.setContent(truncate(chunk.getContent()));
-                    entry.setSimilarity(chunk.getScore());
-                    entries.add(entry);
-                }
-                entity.setRetrievedChunks(entries);
             }
             entity.setQueryEmbeddingTokens(result.getEmbeddingTokens());
             return this;

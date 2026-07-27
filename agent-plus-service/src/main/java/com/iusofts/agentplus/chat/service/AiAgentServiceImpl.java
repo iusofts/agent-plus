@@ -58,6 +58,26 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgent> impl
     }
 
     @Override
+    public void addChat(AiAgentAddChatReqVo reqVo) {
+        AiAgent aiAgent = ModelMapperUtil.strictMap(reqVo, AiAgent.class);
+        Integer uid = idService.generateUid(UidTypeEnum.CHAT);
+        aiAgent.setId(uid.longValue());
+        aiAgent.setType(AiAgentTypeEnum.CHATFLOW.getCode());
+        aiAgent.setStatus(1);
+        aiAgent.setCreateBy(reqVo.getOperatorId());
+        super.save(aiAgent);
+    }
+
+    @Override
+    public void editChat(AiAgentEditChatReqVo reqVo) {
+        checkDataPermission(reqVo.getId(), reqVo.getOrgId());
+        AiAgent aiAgent = ModelMapperUtil.strictMap(reqVo, AiAgent.class);
+        aiAgent.setType(AiAgentTypeEnum.CHATFLOW.getCode());
+        aiAgent.setUpdateBy(reqVo.getOperatorId());
+        super.updateById(aiAgent);
+    }
+
+    @Override
     public PageResult<AiAgentVo> queryPage(AiAgentQueryPageReqVo reqVo) {
         PageResult<AiAgentVo> pageResult = new PageResult<>();
         LambdaQueryWrapper<AiAgent> wrapper = Wrappers.lambdaQuery();
@@ -76,7 +96,7 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgent> impl
         wrapper.orderByDesc(AiAgent::getId);
         Page<AiAgent> pageParam = new Page<>(reqVo.getCurrentPage(), reqVo.getPageSize());
         wrapper.select(AiAgent::getId, AiAgent::getName, AiAgent::getType, AiAgent::getDescription, AiAgent::getIcon, AiAgent::getModelId,
-                AiAgent::getWorkflowIds, AiAgent::getStatus, AiAgent::getCreateTime, AiAgent::getUpdateTime);
+                AiAgent::getChatFlowId, AiAgent::getStatus, AiAgent::getCreateTime, AiAgent::getUpdateTime);
         IPage<AiAgent> page = super.page(pageParam, wrapper);
         List<AiAgentVo> voList = page.getRecords().stream().map(item -> {
             AiAgentVo vo = ModelMapperUtil.strictMap(item, AiAgentVo.class);
@@ -97,6 +117,20 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgent> impl
             return vo;
         }).toList();
         return voList;
+    }
+
+    @Override
+    public List<AiAgentVo> queryByChatFlowId(Long chatFlowId, Integer orgId) {
+        LambdaQueryWrapper<AiAgent> wrapper = Wrappers.lambdaQuery();
+        wrapper.eq(AiAgent::getChatFlowId, chatFlowId);
+        if (orgId != null) {
+            wrapper.eq(AiAgent::getOrgId, orgId);
+        }
+        wrapper.orderByDesc(AiAgent::getId);
+        List<AiAgent> list = super.list(wrapper);
+        return list.stream()
+                .map(item -> ModelMapperUtil.strictMap(item, AiAgentVo.class))
+                .toList();
     }
 
     @Override

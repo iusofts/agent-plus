@@ -30,6 +30,7 @@ CREATE TABLE `ai_agent`  (
   `system_prompt` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL COMMENT '设定描述',
   `model_id` bigint(20) NULL DEFAULT NULL COMMENT '使用模型ID',
   `workflow_ids` json NULL COMMENT '绑定工作流ID列表(JSON数组存储)',
+  `chat_flow_id` bigint(20) NULL DEFAULT NULL COMMENT '对话流ID',
   `tool_ids` json NULL COMMENT '绑定工具ID列表(JSON数组存储)',
   `opening_statement` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL COMMENT '开场白文案',
   `opening_questions` json NULL COMMENT '开场白预置问题(JSON数组存储)',
@@ -118,6 +119,7 @@ DROP TABLE IF EXISTS `ai_flow_runtime`;
 CREATE TABLE `ai_flow_runtime`  (
   `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '执行实例ID',
   `flow_id` bigint(20) NOT NULL COMMENT '流程ID',
+  `flow_name` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '流程名称(冗余)',
   `version_no` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '执行使用的语义化版本v1.0.0',
   `trace_id` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '全局追踪ID',
   `run_status` tinyint(4) NOT NULL DEFAULT 0 COMMENT '运行状态 0等待 1运行中 2成功 3失败 4终止',
@@ -150,6 +152,7 @@ CREATE TABLE `ai_flow_runtime_node`  (
   `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '自增主键',
   `runtime_id` bigint(20) NOT NULL COMMENT '关联运行实例ID',
   `node_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'VueFlow节点唯一id',
+  `node_name` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '节点名称(冗余)',
   `node_type` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '节点类型(Start/LLM/Knowledge/Condition/End)',
   `run_status` tinyint(4) NOT NULL DEFAULT 0 COMMENT '0未执行 1执行中 2成功 3失败 4跳过',
   `node_input` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '节点入参JSON',
@@ -384,6 +387,9 @@ CREATE TABLE `ai_llm_call_log`  (
   `output_char_count` int(11) NULL DEFAULT 0 COMMENT '输出字符数',
   `output_tokens` int(11) NULL DEFAULT 0 COMMENT '输出消耗token数',
   `total_tokens` int(11) NULL DEFAULT 0 COMMENT '总消耗token数',
+  `finish_reason` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '结束原因(STOP/TOOL_EXECUTION等)',
+  `tool_definitions` json NULL COMMENT '下发给模型的工具规格列表',
+  `tool_calls` json NULL COMMENT '模型请求的工具调用列表',
   `call_status` tinyint(1) NOT NULL DEFAULT 1 COMMENT '调用状态(0:失败 1:成功)',
   `error_code` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '错误码',
   `error_message` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '错误信息',
@@ -416,6 +422,7 @@ CREATE TABLE `ai_message`  (
   `conversation_id` bigint(20) NOT NULL COMMENT '会话id',
   `role` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT '角色(user/assistant)',
   `content` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL COMMENT '消息内容',
+  `file_list` json NULL COMMENT '文件列表(JSON数组)',
   `struct_res` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL COMMENT '结构返回值',
   `agent_id` bigint(20) NULL DEFAULT NULL COMMENT '智能体ID',
   `input_tokens` int(11) NULL DEFAULT 0 COMMENT '输入消耗token数',
@@ -574,5 +581,46 @@ CREATE TABLE `t_industry`  (
 -- Records of t_industry
 -- ----------------------------
 INSERT INTO `t_industry` VALUES (1, '测试', 0, 1, 1, '2026-06-04 11:28:49', NULL, '2026-06-04 11:28:49', 0);
+
+-- ----------------------------
+-- Table structure for ai_trace_span
+-- ----------------------------
+DROP TABLE IF EXISTS `ai_trace_span`;
+CREATE TABLE `ai_trace_span` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '自增主键',
+  `trace_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'OTel 128-bit traceId(32hex)',
+  `span_id` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'OTel 64-bit spanId(16hex)',
+  `parent_span_id` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '父 spanId',
+  `span_name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'span名称',
+  `span_kind` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'INTERNAL' COMMENT 'span类型: INTERNAL/SERVER/CLIENT/PRODUCER/CONSUMER',
+  `status` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'OK' COMMENT 'span状态: OK/ERROR',
+  `status_message` varchar(2000) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '错误信息(仅status=ERROR时)',
+  `attributes` json DEFAULT NULL COMMENT 'span attribute键值对(含入参/出参等业务信息)',
+  `start_time` datetime(3) NOT NULL COMMENT 'span开始时间(毫秒精度)',
+  `end_time` datetime(3) NOT NULL COMMENT 'span结束时间(毫秒精度)',
+  `duration_ms` bigint(20) NOT NULL COMMENT 'span耗时(毫秒)',
+  `org_id` int(11) DEFAULT NULL COMMENT '组织ID',
+  `trial_flag` tinyint(4) DEFAULT 0 COMMENT '试运行标记 0:正式 1:试运行',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '记录创建时间',
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_trace_id`(`trace_id`) USING BTREE,
+  INDEX `idx_start_time`(`start_time`) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = 'AI Trace Span记录' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Table structure for ai_trace_span_payload
+-- ----------------------------
+DROP TABLE IF EXISTS `ai_trace_span_payload`;
+CREATE TABLE `ai_trace_span_payload` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `trace_id` varchar(32) NOT NULL COMMENT 'traceId',
+  `span_id` varchar(16) NOT NULL COMMENT 'spanId，联合唯一',
+  `input_payload` TEXT DEFAULT NULL COMMENT '节点入参',
+  `output_payload` TEXT DEFAULT NULL COMMENT '节点返回值',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_trace_span` (`trace_id`,`span_id`),
+  KEY `idx_trace_id` (`trace_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Span入参返回值载荷附表';
 
 SET FOREIGN_KEY_CHECKS = 1;

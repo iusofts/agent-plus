@@ -16,6 +16,11 @@ public class KnowledgeBaseDTO {
     private Long id;
 
     /**
+     * 知识库名称。
+     */
+    private String name;
+
+    /**
      * 向量集合名称。
      */
     private String collectionName;

@@ -41,6 +41,9 @@ public class AiAgentEditReqVo {
     @Schema(description = "绑定工作流ID列表")
     private List<Long> workflowIds;
 
+    @Schema(description = "对话流ID")
+    private Long chatFlowId;
+
     @Schema(description = "绑定工具ID列表")
     private List<Long> toolIds;
 

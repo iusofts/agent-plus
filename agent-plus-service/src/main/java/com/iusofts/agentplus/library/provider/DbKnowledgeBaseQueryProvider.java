@@ -33,6 +33,7 @@ public class DbKnowledgeBaseQueryProvider implements KnowledgeBaseQueryProvider 
 
         KnowledgeBaseDTO dto = new KnowledgeBaseDTO();
         dto.setId(kb.getId());
+        dto.setName(kb.getName());
         dto.setCollectionName(kb.getCollectionName());
         dto.setEmbeddingModelId(kb.getEmbeddingModelId());
         return dto;

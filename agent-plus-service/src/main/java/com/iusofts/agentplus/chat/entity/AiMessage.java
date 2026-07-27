@@ -1,9 +1,12 @@
 package com.iusofts.agentplus.chat.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.iusofts.agentplus.basic.file.FileDto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.Setter;
@@ -11,6 +14,7 @@ import lombok.ToString;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * <p>
@@ -23,7 +27,7 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @ToString
-@TableName("ai_message")
+@TableName(value = "ai_message", autoResultMap = true)
 @Schema(name = "AiMessage", description = "ai对话消息")
 public class AiMessage implements Serializable {
 
@@ -41,7 +45,11 @@ public class AiMessage implements Serializable {
 
     @Schema(description = "消息内容")
     private String content;
-    
+
+    @Schema(description = "文件列表(JSON数组存储)")
+    @TableField(typeHandler = JacksonTypeHandler.class)
+    private List<FileDto> fileList;
+
     @Schema(description = "结构返回值")
     private String structRes;
 

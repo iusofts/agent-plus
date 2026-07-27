@@ -5,6 +5,8 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.iusofts.agentplus.llm.dto.ToolCall;
+import com.iusofts.agentplus.llm.dto.ToolDefinition;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.Setter;
@@ -62,18 +64,11 @@ public class AiLlmCallLog implements Serializable {
     @Schema(description = "最大生成长度")
     private Integer maxTokens;
 
-    @Schema(description = "输入消息列表(JSON)")
-    @TableField(value = "input_messages", typeHandler = JacksonTypeHandler.class)
-    private List<MessageEntry> inputMessages;
-
     @Schema(description = "输入字符数")
     private Integer inputCharCount;
 
     @Schema(description = "输入消耗token数")
     private Integer inputTokens;
-
-    @Schema(description = "输出内容")
-    private String outputContent;
 
     @Schema(description = "输出字符数")
     private Integer outputCharCount;
@@ -83,6 +78,9 @@ public class AiLlmCallLog implements Serializable {
 
     @Schema(description = "总消耗token数")
     private Integer totalTokens;
+
+    @Schema(description = "结束原因(STOP/TOOL_EXECUTION等)")
+    private String finishReason;
 
     @Schema(description = "调用状态(0:失败 1:成功)")
     private Integer callStatus;
@@ -116,11 +114,4 @@ public class AiLlmCallLog implements Serializable {
 
     @Schema(description = "所属组织ID")
     private Integer orgId;
-
-    @Getter
-    @Setter
-    public static class MessageEntry implements Serializable {
-        private String role;
-        private String content;
-    }
 }

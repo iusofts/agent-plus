@@ -25,17 +25,14 @@ public class AiFlowRuntimeNodeDetailVo {
     @Schema(description = "VueFlow节点唯一id")
     private String nodeId;
 
+    @Schema(description = "节点名称")
+    private String nodeName;
+
     @Schema(description = "节点类型(Start/LLM/Knowledge/Condition/End)")
     private String nodeType;
 
     @Schema(description = "0未执行 1执行中 2成功 3失败 4跳过")
     private Integer runStatus;
-
-    @Schema(description = "节点入参JSON")
-    private String nodeInput;
-
-    @Schema(description = "节点输出JSON")
-    private String nodeOutput;
 
     @Schema(description = "异常堆栈信息")
     private String errorStack;

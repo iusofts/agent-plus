@@ -20,7 +20,7 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ChatMessage {
+public class AiChatMessage {
     private String role;
     private String content;
 

@@ -26,6 +26,9 @@ public class InputParam {
     @Schema(description = "参数类型")
     private String type;
 
+    @Schema(description = "数组项类型")
+    private String itemType;
+
     @Valid
     @NotNull(message = "输入参数映射键不能为空")
     @Schema(description = "参数映射键")
