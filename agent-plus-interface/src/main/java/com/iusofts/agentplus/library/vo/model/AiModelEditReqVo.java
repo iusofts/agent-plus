@@ -24,7 +24,7 @@ public class AiModelEditReqVo {
     @Schema(description = "模型类型 1:LLM 2:Embedding")
     private Integer modelType;
 
-    @Schema(description = "提供商 qwen:千问 doubao:豆包 openai:OpenAI")
+    @Schema(description = "模型提供商：qwen-阿里云(百炼平台)，doubao-字节跳动(火山引擎)，openai-OpenAI")
     private String provider;
 
     @Schema(description = "模型名称")
