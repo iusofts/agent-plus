@@ -121,9 +121,38 @@ web ──► service ──► interface ──► engine ──► plugin ─�
 - 向量库：Redis 8.8
 - SpringDoc OpenAPI、Fastjson2、Caffeine、Hibernate Validator
 
+## 前置检查和配置
+```yml
+
+
+# 在application.yml中修改配置 或者 将application-dev-template.yml重命名为application-dev.yml并在其中添加配置
+
+# Redis和 MySQL的配置酌情修改
+
+# 目前只支持阿里云OSS 必须要严格根据要求配置 否则图标和文件无法上传 
+storage:
+  oss:
+    accessKeyId: XXX
+    accessKeySecret: XXX
+    endPoint: XXX
+    regionId: XXX
+    roleArn: XXX
+    bucket: iusofts
+    domain: https://iusofts.oss-cn-hangzhou.aliyuncs.com
+
+```
+
 ## 启动
 
 ```bash
-mvn clean package -DskipTests
-java -jar agent-plus-web/target/agent-plus-web-*.jar
+
+# 目前pom中配置的打包war的方式
+建议在idea中通过web模块的Application运行启动
+
+# 需要jar启动的需要手动修改pom
+# mvn clean package -DskipTests
+# java -jar agent-plus-web/target/agent-plus-web-*.jar
+
+# Dockerfile 暂未配置
+
 ```
