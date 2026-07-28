@@ -55,7 +55,7 @@ public class AiLlmCallLog implements Serializable {
     @Schema(description = "模型名称")
     private String modelName;
 
-    @Schema(description = "模型提供商(QWEN/DOUBAO/OPENAI/CUSTOM)")
+    @Schema(description = "模型提供商(dashscope/volcengine/openai)")
     private String modelProvider;
 
     @Schema(description = "生成温度")

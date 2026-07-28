@@ -16,7 +16,7 @@ public class EmbeddingModelDTO {
     private Long id;
 
     /**
-     * 模型提供商 (qwen/doubao/openai)。
+     * 模型提供商 (dashscope/volcengine/openai)。
      */
     private String provider;
 

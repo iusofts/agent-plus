@@ -3,29 +3,28 @@ package com.iusofts.agentplus.engine.llm;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
- * 千问（DashScope）模型配置。
+ * 火山引擎（豆包 Doubao / Seed）模型配置。
  *
  * @author Ivan
  */
-@ConfigurationProperties(prefix = "dashscope")
-public class QwenProperties {
+@ConfigurationProperties(prefix = "volcengine")
+public class VolcengineProperties {
 
     /**
-     * 千问 API Key.
+     * 火山 API Key.
      */
     private String apiKey;
 
     /**
-     * 千问 API 基础地址.
-     * 默认: https://dashscope.aliyuncs.com/compatible-mode/v1
+     * 火山 API 基础地址.
+     * 默认: https://ark.cn-beijing.volces.com/api/v3
      */
-    private String baseUrl = "https://dashscope.aliyuncs.com/compatible-mode/v1";
+    private String baseUrl = "https://ark.cn-beijing.volces.com/api/v3";
 
     /**
-     * 默认模型名称.
-     * 默认: qwen-plus
+     * 默认模型端点 ID.
      */
-    private String model = "qwen-plus";
+    private String model;
 
     public String getApiKey() {
         return apiKey;

@@ -21,7 +21,7 @@ public class AiModelAddReqVo {
     private Integer modelType;
 
     @NotBlank(message = "提供商不能为空")
-    @Schema(description = "模型提供商：qwen-阿里云(百炼平台)，doubao-字节跳动(火山引擎)，openai-OpenAI")
+    @Schema(description = "模型提供商：dashscope-阿里云(百炼平台)，volcengine-字节跳动(火山引擎)，openai-OpenAI")
     private String provider;
 
     @NotBlank(message = "模型名称不能为空")

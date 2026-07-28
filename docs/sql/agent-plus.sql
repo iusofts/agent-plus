@@ -392,7 +392,7 @@ DROP TABLE IF EXISTS `ai_model`;
 CREATE TABLE `ai_model`  (
   `id` bigint(20) NOT NULL COMMENT '编号',
   `model_type` int(11) NOT NULL DEFAULT 1 COMMENT '模型类型 1:LLM 2:Embedding',
-  `provider` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'qwen' COMMENT '模型提供商：qwen-阿里云(百炼平台)，doubao-字节跳动(火山引擎)，openai-OpenAI',
+  `provider` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '模型提供商：dashscope-阿里云(百炼平台)，volcengine-字节跳动(火山引擎)，openai-OpenAI',
   `model_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '模型名称',
   `display_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '模型显示名称',
   `api_key` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'API密钥',

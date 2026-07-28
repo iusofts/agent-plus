@@ -6,8 +6,8 @@ import com.iusofts.agentplus.engine.knowledge.KnowledgeRetriever;
 import com.iusofts.agentplus.engine.knowledge.NoopKnowledgeRetriever;
 import com.iusofts.agentplus.engine.llm.ChatModelProvider;
 import com.iusofts.agentplus.engine.llm.DefaultChatModelProvider;
-import com.iusofts.agentplus.engine.llm.DoubaoProperties;
-import com.iusofts.agentplus.engine.llm.QwenProperties;
+import com.iusofts.agentplus.engine.llm.VolcengineProperties;
+import com.iusofts.agentplus.engine.llm.DashscopeProperties;
 import com.iusofts.agentplus.engine.tool.ToolRegistry;
 import com.iusofts.agentplus.tool.Tool;
 import com.iusofts.agentplus.tool.ToolQueryProvider;
@@ -28,13 +28,13 @@ import org.springframework.context.annotation.Configuration;
  * @author Ivan
  */
 @Configuration(proxyBeanMethods = false)
-@EnableConfigurationProperties({QwenProperties.class, DoubaoProperties.class})
+@EnableConfigurationProperties({DashscopeProperties.class, VolcengineProperties.class})
 public class WorkflowEngineAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public ChatModelProvider chatModelProvider(QwenProperties qwenProperties, DoubaoProperties doubaoProperties) {
-        return new DefaultChatModelProvider(qwenProperties, doubaoProperties);
+    public ChatModelProvider chatModelProvider(DashscopeProperties dashscopeProperties, VolcengineProperties volcengineProperties) {
+        return new DefaultChatModelProvider(dashscopeProperties, volcengineProperties);
     }
 
     @Bean

@@ -3,28 +3,29 @@ package com.iusofts.agentplus.engine.llm;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
- * 豆包（火山引擎）模型配置。
+ * 阿里云百炼（DashScope）模型配置。
  *
  * @author Ivan
  */
-@ConfigurationProperties(prefix = "doubao")
-public class DoubaoProperties {
+@ConfigurationProperties(prefix = "dashscope")
+public class DashscopeProperties {
 
     /**
-     * 豆包 API Key.
+     * 阿里云百炼 API Key.
      */
     private String apiKey;
 
     /**
-     * 豆包 API 基础地址.
-     * 默认: https://ark.cn-beijing.volces.com/api/v3
+     * 阿里云百炼 API 基础地址.
+     * 默认: https://dashscope.aliyuncs.com/compatible-mode/v1
      */
-    private String baseUrl = "https://ark.cn-beijing.volces.com/api/v3";
+    private String baseUrl = "https://dashscope.aliyuncs.com/compatible-mode/v1";
 
     /**
-     * 默认模型端点 ID.
+     * 默认模型名称.
+     * 默认: qwen-plus
      */
-    private String model;
+    private String model = "qwen-plus";
 
     public String getApiKey() {
         return apiKey;

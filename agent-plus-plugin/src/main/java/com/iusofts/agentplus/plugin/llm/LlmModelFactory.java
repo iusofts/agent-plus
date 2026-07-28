@@ -16,7 +16,7 @@ import org.springframework.util.StringUtils;
  */
 public class LlmModelFactory {
 
-    private static final String PROVIDER_QWEN = "qwen";
+    private static final String PROVIDER_DASHSCOPE = "dashscope";
 
     /**
      * 构建 ChatModel 实例。
@@ -31,7 +31,7 @@ public class LlmModelFactory {
     public static ChatModel createChatModel(LlmModelDTO modelDTO, LlmModelConfigDTO config) {
         String provider = modelDTO.getProvider() == null ? "" : modelDTO.getProvider().trim().toLowerCase();
 
-        if (PROVIDER_QWEN.equals(provider)) {
+        if (PROVIDER_DASHSCOPE.equals(provider)) {
             return buildQwen(modelDTO, config);
         }
 

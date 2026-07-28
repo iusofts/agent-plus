@@ -15,7 +15,7 @@ import org.springframework.util.StringUtils;
  */
 public class EmbeddingModelFactory {
 
-    private static final String PROVIDER_QWEN = "qwen";
+    private static final String PROVIDER_DASHSCOPE = "dashscope";
 
     /**
      * 构建 EmbeddingModel 实例。
@@ -26,7 +26,7 @@ public class EmbeddingModelFactory {
     public static EmbeddingModel createEmbeddingModel(EmbeddingModelDTO modelDTO) {
         String provider = modelDTO.getProvider() == null ? "" : modelDTO.getProvider().trim().toLowerCase();
 
-        if (PROVIDER_QWEN.equals(provider)) {
+        if (PROVIDER_DASHSCOPE.equals(provider)) {
             return buildQwen(modelDTO);
         }
 

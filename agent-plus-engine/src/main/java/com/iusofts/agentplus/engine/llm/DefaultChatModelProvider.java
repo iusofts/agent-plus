@@ -38,16 +38,16 @@ public class DefaultChatModelProvider implements ChatModelProvider {
     private final ConcurrentMap<Double, ChatModel> modelCache = new ConcurrentHashMap<>();
     private volatile ChatModel defaultModel;
 
-    public DefaultChatModelProvider(QwenProperties qwenProperties, DoubaoProperties doubaoProperties) {
+    public DefaultChatModelProvider(DashscopeProperties dashscopeProperties, VolcengineProperties volcengineProperties) {
         // 优先使用千问
-        if (StringUtils.hasText(qwenProperties.getApiKey())) {
-            this.apiKey = qwenProperties.getApiKey();
-            this.baseUrl = qwenProperties.getBaseUrl();
-            this.modelName = qwenProperties.getModel();
-        } else if (StringUtils.hasText(doubaoProperties.getApiKey())) {
-            this.apiKey = doubaoProperties.getApiKey();
-            this.baseUrl = doubaoProperties.getBaseUrl();
-            this.modelName = doubaoProperties.getModel();
+        if (StringUtils.hasText(dashscopeProperties.getApiKey())) {
+            this.apiKey = dashscopeProperties.getApiKey();
+            this.baseUrl = dashscopeProperties.getBaseUrl();
+            this.modelName = dashscopeProperties.getModel();
+        } else if (StringUtils.hasText(volcengineProperties.getApiKey())) {
+            this.apiKey = volcengineProperties.getApiKey();
+            this.baseUrl = volcengineProperties.getBaseUrl();
+            this.modelName = volcengineProperties.getModel();
         } else {
             throw new IllegalStateException("请配置千问或豆包的 API Key");
         }
