@@ -33,6 +33,9 @@ public class AiModelVo {
     @Schema(description = "模型显示名称")
     private String displayName;
 
+    @Schema(description = "模型图标")
+    private String icon;
+
     @Schema(description = "API密钥(已掩码)")
     private String apiKey;
 
