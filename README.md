@@ -138,6 +138,16 @@ web ──► service ──► interface ──► engine ──► plugin ─�
 - 缓存和向量库：Redis 8.8
 - SpringDoc OpenAPI、Fastjson2、Caffeine、Hibernate Validator
 
+## 环境要求
+| 组件 | 版本要求   |
+|------|--------|
+| JDK | 21     |
+| Maven | 3.9+   |
+| MySQL | 5.7/8.0 |
+| Redis | 8.8    |
+
+本地可以用Docker Desktop安装和启动MySQL8.0和Redis8.8
+
 ## 前置检查和配置
 ```yml
 
@@ -159,17 +169,17 @@ storage:
 
 ```
 
-## 启动
+### 启动
 
+> 检查一下 Maven版本 和 Jdk版本
+
+#### IDEA运行项目
+
+运行入口：
 ```bash
-
-# 目前pom中配置的打包war的方式
-建议在idea中通过web模块的Application运行启动
-
-# 需要jar启动的需要手动修改pom
-# mvn clean package -DskipTests
-# java -jar agent-plus-web/target/agent-plus-web-*.jar
-
-# Dockerfile 暂未配置
-
+agent-plus-web/src/main/java/com/iusofts/agentplus/web/Application.java
 ```
+
+后端服务默认启动在 `http://localhost:8080`
+
+Swagger 文档地址：`http://localhost:8080/swagger-ui.html`
