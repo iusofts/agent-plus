@@ -61,7 +61,7 @@ server:
     contextPath: 
   port: 8080
   
-  
+# 阿里云OSS 需要配置 知识库文件上传、资源库图标需要使用  
 storage:
   oss:
     accessKeyId: 
