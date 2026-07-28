@@ -23,8 +23,8 @@ public class ToolNodeData extends InputParamNodeData {
     @Schema(description = "工具ID")
     private Long toolId;
 
-    @Schema(description = "工具编码（冗余，方便使用")
-    private String toolCode;
+    @Schema(description = "图标")
+    private String icon;
 
     @Valid
     @Schema(description = "输出参数列表")
