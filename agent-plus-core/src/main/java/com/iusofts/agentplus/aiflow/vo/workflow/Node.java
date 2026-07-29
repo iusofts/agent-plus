@@ -57,6 +57,7 @@ public class Node {
             @JsonSubTypes.Type(value = ConditionNodeData.class, name = "Condition"),
             @JsonSubTypes.Type(value = BatchNodeData.class, name = "Batch"),
             @JsonSubTypes.Type(value = AggregatorNodeData.class, name = "Aggregator"),
+            @JsonSubTypes.Type(value = ToolNodeData.class, name = "Tool"),
             @JsonSubTypes.Type(value = EndNodeData.class, name = "End")
     })
     private NodeData data;

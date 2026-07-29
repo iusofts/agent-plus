@@ -29,6 +29,15 @@ public class InputParam {
     @Schema(description = "数组项类型")
     private String itemType;
 
+    @Schema(description = "是否必填")
+    private Boolean required;
+
+    @Schema(description = "默认值")
+    private String defaultValue;
+
+    @Schema(description = "参数描述")
+    private String description;
+
     @Valid
     @NotNull(message = "输入参数映射键不能为空")
     @Schema(description = "参数映射键")

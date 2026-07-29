@@ -1,6 +1,7 @@
 package com.iusofts.agentplus.aiflow.vo.workflow.data;
 
 import com.iusofts.agentplus.aiflow.vo.workflow.data.common.OutputParam;
+import com.iusofts.agentplus.aiflow.vo.workflow.data.tool.ToolInfo;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -23,8 +24,11 @@ public class ToolNodeData extends InputParamNodeData {
     @Schema(description = "工具ID")
     private Long toolId;
 
-    @Schema(description = "图标")
-    private String icon;
+    @Schema(description = "工具图标")
+    private String toolIcon;
+    
+    @Schema(description = "工具信息")
+    private ToolInfo toolInfo;
 
     @Valid
     @Schema(description = "输出参数列表")
