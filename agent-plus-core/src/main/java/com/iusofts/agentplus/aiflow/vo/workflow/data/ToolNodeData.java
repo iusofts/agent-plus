@@ -29,4 +29,16 @@ public class ToolNodeData extends InputParamNodeData {
     @Valid
     @Schema(description = "输出参数列表")
     private List<OutputParam> outputParams;
+
+    @Schema(description = "超时时间(秒)")
+    private Integer timeout;
+
+    @Schema(description = "重试次数")
+    private Integer retryCount;
+
+    @Schema(description = "错误处理方式")
+    private String errorHandling;
+
+    @Schema(description = "自定义错误内容")
+    private String customErrorContent;
 }
