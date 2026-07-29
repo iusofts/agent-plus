@@ -7,6 +7,7 @@ import com.iusofts.agentplus.aiflow.vo.workflow.data.ToolNodeData;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.common.OutputParam;
 import com.iusofts.agentplus.engine.context.ExecutionContext;
 import com.iusofts.agentplus.engine.context.NodeOutput;
+import com.iusofts.agentplus.engine.exception.WorkflowExecutionException;
 import com.iusofts.agentplus.engine.executor.NodeExecutor;
 import com.iusofts.agentplus.engine.tool.ToolRegistry;
 import com.iusofts.agentplus.engine.util.ParamResolver;
@@ -53,6 +54,14 @@ public class ToolNodeExecutor implements NodeExecutor {
             ctx.getOperatorId(), ctx.getOrgId());
 
         ToolExecuteResult result = toolRegistry.execute(request);
+
+        // FIXME 根据错误处理方式 选择重试、中断、返回预设内容
+        
+        // 工具执行失败：抛出异常，由引擎标记节点为 FAILED，Span 状态置为 ERROR
+        if (!result.isSuccess()) {
+            throw new WorkflowExecutionException(node.getId(),
+                "工具执行失败: " + result.getErrorMessage());
+        }
 
         Map<String, Object> outputs = new LinkedHashMap<>();
         if(result.getData() != null) {

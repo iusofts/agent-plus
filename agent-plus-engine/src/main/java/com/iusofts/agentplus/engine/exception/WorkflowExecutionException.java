@@ -19,6 +19,11 @@ public class WorkflowExecutionException extends RuntimeException {
         this.nodeId = null;
     }
 
+    public WorkflowExecutionException(String nodeId, String message) {
+        super("[node=" + nodeId + "] " + message);
+        this.nodeId = nodeId;
+    }
+
     public WorkflowExecutionException(String nodeId, String message, Throwable cause) {
         super("[node=" + nodeId + "] " + message, cause);
         this.nodeId = nodeId;

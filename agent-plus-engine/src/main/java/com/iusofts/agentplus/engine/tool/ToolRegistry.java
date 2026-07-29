@@ -9,6 +9,7 @@ import com.iusofts.agentplus.tool.dto.ToolExecuteRequest;
 import com.iusofts.agentplus.tool.dto.ToolExecuteResult;
 import com.iusofts.agentplus.trace.TraceUtil;
 import io.opentelemetry.api.trace.SpanKind;
+import io.opentelemetry.api.trace.StatusCode;
 
 import java.net.http.HttpClient;
 import java.util.HashMap;
@@ -70,6 +71,10 @@ public class ToolRegistry {
                 span.setAttribute("ap.payload.output", JSON.toJSONString(result));
             } catch (Exception ignore) {
                 // 序列化失败不影响主流程
+            }
+            // 工具执行失败：将 Span 状态置为 ERROR
+            if (result != null && !result.isSuccess()) {
+                span.setStatus(StatusCode.ERROR, result.getErrorMessage());
             }
             return result;
         });
