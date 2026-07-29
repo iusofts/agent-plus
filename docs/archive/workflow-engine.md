@@ -27,6 +27,7 @@
 | 条件分支       | `Condition`  | `ConditionNodeData`      | 命中分支通过 langgraph4j `addConditionalEdges` 剪枝 |
 | 变量聚合       | `Aggregator` | `AggregatorNodeData`     | 输出分组: list / map / first                 |
 | 批处理        | `Batch`      | `BatchNodeData`          | 通过 `parentNode` 归属子节点,子图预编译为独立 `StateGraph`,主图迭代时并行调用 |
+| 代码         | `Code`       | `CodeNodeData`           | 执行 JavaScript / Groovy 脚本,沙箱隔离,超时保护        |
 
 ---
 
@@ -72,7 +73,11 @@ engine
 ├── executor
 │   ├── NodeExecutor            // SPI 接口
 │   ├── NodeExecutorRegistry    // type → executor
-│   └── impl/*                  // 8 类内置执行器(Start/End/LLM/Knowledge/Tool/Condition/Aggregator/Batch)
+│   └── impl/*                  // 9 类内置执行器(Start/End/LLM/Knowledge/Tool/Condition/Aggregator/Batch/Code)
+├── script                      // 脚本引擎
+│   ├── ScriptEngine            // 脚本引擎接口
+│   ├── GraalJsScriptEngine     // GraalVM JavaScript 实现(沙箱隔离)
+│   └── GroovyScriptEngine      // Groovy 脚本实现(安全自定义器)
 ├── llm
 │   ├── ChatModelProvider       // 业务侧提供 LangChain4j ChatModel + chat(AiChatRequest)
 │   └── DefaultChatModelProvider// 千问/豆包兜底实现
@@ -239,6 +244,66 @@ Batch 节点作为可视化"容器",通过两条通道识别子图:
 - 子作用域读取时,batch 之外的上游节点仍然可见(读取回退到父作用域),但**不能**跨迭代引用彼此的数据
 - 暂不支持嵌套 batch,编译期即报错
 - batch 上若未挂任何子节点,则退化为旧行为,仅输出 `output`(=items)/ `total` / `success` / `failed`
+
+---
+
+## 6.6 代码节点 (Code)
+
+代码节点支持在工作流中执行自定义脚本,当前支持 **JavaScript** (基于 GraalVM) 和 **Groovy** 两种语言,均配置了沙箱安全限制。
+
+**数据结构 (`CodeNodeData`):**
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `scriptType` | `String` | "JS" 或 "Groovy" |
+| `script` | `String` | 脚本内容 |
+| `timeout` | `Integer` | 超时时间(秒),默认 30 |
+| `inputParams` | `List<InputParam>` | 输入参数映射 |
+| `outputParams` | `List<OutputParam>` | 输出参数定义 |
+
+**脚本写法:**
+
+支持两种风格:
+
+1. **标准 `main()` 函数写法 (推荐):**
+```javascript
+/**
+ * @param {Object} args - 参数对象
+ * @param {Object} args.params - 输入参数
+ * @returns {Object} 执行结果
+ */
+function main({ params }) {
+    return {
+        output: "Hello, " + params.name
+    };
+}
+```
+
+2. **简化 `ret` 写法:**
+```javascript
+// 参数通过 params.xxx 访问
+// 返回值赋给 ret 对象
+const ret = {
+    output: "Hello, " + params.name
+};
+```
+
+**脚本安全配置:**
+
+| 限制项 | JavaScript (GraalVM) | Groovy |
+|--------|---------------------|--------|
+| 进程创建 | ❌ 禁止 | ❌ 禁止 |
+| 线程创建 | ❌ 禁止 | ❌ 禁止 |
+| 文件 IO | ❌ 禁止 | ❌ 禁止 |
+| Native 访问 | ❌ 禁止 | ❌ 禁止 |
+| 主机访问 | ❌ 禁止 | 受限 |
+| 允许导入 | - | 白名单: `java.lang.*`, `java.util.*`, `groovy.json.*` |
+| 超时控制 | ✅ 支持 | ✅ 支持 |
+
+**参数与输出:**
+
+- 输入: 经 `ParamResolver.resolveInputs` 解析,注入为 `params` 变量
+- 输出: 脚本返回值序列化为 `Map<String, Object>`,按 `outputParams` 定义映射
+- 默认输出: 若未配置 `outputParams`,输出整个返回对象
 
 ---
 

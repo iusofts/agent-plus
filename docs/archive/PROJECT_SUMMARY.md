@@ -50,7 +50,7 @@
 基于 langgraph4j 的 `StateGraph` 驱动，详见 [`workflow-engine.md`](workflow-engine.md)。
 
 #### 支持的节点类型（`FlowNodeType`）
-`Start` / `End` / `LLM` / `Knowledge` / `Tool` / `Condition` / `Batch` / `Aggregator`。
+`Start` / `End` / `LLM` / `Knowledge` / `Tool` / `Condition` / `Batch` / `Aggregator` / `Code`。
 
 #### 关键点
 - **上下文隔离修复**：langgraph4j 克隆状态导致 ctx 副本问题，通过 `ExecutionContextTracker`（按 runId 追踪原始 ctx）解决，详见 [`../issues/2026-07-07-ctx.md`](../issues/2026-07-07-ctx.md)。
@@ -58,6 +58,7 @@
 - **模板变量解析**：`ParamResolver` 支持 `{{nodeId.param}}` 与 `{{param}}` 两种格式。
 - **工具调用**：LLM 节点支持绑定 `toolIds`，多轮工具调用循环（`MAX_TOOL_ITERATIONS`）。
 - **会话历史**：LLM 节点可开启 `enableHistory`，通过 `HistoryMessageProvider` 加载最近 N 轮。
+- **代码节点**：支持 JavaScript (GraalVM) / Groovy 双脚本引擎，沙箱安全配置，支持 `main({ params })` 标准写法或简化 `ret` 写法。
 - **可观测**：引擎层统一 OTel 埋点（span + token + 节点起止时间），业务侧无需手动补记。
 
 #### 自动装配
@@ -148,7 +149,7 @@ agent-plus/
 2. **工作流版本管理** - `ai_flow_version` 已有雏形，可完善版本对比/回滚。
 3. **流式输出** - LLM 节点接入 `StreamingChatModel` + langgraph4j `stream(...)`。
 4. **中断/恢复** - 接入 langgraph4j `Checkpointer` 实现断点续跑。
-5. **性能优化** - 批处理并行调优、模型实例缓存策略。
+5. **代码节点增强** - 支持更多脚本语言 (Python via GraalPython)、内置常用工具库、脚本调试模式。
 
 ---
 

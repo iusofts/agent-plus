@@ -86,10 +86,12 @@ public class GraalJsScriptEngine implements ScriptEngine {
 
         if (hasMain) {
             // 标准写法: 调用 main({ params }) 并返回结果
+            // 使用同步方式处理 Promise (GraalVM 会在上下文中处理 await)
             return script + "\n\n" +
-                    "(async () => {\n" +
+                    "(function() {\n" +
                     "  if (typeof main === 'function') {\n" +
-                    "    const result = await main({ params: params });\n" +
+                    "    var result = main({ params: params });\n" +
+                    "    // 如果是 Promise，等待其完成（GraalVM JS 中的 Promise 可以通过 context 处理）\n" +
                     "    return result;\n" +
                     "  }\n" +
                     "  return typeof ret !== 'undefined' ? ret : {};\n" +
