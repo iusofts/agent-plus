@@ -94,6 +94,10 @@
         <tika.version>2.9.2</tika.version>
         <!-- OpenTelemetry: AI Trace 链路追踪(手动 SDK 模式) -->
         <opentelemetry.version>1.64.0</opentelemetry.version>
+        <!-- GraalVM JS -->
+        <graalvm.version>24.0.1</graalvm.version>
+        <!-- Groovy -->
+        <groovy.version>4.0.23</groovy.version>
     </properties>
 
     <dependencyManagement>
@@ -386,6 +390,26 @@
                 <version>${opentelemetry.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+
+            <!-- ================= GraalVM JS ================= -->
+            <dependency>
+                <groupId>org.graalvm.polyglot</groupId>
+                <artifactId>polyglot</artifactId>
+                <version>${graalvm.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.graalvm.polyglot</groupId>
+                <artifactId>js</artifactId>
+                <version>${graalvm.version}</version>
+                <type>pom</type>
+            </dependency>
+
+            <!-- ================= Groovy ================= -->
+            <dependency>
+                <groupId>org.apache.groovy</groupId>
+                <artifactId>groovy</artifactId>
+                <version>${groovy.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

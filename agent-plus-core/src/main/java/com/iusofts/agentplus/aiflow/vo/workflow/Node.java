@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.*;
+import com.iusofts.agentplus.aiflow.vo.workflow.data.code.CodeNodeData;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.condition.ConditionNodeData;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.llm.LLMNodeData;
 import com.iusofts.agentplus.aiflow.vo.workflow.style.NodeStyle;
@@ -58,6 +59,7 @@ public class Node {
             @JsonSubTypes.Type(value = BatchNodeData.class, name = "Batch"),
             @JsonSubTypes.Type(value = AggregatorNodeData.class, name = "Aggregator"),
             @JsonSubTypes.Type(value = ToolNodeData.class, name = "Tool"),
+            @JsonSubTypes.Type(value = CodeNodeData.class, name = "Code"),
             @JsonSubTypes.Type(value = EndNodeData.class, name = "End")
     })
     private NodeData data;

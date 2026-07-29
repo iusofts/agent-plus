@@ -11,6 +11,7 @@ import com.iusofts.agentplus.engine.executor.NodeExecutor;
 import com.iusofts.agentplus.engine.executor.NodeExecutorRegistry;
 import com.iusofts.agentplus.engine.executor.impl.AggregatorNodeExecutor;
 import com.iusofts.agentplus.engine.executor.impl.BatchNodeExecutor;
+import com.iusofts.agentplus.engine.executor.impl.CodeNodeExecutor;
 import com.iusofts.agentplus.engine.executor.impl.ConditionNodeExecutor;
 import com.iusofts.agentplus.engine.executor.impl.EndNodeExecutor;
 import com.iusofts.agentplus.engine.executor.impl.KnowledgeNodeExecutor;
@@ -237,7 +238,8 @@ public class WorkflowEngine {
                     .register(new AggregatorNodeExecutor())
                     .register(new BatchNodeExecutor())
                     .register(new KnowledgeNodeExecutor(retriever))
-                    .register(new LLMNodeExecutor(chatModelProvider, toolQueryProvider, toolRegistry, historyMessageProvider));
+                    .register(new LLMNodeExecutor(chatModelProvider, toolQueryProvider, toolRegistry, historyMessageProvider))
+                    .register(new CodeNodeExecutor());
 
             if (toolRegistry != null && toolQueryProvider != null) {
                 registry.register(new ToolNodeExecutor(toolRegistry, toolQueryProvider));

@@ -16,6 +16,7 @@ public enum FlowNodeType {
     CONDITION("Condition", "选择器"),
     BATCH("Batch", "批处理"),
     AGGREGATOR("Aggregator", "变量聚合"),
+    CODE("Code", "代码"),
     END("End", "结束");
 
     private static Map<String, FlowNodeType> map = Arrays.stream(FlowNodeType.values()).
