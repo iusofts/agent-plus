@@ -1,5 +1,6 @@
 package com.iusofts.agentplus.engine.executor.impl;
 
+import com.alibaba.fastjson2.JSON;
 import com.iusofts.agentplus.aiflow.enums.FlowNodeType;
 import com.iusofts.agentplus.aiflow.vo.workflow.Node;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.ToolNodeData;
@@ -54,14 +55,9 @@ public class ToolNodeExecutor implements NodeExecutor {
         ToolExecuteResult result = toolRegistry.execute(request);
 
         Map<String, Object> outputs = new LinkedHashMap<>();
-        String outName = "result";
-        if (data.getOutputParams() != null && !data.getOutputParams().isEmpty()) {
-            OutputParam p = data.getOutputParams().get(0);
-            if (p.getName() != null) {
-                outName = p.getName();
-            }
+        if(result.getData() != null) {
+            outputs = JSON.parseObject(JSON.toJSONString(result));
         }
-        outputs.put(outName, result);
         return new NodeOutput(node.getId(), outputs);
     }
 }
