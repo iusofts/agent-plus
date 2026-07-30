@@ -81,11 +81,5 @@
             <artifactId>js</artifactId>
             <type>pom</type>
         </dependency>
-
-        <!-- Groovy: Groovy 脚本引擎 -->
-        <dependency>
-            <groupId>org.apache.groovy</groupId>
-            <artifactId>groovy</artifactId>
-        </dependency>
     </dependencies>
 </project>

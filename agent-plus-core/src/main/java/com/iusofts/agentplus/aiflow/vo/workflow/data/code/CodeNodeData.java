@@ -21,7 +21,7 @@ import java.util.List;
 public class CodeNodeData extends InputParamNodeData {
 
     @NotBlank(message = "脚本类型不能为空")
-    @Schema(description = "脚本类型: JS/GROOVY", example = "JS")
+    @Schema(description = "脚本类型: javascript", example = "javascript")
     private String scriptType;
 
     @NotBlank(message = "脚本内容不能为空")

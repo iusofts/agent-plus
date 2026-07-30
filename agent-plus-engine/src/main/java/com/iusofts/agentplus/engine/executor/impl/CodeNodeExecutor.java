@@ -9,7 +9,6 @@ import com.iusofts.agentplus.engine.context.NodeOutput;
 import com.iusofts.agentplus.engine.exception.WorkflowExecutionException;
 import com.iusofts.agentplus.engine.executor.NodeExecutor;
 import com.iusofts.agentplus.engine.script.GraalJsScriptEngine;
-import com.iusofts.agentplus.engine.script.GroovyScriptEngine;
 import com.iusofts.agentplus.engine.script.ScriptEngine;
 import com.iusofts.agentplus.engine.util.ParamResolver;
 import org.slf4j.Logger;
@@ -30,11 +29,9 @@ public class CodeNodeExecutor implements NodeExecutor {
     private static final Logger LOGGER = LoggerFactory.getLogger(CodeNodeExecutor.class);
 
     private final ScriptEngine jsEngine;
-    private final ScriptEngine groovyEngine;
 
     public CodeNodeExecutor() {
         this.jsEngine = new GraalJsScriptEngine();
-        this.groovyEngine = new GroovyScriptEngine();
     }
 
     @Override
@@ -78,8 +75,6 @@ public class CodeNodeExecutor implements NodeExecutor {
             case "JS":
             case "JAVASCRIPT":
                 return jsEngine;
-            case "GROOVY":
-                return groovyEngine;
             default:
                 throw new WorkflowExecutionException(nodeId, "不支持的脚本类型: " + scriptType, null);
         }
