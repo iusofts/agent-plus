@@ -3,6 +3,8 @@ package com.iusofts.agentplus.engine;
 import com.iusofts.agentplus.aiflow.vo.workflow.Node;
 import com.iusofts.agentplus.aiflow.vo.workflow.Workflow;
 import com.iusofts.agentplus.aiflow.vo.workflow.config.WorkflowConfig;
+import com.iusofts.agentplus.aiflow.stream.WorkflowCompleteEvent;
+import com.iusofts.agentplus.aiflow.stream.WorkflowStreamEvent;
 import com.iusofts.agentplus.engine.context.ExecutionContext;
 import com.iusofts.agentplus.engine.context.NodeExecutionStatus;
 import com.iusofts.agentplus.engine.context.NodeOutput;
@@ -19,6 +21,7 @@ import com.iusofts.agentplus.engine.executor.impl.LLMNodeExecutor;
 import com.iusofts.agentplus.engine.executor.impl.StartNodeExecutor;
 import com.iusofts.agentplus.engine.executor.impl.ToolNodeExecutor;
 import com.iusofts.agentplus.engine.history.HistoryMessageProvider;
+import com.iusofts.agentplus.engine.stream.WorkflowStreamEventCallback;
 import com.iusofts.agentplus.engine.tool.ToolRegistry;
 import com.iusofts.agentplus.tool.ToolQueryProvider;
 import com.iusofts.agentplus.engine.graph.ExecutionContextTracker;
@@ -32,10 +35,15 @@ import com.alibaba.fastjson2.JSON;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanKind;
 import org.bsc.langgraph4j.CompiledGraph;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Sinks;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 import static com.iusofts.agentplus.trace.TraceUtil.ATTR_LABEL;
 
@@ -55,6 +63,8 @@ import static com.iusofts.agentplus.trace.TraceUtil.ATTR_LABEL;
  */
 public class WorkflowEngine {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(WorkflowEngine.class);
+
     private final NodeExecutorRegistry registry;
     private final WorkflowGraphCompiler compiler;
 
@@ -73,7 +83,7 @@ public class WorkflowEngine {
      *
      * <p>在最外层开启 OTel root span,并以 span 的 traceId 作为本次执行的 runId
      * (即业务 traceId),经 {@link WorkflowExecutionResult#getRunId()} 回传给调用方落库。
-     * 若 OTel SDK 未初始化(如单元测试),span context 无效时回退使用传入的 {@code runId}。</p>
+     * 若 OTel SDK 未初始化(如单元测试),span context 无效时回退使用传入的 {@code runId}。
      */
     public WorkflowExecutionResult execute(WorkflowExecuteRequest request) {
         // 使用 root() 作为父 Context，确保每次都是新的 trace，不继承上一次请求的残留 Context
@@ -107,7 +117,7 @@ public class WorkflowEngine {
             io.opentelemetry.context.Context rootContext = io.opentelemetry.context.Context.current();
 
             WorkflowExecutionResult result = doExecute(request.getWorkflow(), request.getConfig(), request.getInputs(),
-                    effectiveRunId, request.getFlowId(), request.getOperatorId(), request.getOrgId(), rootContext);
+                    effectiveRunId, request.getFlowId(), request.getOperatorId(), request.getOrgId(), rootContext, null);
 
             // 出参载荷
             if (result.getOutput() != null && !result.getOutput().isEmpty()) {
@@ -118,6 +128,76 @@ public class WorkflowEngine {
         });
     }
 
+    /**
+     * 流式执行工作流，返回事件流。
+     *
+     * @param request 执行请求
+     * @return 事件 Flux
+     */
+    public Flux<WorkflowStreamEvent> streamExecute(WorkflowExecuteRequest request) {
+        // 创建 Sink 用于推送事件
+        Sinks.Many<WorkflowStreamEvent> sink = Sinks.many().multicast().onBackpressureBuffer();
+
+        // 在单独的线程中执行工作流
+        CompletableFuture.runAsync(() -> {
+            try {
+                TraceUtil.span("workflow.streamExecute", SpanKind.INTERNAL, io.opentelemetry.context.Context.root(), span -> {
+                    // 以 OTel traceId 作为 runId;SDK 未初始化时回退传入值
+                    String effectiveRunId = span.getSpanContext().isValid()
+                            ? span.getSpanContext().getTraceId()
+                            : request.getRunId();
+
+                    span.setAttribute(ATTR_LABEL, request.getFlowName() != null ? request.getFlowName() : "");
+                    span.setAttribute("workflow.runId", effectiveRunId);
+                    if (request.getFlowId() != null) {
+                        span.setAttribute("flowId", request.getFlowId());
+                    }
+                    if (request.getOperatorId() != null) {
+                        span.setAttribute("operatorId", request.getOperatorId());
+                    }
+                    if (request.getOrgId() != null) {
+                        span.setAttribute("orgId", request.getOrgId().longValue());
+                    }
+                    if (request.getTrialFlag() != null) {
+                        span.setAttribute("trialFlag", request.getTrialFlag() != 0);
+                    }
+
+                    // 入参载荷
+                    if (request.getInputs() != null && !request.getInputs().isEmpty()) {
+                        span.setAttribute("ap.payload.input", JSON.toJSONString(request.getInputs()));
+                    }
+
+                    // 保存当前 context 作为 root context，供后续节点 span 使用
+                    io.opentelemetry.context.Context rootContext = io.opentelemetry.context.Context.current();
+
+                    // 创建事件回调
+                    WorkflowStreamEventCallback callback = sink::tryEmitNext;
+
+                    WorkflowExecutionResult result = doExecute(request.getWorkflow(), request.getConfig(), request.getInputs(),
+                            effectiveRunId, request.getFlowId(), request.getOperatorId(), request.getOrgId(), rootContext, callback);
+
+                    // 推送工作流完成事件
+                    sink.tryEmitNext(WorkflowCompleteEvent.create(effectiveRunId, result.getOutput()));
+
+                    // 出参载荷
+                    if (result.getOutput() != null && !result.getOutput().isEmpty()) {
+                        span.setAttribute("ap.payload.output", JSON.toJSONString(result.getOutput()));
+                    }
+
+                    return result;
+                });
+            } catch (Exception e) {
+                // 异常情况下不需要额外推送，因为节点已经推送了错误事件
+                LOGGER.error("工作流流式执行异常", e);
+            } finally {
+                // 完成事件流
+                sink.tryEmitComplete();
+            }
+        });
+
+        return sink.asFlux();
+    }
+
     private WorkflowExecutionResult doExecute(Workflow workflow,
                                               WorkflowConfig config,
                                               Map<String, Object> inputs,
@@ -125,11 +205,32 @@ public class WorkflowEngine {
                                               Long flowId,
                                               Long operatorId,
                                               Integer orgId,
-                                              io.opentelemetry.context.Context rootContext) {
+                                              io.opentelemetry.context.Context rootContext,
+                                              WorkflowStreamEventCallback eventCallback) {
         WorkflowGraphCompiler.Compiled compiled = compiler.compile(workflow);
         ExecutionContext ctx = new ExecutionContext(runId, config, inputs, flowId, operatorId, orgId);
         ctx.setRootContext(rootContext);
         compiled.batchSubGraphs().forEach(ctx::registerBatchSubGraph);
+
+        // 设置事件回调
+        if (eventCallback != null) {
+            ctx.setEventCallback(eventCallback);
+        }
+
+        // 设置节点名称和类型映射
+        Map<String, String> nodeNameMap = new LinkedHashMap<>();
+        Map<String, String> nodeTypeMap = new LinkedHashMap<>();
+        if (workflow.getNodes() != null) {
+            for (Node node : workflow.getNodes()) {
+                String name = node.getData() == null ? null : node.getData().getLabel();
+                if (name == null || name.isBlank()) {
+                    name = node.getLabel();
+                }
+                nodeNameMap.put(node.getId(), name);
+                nodeTypeMap.put(node.getId(), node.getType());
+            }
+        }
+        ctx.setNodeInfoMaps(nodeNameMap, nodeTypeMap);
 
         CompiledGraph<WorkflowState> mainGraph = compiled.mainGraph();
         try {

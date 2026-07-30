@@ -6,6 +6,7 @@ import com.iusofts.agentplus.aiflow.enums.PublishingStatusEnum;
 import com.iusofts.agentplus.aiflow.constants.FlowGlobalInputConstants;
 import com.iusofts.agentplus.aiflow.interfaces.IAiFlowExecutorService;
 import com.iusofts.agentplus.aiflow.mapper.AiFlowMapper;
+import com.iusofts.agentplus.aiflow.stream.WorkflowStreamEvent;
 import com.iusofts.agentplus.aiflow.vo.FlowExecuteResult;
 import com.iusofts.agentplus.ailog.entity.AiKnowledgeRetrievalLog;
 import com.iusofts.agentplus.ailog.entity.AiLlmCallLog;
@@ -30,8 +31,10 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -267,4 +270,102 @@ public class FlowChatServiceImpl implements IAiChatServiceInterface {
         int totalTokens = inputTokens + outputTokens;
         return new int[]{inputTokens, outputTokens, totalTokens};
     }
+
+    /**
+     * 流式对话接口
+     */
+    @Override
+    public Flux<WorkflowStreamEvent> streamChat(AiServiceChatReqVo chatReqVo) {
+        // 1. 确定智能体与会话
+        Long agentId = chatReqVo.getAgentId();
+        boolean isNewConversation = chatReqVo.getConversationId() == null;
+        AiConversation conversation = null;
+        if (!isNewConversation) {
+            conversation = aiConversationService.getById(chatReqVo.getConversationId());
+            if (conversation == null) {
+                throw new SystemBusinessException("会话不存在");
+            }
+        }
+
+        AiAgent aiAgent = agentId != null ? aiAgentMapper.selectById(agentId) : null;
+        if (aiAgent == null) {
+            throw new SystemBusinessException("智能体不存在");
+        }
+
+        Long chatFlowId = aiAgent.getChatFlowId();
+        if (chatFlowId == null) {
+            throw new SystemBusinessException("智能体未绑定对话流");
+        }
+
+        // 2. 检查对话流发布状态
+        AiFlow aiFlow = aiFlowMapper.selectById(chatFlowId);
+        if (aiFlow == null) {
+            throw new SystemBusinessException("绑定的对话流不存在");
+        }
+        if (!PublishingStatusEnum.PUBLISHED.getCode().equals(aiFlow.getPublishStatus())) {
+            throw new SystemBusinessException("对话流未发布，请先发布后重试");
+        }
+        String onlineVersion = aiFlow.getOnlineVersion();
+        if (StringUtils.isBlank(onlineVersion)) {
+            throw new SystemBusinessException("对话流无已发布版本");
+        }
+
+        // 3. 构建输入参数
+        Map<String, Object> inputs = new HashMap<>();
+        inputs.put(FlowGlobalInputConstants.QUERY, chatReqVo.getContent());
+        inputs.put(FlowGlobalInputConstants.FILE_LIST, chatReqVo.getFileList());
+        inputs.put(FlowGlobalInputConstants.CONVERSATION_ID, chatReqVo.getConversationId());
+        inputs.put(FlowGlobalInputConstants.AGENT_ID, agentId);
+
+        // 4. 先创建会话（如果是新对话）
+        if (isNewConversation) {
+            conversation = new AiConversation();
+            conversation.setId(idService.generateUid(UidTypeEnum.CHAT).longValue());
+            conversation.setAgentId(agentId);
+            conversation.setTitle(buildTitle(chatReqVo.getContent()));
+            conversation.setCurrentRounds(0);
+            conversation.setOrgId(chatReqVo.getOrgId());
+            conversation.setCreateBy(chatReqVo.getOperatorId());
+        } else {
+            conversation.setAgentId(agentId);
+        }
+        final AiConversation finalConversation = conversation;
+
+        // 5. 先保存用户消息
+        if (StringUtils.isNotBlank(chatReqVo.getContent())) {
+            AiMessageVo userMsg = new AiMessageVo();
+            userMsg.setRole("user");
+            userMsg.setContent(chatReqVo.getContent());
+            userMsg.setFileList(chatReqVo.getFileList());
+            userMsg.setConversationId(conversation.getId());
+            userMsg.setAgentId(aiAgent.getId());
+            AiMessage userAiMessage = ModelMapperUtil.strictMap(userMsg, AiMessage.class);
+            userAiMessage.setId(idService.generateUid(UidTypeEnum.CHAT).longValue());
+            userAiMessage.setCreateBy(chatReqVo.getOperatorId());
+            userAiMessage.setOrgId(chatReqVo.getOrgId());
+            aiMessageService.save(userAiMessage);
+        }
+
+        // 6. 执行流式工作流
+        Integer trialFlag = chatReqVo.getTrialFlag() != null ? chatReqVo.getTrialFlag() : 0;
+        Flux<WorkflowStreamEvent> stream = aiFlowExecutorService.streamExecuteFlow(
+            chatFlowId,
+            inputs,
+            chatReqVo.getOperatorId(),
+            chatReqVo.getOrgId(),
+            trialFlag
+        );
+
+        // 7. 返回事件流，并在完成后保存会话和助手消息
+        return stream.doOnComplete(() -> {
+            // 保存会话
+            if (isNewConversation) {
+                aiConversationService.save(finalConversation);
+            } else {
+                aiConversationService.updateById(finalConversation);
+            }
+            // 保存助手消息将在第二阶段实现，因为我们需要从 WorkflowCompleteEvent 中的结果
+        });
+    }
+
 }

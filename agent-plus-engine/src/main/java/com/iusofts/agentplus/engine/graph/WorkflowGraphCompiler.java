@@ -5,6 +5,7 @@ import com.iusofts.agentplus.aiflow.vo.workflow.Edge;
 import com.iusofts.agentplus.aiflow.vo.workflow.Node;
 import com.iusofts.agentplus.aiflow.vo.workflow.Workflow;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.InputParamNodeData;
+import com.iusofts.agentplus.aiflow.stream.NodeStreamEvent;
 import com.iusofts.agentplus.engine.context.ExecutionContext;
 import com.iusofts.agentplus.engine.context.NodeExecutionStatus;
 import com.iusofts.agentplus.engine.context.NodeOutput;
@@ -257,20 +258,25 @@ public class WorkflowGraphCompiler {
         NodeExecutor executor = registry.get(node.getType());
         return state -> {
             ExecutionContext ctx = state.ctx();
-            ctx.updateStatus(node.getId(), NodeExecutionStatus.RUNNING);
+            String nodeId = node.getId();
+            String nodeType = node.getType();
+            // 取节点名称:优先 data.label,其次 node.label
+            String nodeNameTemp = node.getData() == null ? null : node.getData().getLabel();
+            final String nodeName = (nodeNameTemp == null || nodeNameTemp.isBlank()) ? node.getLabel() : nodeNameTemp;
+
+            ctx.updateStatus(nodeId, NodeExecutionStatus.RUNNING);
             java.time.LocalDateTime startTime = java.time.LocalDateTime.now();
+
+            // 推送节点开始事件
+            ctx.emitEvent(NodeStreamEvent.start(ctx.getRunId(), nodeId, nodeType, nodeName));
+
             try {
-                LOGGER.debug("execute node id={} type={}", node.getId(), node.getType());
+                LOGGER.debug("execute node id={} type={}", nodeId, nodeType);
                 // 使用 rootContext 作为父 context，确保所有节点都是平级的
-                NodeOutput out = TraceUtil.span("node." + node.getId(), SpanKind.INTERNAL, ctx.getRootContext(), span -> {
-                    span.setAttribute("nodeId", node.getId());
-                    span.setAttribute("nodeType", node.getType());
-                    // 取节点名称:优先 data.label,其次 node.label
-                    String label = node.getData() == null ? null : node.getData().getLabel();
-                    if (label == null || label.isBlank()) {
-                        label = node.getLabel();
-                    }
-                    span.setAttribute("label", label);
+                NodeOutput out = TraceUtil.span("node." + nodeId, SpanKind.INTERNAL, ctx.getRootContext(), span -> {
+                    span.setAttribute("nodeId", nodeId);
+                    span.setAttribute("nodeType", nodeType);
+                    span.setAttribute("label", nodeName);
 
                     // 入参载荷：已解析的实际入参值（仅 InputParamNodeData 子类有入参）
                     if (node.getData() instanceof InputParamNodeData inputParamNode) {
@@ -292,15 +298,24 @@ public class WorkflowGraphCompiler {
                     return result;
                 });
                 ctx.putOutput(out);
-                ctx.updateStatus(node.getId(), NodeExecutionStatus.SUCCESS);
+                ctx.updateStatus(nodeId, NodeExecutionStatus.SUCCESS);
+
+                // 推送节点完成事件
+                ctx.emitEvent(NodeStreamEvent.complete(ctx.getRunId(), nodeId, nodeType, nodeName, out.getOutputs()));
+
             } catch (WorkflowExecutionException e) {
-                ctx.updateStatus(node.getId(), NodeExecutionStatus.FAILED);
+                ctx.updateStatus(nodeId, NodeExecutionStatus.FAILED);
+                // 推送节点错误事件
+                ctx.emitEvent(NodeStreamEvent.error(ctx.getRunId(), nodeId, nodeType, nodeName, e.getMessage()));
                 throw e;
             } catch (Exception e) {
-                ctx.updateStatus(node.getId(), NodeExecutionStatus.FAILED);
-                throw new WorkflowExecutionException(node.getId(), "节点执行异常", e);
+                ctx.updateStatus(nodeId, NodeExecutionStatus.FAILED);
+                // 推送节点错误事件
+                String errorMsg = e.getMessage() != null ? e.getMessage() : "节点执行异常";
+                ctx.emitEvent(NodeStreamEvent.error(ctx.getRunId(), nodeId, nodeType, nodeName, errorMsg));
+                throw new WorkflowExecutionException(nodeId, "节点执行异常", e);
             } finally {
-                ctx.recordTiming(node.getId(), startTime, java.time.LocalDateTime.now());
+                ctx.recordTiming(nodeId, startTime, java.time.LocalDateTime.now());
             }
             return CompletableFuture.completedFuture(Collections.emptyMap());
         };

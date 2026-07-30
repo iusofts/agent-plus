@@ -7,6 +7,7 @@ import com.iusofts.agentplus.aiflow.entity.AiFlowRuntime;
 import com.iusofts.agentplus.aiflow.entity.AiFlowRuntimeNode;
 import com.iusofts.agentplus.aiflow.entity.AiFlowVersion;
 import com.iusofts.agentplus.aiflow.enums.NodeRunStatusEnum;
+import com.iusofts.agentplus.aiflow.enums.PublishingStatusEnum;
 import com.iusofts.agentplus.aiflow.enums.RunStatusEnum;
 import com.iusofts.agentplus.aiflow.interfaces.IAiFlowExecutorService;
 import com.iusofts.agentplus.aiflow.mapper.AiFlowMapper;
@@ -18,6 +19,7 @@ import com.iusofts.agentplus.aiflow.vo.FlowExecuteResult;
 import com.iusofts.agentplus.aiflow.vo.workflow.Node;
 import com.iusofts.agentplus.aiflow.vo.workflow.Workflow;
 import com.iusofts.agentplus.aiflow.vo.workflow.config.WorkflowConfig;
+import com.iusofts.agentplus.aiflow.stream.WorkflowStreamEvent;
 import com.iusofts.agentplus.basic.exception.SystemBusinessException;
 import com.iusofts.agentplus.engine.WorkflowEngine;
 import com.iusofts.agentplus.engine.WorkflowExecutionResult;
@@ -29,12 +31,15 @@ import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Sinks;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * AI流程公共执行服务。
@@ -100,19 +105,19 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
         Workflow workflow = AiFlowCommonUtils.deserializeWorkflow(version.getFlowJson(), objectMapper);
         WorkflowConfig config = AiFlowCommonUtils.deserializeConfig(version.getConfigJson(), objectMapper);
 
-        // 3. 创建运行实例(占位 traceId,执行后回填真实 OTel traceId)
+        // 3. 创建运行实例（占位 traceId）
         String placeholderTraceId = AiFlowCommonUtils.newPlaceholderTraceId();
         AiFlowRuntime runtime = newRuntime(version, placeholderTraceId, inputs, operatorId, trialFlag);
         runtime.setFlowName(aiFlow.getName());
         aiFlowRuntimeMapper.insert(runtime);
 
-        LocalDateTime start = runtime.getStartTime();
+        LocalDateTime startTime = runtime.getStartTime();
         FlowExecuteResult result = new FlowExecuteResult();
         result.setRuntimeId(runtime.getId());
         result.setFlowId(flowId);
 
         try {
-            // 4. 执行工作流(引擎内开 root span,返回真实 OTel traceId)
+            // 4. 执行工作流
             WorkflowExecutionResult execResult = workflowEngine.execute(
                     WorkflowExecuteRequest.builder()
                             .workflow(workflow)
@@ -127,18 +132,16 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
                             .build()
             );
 
-            // 回填真实 traceId - 先单独更新 traceId 字段，避免后续 updateById 时唯一键冲突
+            // 更新真实的 traceId
             String traceId = execResult.getRunId();
             result.setTraceId(traceId);
-            // 先单独更新 traceId 字段
             AiFlowRuntime traceUpdate = new AiFlowRuntime();
             traceUpdate.setId(runtime.getId());
             traceUpdate.setTraceId(traceId);
             aiFlowRuntimeMapper.updateById(traceUpdate);
-            // 更新本地对象的 traceId（但 finishRuntime 时要注意不要再修改它）
             runtime.setTraceId(traceId);
 
-            // 5. 落库所有节点执行状态
+            // 5. 落库节点
             List<AiFlowRuntimeNode> nodeEntities = new ArrayList<>();
             List<FlowExecuteResult.FlowNodeResult> nodeResults = new ArrayList<>();
             Map<String, String> nodeTypeMap = buildNodeTypeMap(workflow);
@@ -149,8 +152,8 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
                 String nodeId = entry.getKey();
                 String nodeType = nodeTypeMap.getOrDefault(nodeId, "");
                 String nodeName = nodeNameMap.getOrDefault(nodeId, "");
-                NodeOutput output = execResult.getNodeOutputs().get(nodeId);
-                Map<String, Object> outputs = output == null ? null : output.getOutputs();
+                NodeOutput out = execResult.getNodeOutputs().get(nodeId);
+                Map<String, Object> outputs = out == null ? null : out.getOutputs();
                 int nodeStatus = mapNodeStatus(entry.getValue());
                 NodeTiming timing = timings == null ? null : timings.get(nodeId);
                 LocalDateTime nodeStart = timing == null ? null : timing.getStartTime();
@@ -166,8 +169,8 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
                 aiFlowRuntimeNodeMapper.insert(nodeEntity);
             }
 
-            // 6. 完成运行实例
-            long costMs = Duration.between(start, LocalDateTime.now()).toMillis();
+            // 6. 完成运行
+            long costMs = Duration.between(startTime, LocalDateTime.now()).toMillis();
             finishRuntime(runtime, RunStatusEnum.SUCCESS.getCode(), costMs,
                     AiFlowCommonUtils.serialize(execResult.getOutput(), objectMapper), null);
 
@@ -178,7 +181,7 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
             return result;
 
         } catch (Exception e) {
-            long costMs = Duration.between(start, LocalDateTime.now()).toMillis();
+            long costMs = Duration.between(startTime, LocalDateTime.now()).toMillis();
             finishRuntime(runtime, RunStatusEnum.FAILED.getCode(), costMs,
                     null, AiFlowCommonUtils.truncate(e.getMessage()));
 
@@ -191,7 +194,15 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
     }
 
     /**
-     * 根据版本ID执行（供试运行使用）。
+     * 根据版本 ID 执行流程（试运行）。
+     *
+     * @param versionId  版本 ID
+     * @param flowId     流程 ID
+     * @param inputs     输入参数
+     * @param operatorId 操作人 ID
+     * @param orgId      组织 ID
+     * @param trialFlag  试运行标记
+     * @return 执行结果
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -201,7 +212,7 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
                                             Long operatorId,
                                             Integer orgId,
                                             int trialFlag) {
-        // 加载指定版本
+        // 1. 加载版本
         AiFlowVersion version;
         if (versionId != null) {
             version = aiFlowVersionMapper.selectById(versionId);
@@ -218,15 +229,15 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
             wrapper.last("LIMIT 1");
             version = aiFlowVersionMapper.selectOne(wrapper);
             if (version == null) {
-                throw new SystemBusinessException("流程尚无可运行的版本");
+                throw new SystemBusinessException("流程暂无可运行的版本");
             }
         }
 
-        // 反序列化
+        // 2. 反序列化
         Workflow workflow = AiFlowCommonUtils.deserializeWorkflow(version.getFlowJson(), objectMapper);
         WorkflowConfig config = AiFlowCommonUtils.deserializeConfig(version.getConfigJson(), objectMapper);
 
-        // 创建运行实例(占位 traceId,执行后回填真实 OTel traceId)
+        // 3. 创建运行实例（占位 traceId）
         String placeholderTraceId = AiFlowCommonUtils.newPlaceholderTraceId();
         AiFlowRuntime runtime = newRuntime(version, placeholderTraceId, inputs, operatorId, trialFlag);
         AiFlow aiFlow = aiFlowMapper.selectById(version.getFlowId());
@@ -235,13 +246,13 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
         }
         aiFlowRuntimeMapper.insert(runtime);
 
-        LocalDateTime start = runtime.getStartTime();
+        LocalDateTime startTime = runtime.getStartTime();
         FlowExecuteResult result = new FlowExecuteResult();
         result.setRuntimeId(runtime.getId());
         result.setFlowId(version.getFlowId());
 
         try {
-            // 执行(引擎内开 root span,返回真实 OTel traceId)
+            // 4. 执行工作流
             WorkflowExecutionResult execResult = workflowEngine.execute(
                     WorkflowExecuteRequest.builder()
                             .workflow(workflow)
@@ -256,18 +267,16 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
                             .build()
             );
 
-            // 回填真实 traceId - 先单独更新 traceId 字段，避免后续 updateById 时唯一键冲突
+            // 更新真实的 traceId
             String traceId = execResult.getRunId();
             result.setTraceId(traceId);
-            // 先单独更新 traceId 字段
             AiFlowRuntime traceUpdate = new AiFlowRuntime();
             traceUpdate.setId(runtime.getId());
             traceUpdate.setTraceId(traceId);
             aiFlowRuntimeMapper.updateById(traceUpdate);
-            // 更新本地对象的 traceId（但 finishRuntime 时要注意不要再修改它）
             runtime.setTraceId(traceId);
 
-            // 落库节点
+            // 5. 落库节点
             List<AiFlowRuntimeNode> nodeEntities = new ArrayList<>();
             List<FlowExecuteResult.FlowNodeResult> nodeResults = new ArrayList<>();
             Map<String, String> nodeTypeMap = buildNodeTypeMap(workflow);
@@ -278,8 +287,8 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
                 String nodeId = entry.getKey();
                 String nodeType = nodeTypeMap.getOrDefault(nodeId, "");
                 String nodeName = nodeNameMap.getOrDefault(nodeId, "");
-                NodeOutput output = execResult.getNodeOutputs().get(nodeId);
-                Map<String, Object> outputs = output == null ? null : output.getOutputs();
+                NodeOutput out = execResult.getNodeOutputs().get(nodeId);
+                Map<String, Object> outputs = out == null ? null : out.getOutputs();
                 int nodeStatus = mapNodeStatus(entry.getValue());
                 NodeTiming timing = timings == null ? null : timings.get(nodeId);
                 LocalDateTime nodeStart = timing == null ? null : timing.getStartTime();
@@ -290,12 +299,13 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
                         null, outputs, null, operatorId, nodeStart, nodeEnd, nodeCost));
                 nodeResults.add(buildNodeResult(nodeId, nodeType, nodeStatus, outputs, nodeCost, null));
             }
+
             for (AiFlowRuntimeNode nodeEntity : nodeEntities) {
                 aiFlowRuntimeNodeMapper.insert(nodeEntity);
             }
 
-            // 完成
-            long costMs = Duration.between(start, LocalDateTime.now()).toMillis();
+            // 6. 完成运行
+            long costMs = Duration.between(startTime, LocalDateTime.now()).toMillis();
             finishRuntime(runtime, RunStatusEnum.SUCCESS.getCode(), costMs,
                     AiFlowCommonUtils.serialize(execResult.getOutput(), objectMapper), null);
 
@@ -306,7 +316,7 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
             return result;
 
         } catch (Exception e) {
-            long costMs = Duration.between(start, LocalDateTime.now()).toMillis();
+            long costMs = Duration.between(startTime, LocalDateTime.now()).toMillis();
             finishRuntime(runtime, RunStatusEnum.FAILED.getCode(), costMs,
                     null, AiFlowCommonUtils.truncate(e.getMessage()));
 
@@ -318,7 +328,165 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
         }
     }
 
-    // ============ 内部辅助方法 ============
+    /**
+     * 流式执行流程（使用最新已发布版本）。
+     *
+     * @param flowId     流程 ID
+     * @param inputs     输入参数
+     * @param operatorId 操作人 ID
+     * @param orgId      组织 ID
+     * @param trialFlag  试运行标记 0:正式 1:流程试运行 2:节点试运行
+     * @return 事件流
+     */
+    @Override
+    public Flux<WorkflowStreamEvent> streamExecuteFlow(Long flowId,
+                                                       Map<String, Object> inputs,
+                                                       Long operatorId,
+                                                       Integer orgId,
+                                                       int trialFlag) {
+        // 1. 获取最新已发布版本
+        AiFlow aiFlow = aiFlowMapper.selectById(flowId);
+        if (aiFlow == null) {
+            throw new SystemBusinessException("流程不存在");
+        }
+        String onlineVersion = aiFlow.getOnlineVersion();
+        if (onlineVersion == null || onlineVersion.isBlank()) {
+            throw new SystemBusinessException("流程无已发布版本，请先发布流程后重试");
+        }
+
+        var versionWrapper = Wrappers.<AiFlowVersion>lambdaQuery();
+        versionWrapper.eq(AiFlowVersion::getFlowId, flowId)
+                .eq(AiFlowVersion::getVersionNo, onlineVersion);
+        AiFlowVersion version = aiFlowVersionMapper.selectOne(versionWrapper);
+        if (version == null) {
+            throw new SystemBusinessException("流程发布版本不存在");
+        }
+
+        return streamExecuteVersionInternal(version, aiFlow.getName(), inputs, operatorId, orgId, trialFlag);
+    }
+
+    /**
+     * 流式执行指定版本（供试运行使用）。
+     *
+     * @param versionId  版本 ID
+     * @param flowId     流程 ID
+     * @param inputs     输入参数
+     * @param operatorId 操作人 ID
+     * @param orgId      组织 ID
+     * @param trialFlag  试运行标记
+     * @return 事件流
+     */
+    @Override
+    public Flux<WorkflowStreamEvent> streamExecuteVersion(Long versionId,
+                                                          Long flowId,
+                                                          Map<String, Object> inputs,
+                                                          Long operatorId,
+                                                          Integer orgId,
+                                                          int trialFlag) {
+        // 1. 加载版本
+        AiFlowVersion version;
+        String flowName = null;
+        if (versionId != null) {
+            version = aiFlowVersionMapper.selectById(versionId);
+            if (version == null) {
+                throw new SystemBusinessException("流程版本不存在");
+            }
+        } else {
+            if (flowId == null) {
+                throw new SystemBusinessException("versionId 与 flowId 不能同时为空");
+            }
+            var wrapper = Wrappers.<AiFlowVersion>lambdaQuery();
+            wrapper.eq(AiFlowVersion::getFlowId, flowId);
+            wrapper.orderByDesc(AiFlowVersion::getId);
+            wrapper.last("LIMIT 1");
+            version = aiFlowVersionMapper.selectOne(wrapper);
+            if (version == null) {
+                throw new SystemBusinessException("流程暂无可运行的版本");
+            }
+        }
+
+        // 获取流程名称
+        if (version.getFlowId() != null) {
+            AiFlow aiFlow = aiFlowMapper.selectById(version.getFlowId());
+            flowName = aiFlow != null ? aiFlow.getName() : null;
+        }
+
+        return streamExecuteVersionInternal(version, flowName, inputs, operatorId, orgId, trialFlag);
+    }
+
+    private Flux<WorkflowStreamEvent> streamExecuteVersionInternal(AiFlowVersion version,
+                                                                   String flowName,
+                                                                   Map<String, Object> inputs,
+                                                                   Long operatorId,
+                                                                   Integer orgId,
+                                                                   int trialFlag) {
+        // 1. 反序列化
+        Workflow workflow = AiFlowCommonUtils.deserializeWorkflow(version.getFlowJson(), objectMapper);
+        WorkflowConfig config = AiFlowCommonUtils.deserializeConfig(version.getConfigJson(), objectMapper);
+
+        // 2. 创建运行实例（占位 traceId）
+        String placeholderTraceId = AiFlowCommonUtils.newPlaceholderTraceId();
+        AiFlowRuntime runtime = newRuntime(version, placeholderTraceId, inputs, operatorId, trialFlag);
+        if (flowName != null) {
+            runtime.setFlowName(flowName);
+        }
+        aiFlowRuntimeMapper.insert(runtime);
+
+        LocalDateTime startTime = runtime.getStartTime();
+
+        // 3. 创建 Sink 用于返回事件流
+        Sinks.Many<WorkflowStreamEvent> sink = Sinks.many().multicast().onBackpressureBuffer();
+
+        // 4. 在异步线程中执行工作流
+        CompletableFuture.runAsync(() -> {
+            try {
+                // 构建执行请求
+                WorkflowExecuteRequest executeRequest = WorkflowExecuteRequest.builder()
+                        .workflow(workflow)
+                        .config(config)
+                        .inputs(inputs)
+                        .runId(placeholderTraceId)
+                        .flowId(version.getFlowId())
+                        .operatorId(operatorId)
+                        .orgId(orgId)
+                        .trialFlag(trialFlag)
+                        .flowName(flowName)
+                        .build();
+
+                // 执行工作流并转发事件，完成后更新运行状态
+                workflowEngine.streamExecute(executeRequest)
+                        .doOnNext(sink::tryEmitNext)
+                        .doOnError(error -> {
+                            handleStreamError(runtime, startTime, error);
+                            sink.tryEmitError(error);
+                        })
+                        .doOnComplete(() -> {
+                            handleStreamComplete(runtime, startTime);
+                            sink.tryEmitComplete();
+                        })
+                        .subscribe();
+            } catch (Exception e) {
+                handleStreamError(runtime, startTime, e);
+                sink.tryEmitError(e);
+            }
+        });
+
+        return sink.asFlux();
+    }
+
+    private void handleStreamError(AiFlowRuntime runtime, LocalDateTime startTime, Throwable error) {
+        long costMs = Duration.between(startTime, LocalDateTime.now()).toMillis();
+        finishRuntime(runtime, RunStatusEnum.FAILED.getCode(), costMs,
+                null, AiFlowCommonUtils.truncate(error.getMessage()));
+    }
+
+    private void handleStreamComplete(AiFlowRuntime runtime, LocalDateTime startTime) {
+        long costMs = Duration.between(startTime, LocalDateTime.now()).toMillis();
+        finishRuntime(runtime, RunStatusEnum.SUCCESS.getCode(), costMs,
+                null, null);
+    }
+
+    // ========== 内部辅助方法 ==========
 
     private AiFlowRuntime newRuntime(AiFlowVersion version, String traceId,
                                      Map<String, Object> inputs, Long operatorId, int trialFlag) {
@@ -335,7 +503,6 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
 
     private void finishRuntime(AiFlowRuntime runtime, Integer runStatus, long costMs,
                                String outputResult, String errorMsg) {
-        // 只更新需要的字段，不更新 traceId（已在前面单独更新过），避免唯一键冲突
         AiFlowRuntime update = new AiFlowRuntime();
         update.setId(runtime.getId());
         update.setRunStatus(runStatus);
@@ -343,8 +510,6 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
         update.setCostMs(costMs);
         update.setErrorMsg(errorMsg);
         update.setUpdateBy(runtime.getCreateBy());
-        // 注意：不设置 outputResult，因为 AiFlowRuntime 类中没有这个字段？
-        // 如果需要保存 outputResult，需要确认实体类中有这个字段
         aiFlowRuntimeMapper.updateById(update);
     }
 
@@ -367,7 +532,7 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
     }
 
     private FlowExecuteResult.FlowNodeResult buildNodeResult(String nodeId, String nodeType, int runStatus,
-                                           Map<String, Object> outputs, Long costMs, String errorStack) {
+                                                          Map<String, Object> outputs, Long costMs, String errorStack) {
         FlowExecuteResult.FlowNodeResult vo = new FlowExecuteResult.FlowNodeResult();
         vo.setNodeId(nodeId);
         vo.setNodeType(nodeType);
@@ -388,7 +553,7 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
         return map;
     }
 
-    /** 构建 节点ID -> 节点名称 映射，优先取 data.label，其次 node.label。 */
+    /** 构建节点 ID → 节点名称映射，优先取 data.label，其次 node.label。 */
     private Map<String, String> buildNodeNameMap(Workflow workflow) {
         Map<String, String> map = new java.util.HashMap<>();
         if (workflow.getNodes() != null) {

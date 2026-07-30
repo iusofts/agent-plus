@@ -2,7 +2,10 @@ package com.iusofts.agentplus.engine.context;
 
 import com.iusofts.agentplus.aiflow.vo.workflow.config.EnvVar;
 import com.iusofts.agentplus.aiflow.vo.workflow.config.WorkflowConfig;
+import com.iusofts.agentplus.aiflow.stream.WorkflowStreamEvent;
+import com.iusofts.agentplus.engine.stream.WorkflowStreamEventCallback;
 import lombok.Getter;
+import lombok.Setter;
 import org.bsc.langgraph4j.CompiledGraph;
 
 import java.io.Serializable;
@@ -49,6 +52,15 @@ public class ExecutionContext implements Serializable {
 
     /** Root span 的 Context，用于节点 span 的父 context，确保所有节点都是平级。 */
     private transient io.opentelemetry.context.Context rootContext;
+
+    /** 流式事件回调（仅根 context 持有） */
+    @Getter
+    @Setter
+    private transient WorkflowStreamEventCallback eventCallback;
+
+    /** 节点ID -> 节点名称/类型 映射（仅根 context 持有） */
+    private transient Map<String, String> nodeNameMap;
+    private transient Map<String, String> nodeTypeMap;
 
     public ExecutionContext(String runId,
                             WorkflowConfig config,
@@ -175,5 +187,44 @@ public class ExecutionContext implements Serializable {
             root = root.parent;
         }
         root.rootContext = rootContext;
+    }
+
+    /** 设置节点名称和类型映射 */
+    public void setNodeInfoMaps(Map<String, String> nodeNameMap, Map<String, String> nodeTypeMap) {
+        ExecutionContext root = this;
+        while (root.parent != null) {
+            root = root.parent;
+        }
+        root.nodeNameMap = nodeNameMap;
+        root.nodeTypeMap = nodeTypeMap;
+    }
+
+    /** 获取节点名称 */
+    public String getNodeName(String nodeId) {
+        ExecutionContext root = this;
+        while (root.parent != null) {
+            root = root.parent;
+        }
+        return root.nodeNameMap != null ? root.nodeNameMap.get(nodeId) : null;
+    }
+
+    /** 获取节点类型 */
+    public String getNodeType(String nodeId) {
+        ExecutionContext root = this;
+        while (root.parent != null) {
+            root = root.parent;
+        }
+        return root.nodeTypeMap != null ? root.nodeTypeMap.get(nodeId) : null;
+    }
+
+    /** 推送流式事件（委托给根 context 的 callback） */
+    public void emitEvent(WorkflowStreamEvent event) {
+        ExecutionContext root = this;
+        while (root.parent != null) {
+            root = root.parent;
+        }
+        if (root.eventCallback != null) {
+            root.eventCallback.onEvent(event);
+        }
     }
 }

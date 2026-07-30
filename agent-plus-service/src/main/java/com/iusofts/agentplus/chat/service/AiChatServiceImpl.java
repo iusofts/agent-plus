@@ -2,6 +2,7 @@ package com.iusofts.agentplus.chat.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.iusofts.agentplus.aiflow.stream.WorkflowStreamEvent;
 import com.iusofts.agentplus.basic.exception.SystemBusinessException;
 import com.iusofts.agentplus.basic.utils.ModelMapperUtil;
 import com.iusofts.agentplus.basic.utils.StringUtils;
@@ -13,6 +14,7 @@ import com.iusofts.agentplus.chat.mapper.AiAgentMapper;
 import com.iusofts.agentplus.chat.vo.AiMessageVo;
 import com.iusofts.agentplus.chat.vo.AiServiceChatReqVo;
 import com.iusofts.agentplus.chat.vo.ToolCallTraceVo;
+import reactor.core.publisher.Flux;
 import com.iusofts.agentplus.engine.knowledge.KnowledgeRetriever;
 import com.iusofts.agentplus.engine.llm.ChatModelProvider;
 import com.iusofts.agentplus.engine.tool.ToolRegistry;
@@ -431,5 +433,10 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
             log.warn("序列化工具执行结果失败", e);
             return String.valueOf(result.getData());
         }
+    }
+
+    @Override
+    public Flux<WorkflowStreamEvent> streamChat(AiServiceChatReqVo chatReqVo) {
+        throw new SystemBusinessException("当前智能体类型暂不支持流式输出");
     }
 }
