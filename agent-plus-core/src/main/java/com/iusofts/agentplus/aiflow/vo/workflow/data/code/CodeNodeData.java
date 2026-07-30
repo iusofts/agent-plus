@@ -35,4 +35,13 @@ public class CodeNodeData extends InputParamNodeData {
     @Schema(description = "超时时间(毫秒)", example = "30000")
     private Long timeout;
 
+    @Schema(description = "重试次数")
+    private Integer retryCount;
+
+    @Schema(description = "错误处理方式")
+    private String errorHandling;
+
+    @Schema(description = "自定义错误内容")
+    private String customErrorContent;
+
 }

@@ -55,7 +55,7 @@ public class CodeNodeExecutor implements NodeExecutor {
         // 执行脚本
         Map<String, Object> scriptResult;
         try {
-            scriptResult = engine.execute(data.getScript(), inputs, data.getTimeout() * 1000);
+            scriptResult = engine.execute(data.getScript(), inputs, data.getTimeout());
         } catch (Exception e) {
             LOGGER.error("脚本执行失败, nodeId={}", node.getId(), e);
             throw new WorkflowExecutionException(node.getId(), "脚本执行失败: " + e.getMessage(), e);

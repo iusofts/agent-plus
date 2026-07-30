@@ -46,8 +46,8 @@ public class LLMNodeData extends InputParamNodeData {
     @Schema(description = "输出参数列表")
     private List<OutputParam> outputParams;
 
-    @Schema(description = "超时时间(秒)")
-    private Integer timeout;
+    @Schema(description = "超时时间(毫秒)", example = "30000")
+    private Long timeout;
 
     @Schema(description = "重试次数")
     private Integer retryCount;
