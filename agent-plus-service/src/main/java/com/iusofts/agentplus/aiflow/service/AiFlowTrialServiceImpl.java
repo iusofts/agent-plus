@@ -35,7 +35,9 @@ import com.iusofts.agentplus.engine.context.NodeExecutionStatus;
 import com.iusofts.agentplus.engine.context.NodeOutput;
 import com.iusofts.agentplus.engine.context.NodeTiming;
 import com.iusofts.agentplus.engine.executor.NodeExecutor;
+import com.iusofts.agentplus.engine.util.ParamResolver;
 import com.iusofts.agentplus.trace.TraceUtil;
+import com.alibaba.fastjson2.JSON;
 import io.opentelemetry.api.trace.SpanKind;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
@@ -173,11 +175,23 @@ public class AiFlowTrialServiceImpl implements IAiFlowTrialService {
                 // 按参数名直接赋值:把用户给的值回填到各输入参数 paramMapKey 指向的位置,不走真实上游
                 applyDirectInputs(inputParams, inputs, ctx);
 
+                // 入参载荷:与 WorkflowGraphCompiler 一致,记录已解析的实际入参值,供 Trace 落库
+                Map<String, Object> resolvedInputs = ParamResolver.resolveInputs(inputParams, ctx);
+                if (resolvedInputs != null && !resolvedInputs.isEmpty()) {
+                    span.setAttribute("ap.payload.input", JSON.toJSONString(resolvedInputs));
+                }
+
                 NodeExecutor executor = workflowEngine.registry().get(target.getType());
                 LocalDateTime nodeStart = LocalDateTime.now();
                 NodeOutput output = executor.execute(target, ctx);
                 LocalDateTime nodeEnd = LocalDateTime.now();
                 Map<String, Object> outputs = output == null ? null : output.getOutputs();
+
+                // 出参载荷:节点输出结果,供 Trace 落库
+                if (outputs != null && !outputs.isEmpty()) {
+                    span.setAttribute("ap.payload.output", JSON.toJSONString(outputs));
+                }
+                span.setAttribute("nodeStatus", "SUCCESS");
 
                 long costMs = Duration.between(nodeStart, nodeEnd).toMillis();
                 int nodeStatus = NodeRunStatusEnum.SUCCESS.getCode();
