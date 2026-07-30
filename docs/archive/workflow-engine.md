@@ -27,7 +27,7 @@
 | 条件分支       | `Condition`  | `ConditionNodeData`      | 命中分支通过 langgraph4j `addConditionalEdges` 剪枝 |
 | 变量聚合       | `Aggregator` | `AggregatorNodeData`     | 输出分组: list / map / first                 |
 | 批处理        | `Batch`      | `BatchNodeData`          | 通过 `parentNode` 归属子节点,子图预编译为独立 `StateGraph`,主图迭代时并行调用 |
-| 代码         | `Code`       | `CodeNodeData`           | 执行 JavaScript / Groovy 脚本,沙箱隔离,超时保护        |
+| 代码         | `Code`       | `CodeNodeData`           | 执行 JavaScript 脚本,沙箱隔离,超时保护                |
 
 ---
 
@@ -76,8 +76,7 @@ engine
 │   └── impl/*                  // 9 类内置执行器(Start/End/LLM/Knowledge/Tool/Condition/Aggregator/Batch/Code)
 ├── script                      // 脚本引擎
 │   ├── ScriptEngine            // 脚本引擎接口
-│   ├── GraalJsScriptEngine     // GraalVM JavaScript 实现(沙箱隔离)
-│   └── GroovyScriptEngine      // Groovy 脚本实现(安全自定义器)
+│   └── GraalJsScriptEngine     // GraalVM JavaScript 实现(沙箱隔离)
 ├── llm
 │   ├── ChatModelProvider       // 业务侧提供 LangChain4j ChatModel + chat(AiChatRequest)
 │   └── DefaultChatModelProvider// 千问/豆包兜底实现
@@ -249,12 +248,12 @@ Batch 节点作为可视化"容器",通过两条通道识别子图:
 
 ## 6.6 代码节点 (Code)
 
-代码节点支持在工作流中执行自定义脚本,当前支持 **JavaScript** (基于 GraalVM) 和 **Groovy** 两种语言,均配置了沙箱安全限制。
+代码节点支持在工作流中执行自定义脚本,当前支持 **JavaScript** (基于 GraalVM),配置了沙箱安全限制。
 
 **数据结构 (`CodeNodeData`):**
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `scriptType` | `String` | "JS" 或 "Groovy" |
+| `scriptType` | `String` | "JS" |
 | `script` | `String` | 脚本内容 |
 | `timeout` | `Integer` | 超时时间(秒),默认 30 |
 | `inputParams` | `List<InputParam>` | 输入参数映射 |
@@ -289,15 +288,14 @@ const ret = {
 
 **脚本安全配置:**
 
-| 限制项 | JavaScript (GraalVM) | Groovy |
-|--------|---------------------|--------|
-| 进程创建 | ❌ 禁止 | ❌ 禁止 |
-| 线程创建 | ❌ 禁止 | ❌ 禁止 |
-| 文件 IO | ❌ 禁止 | ❌ 禁止 |
-| Native 访问 | ❌ 禁止 | ❌ 禁止 |
-| 主机访问 | ❌ 禁止 | 受限 |
-| 允许导入 | - | 白名单: `java.lang.*`, `java.util.*`, `groovy.json.*` |
-| 超时控制 | ✅ 支持 | ✅ 支持 |
+| 限制项 | JavaScript (GraalVM) |
+|--------|---------------------|
+| 进程创建 | ❌ 禁止 |
+| 线程创建 | ❌ 禁止 |
+| 文件 IO | ❌ 禁止 |
+| Native 访问 | ❌ 禁止 |
+| 主机访问 | ❌ 禁止 |
+| 超时控制 | ✅ 支持 |
 
 **参数与输出:**
 

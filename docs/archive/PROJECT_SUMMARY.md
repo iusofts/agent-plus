@@ -58,7 +58,7 @@
 - **模板变量解析**：`ParamResolver` 支持 `{{nodeId.param}}` 与 `{{param}}` 两种格式。
 - **工具调用**：LLM 节点支持绑定 `toolIds`，多轮工具调用循环（`MAX_TOOL_ITERATIONS`）。
 - **会话历史**：LLM 节点可开启 `enableHistory`，通过 `HistoryMessageProvider` 加载最近 N 轮。
-- **代码节点**：支持 JavaScript (GraalVM) / Groovy 双脚本引擎，沙箱安全配置，支持 `main({ params })` 标准写法或简化 `ret` 写法。
+- **代码节点**：支持 JavaScript (GraalVM) 脚本引擎，沙箱安全配置，支持 `main({ params })` 标准写法或简化 `ret` 写法。
 - **可观测**：引擎层统一 OTel 埋点（span + token + 节点起止时间），业务侧无需手动补记。
 
 #### 自动装配
