@@ -7,7 +7,9 @@ import org.graalvm.polyglot.Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -52,7 +54,7 @@ public class GraalJsScriptEngine implements ScriptEngine {
     @SuppressWarnings("unchecked")
     private Map<String, Object> executeInternal(String script, Map<String, Object> params) {
         // 构建包装脚本，支持两种写法
-        String wrappedScript = wrapScript(script);
+        String wrappedScript = wrapScript(script, params);
 
         try (Context context = Context.newBuilder("js")
                 .allowAllAccess(false)
@@ -63,44 +65,78 @@ public class GraalJsScriptEngine implements ScriptEngine {
                 .allowNativeAccess(false)
                 .build()) {
 
-            // 注入 params
-            context.getBindings("js").putMember("params", params);
-
             // 执行脚本
             Value result = context.eval("js", wrappedScript);
 
             // 转换结果
-            if (result.isNull()) {
-                return new HashMap<>();
+            Object converted = convertValue(result);
+            if (converted instanceof Map) {
+                return (Map<String, Object>) converted;
             }
-
-            // 尝试转换为 Map
-            String json = JSON.toJSONString(result);
-            return JSON.parseObject(json, Map.class);
+            return new HashMap<>();
         }
     }
 
-    private String wrapScript(String script) {
+    private String wrapScript(String script, Map<String, Object> params) {
+        // 以 JSON 形式注入 params，使其成为原生 JS 对象（沙箱下也可正常访问）
+        String paramsJson = JSON.toJSONString(params != null ? params : new HashMap<>());
+        String header = "const params = JSON.parse(" + JSON.toJSONString(paramsJson) + ");\n";
+
         // 检查是否包含 main 函数
         boolean hasMain = script.contains("function main") || script.contains("const main") || script.contains("let main") || script.contains("var main");
 
         if (hasMain) {
             // 标准写法: 调用 main({ params }) 并返回结果
-            // 使用同步方式处理 Promise (GraalVM 会在上下文中处理 await)
-            return script + "\n\n" +
+            return header + script + "\n\n" +
                     "(function() {\n" +
                     "  if (typeof main === 'function') {\n" +
-                    "    var result = main({ params: params });\n" +
-                    "    // 如果是 Promise，等待其完成（GraalVM JS 中的 Promise 可以通过 context 处理）\n" +
-                    "    return result;\n" +
+                    "    return main({ params: params });\n" +
                     "  }\n" +
                     "  return typeof ret !== 'undefined' ? ret : {};\n" +
                     "})();";
         } else {
             // 简化写法: 直接执行，返回 ret 对象
-            return script + "\n\n" +
+            return header + script + "\n\n" +
                     "(typeof ret !== 'undefined' ? ret : {});";
         }
+    }
+
+    /**
+     * 将 GraalVM {@link Value} 递归转换为 Java 原生对象(Map / List / 基本类型)。
+     */
+    private Object convertValue(Value value) {
+        if (value == null || value.isNull()) {
+            return null;
+        }
+        if (value.isBoolean()) {
+            return value.asBoolean();
+        }
+        if (value.isNumber()) {
+            if (value.fitsInLong()) {
+                return value.asLong();
+            }
+            return value.asDouble();
+        }
+        if (value.isString()) {
+            return value.asString();
+        }
+        if (value.hasArrayElements()) {
+            long size = value.getArraySize();
+            List<Object> list = new ArrayList<>((int) size);
+            for (long i = 0; i < size; i++) {
+                list.add(convertValue(value.getArrayElement(i)));
+            }
+            return list;
+        }
+        if (value.hasMembers()) {
+            Map<String, Object> map = new HashMap<>();
+            for (String key : value.getMemberKeys()) {
+                map.put(key, convertValue(value.getMember(key)));
+            }
+            return map;
+        }
+        // 兜底: 转为字符串
+        return value.toString();
     }
 
 }
