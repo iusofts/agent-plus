@@ -3,12 +3,15 @@ package com.iusofts.agentplus.plugin.llm;
 import com.iusofts.agentplus.llm.dto.LlmModelConfigDTO;
 import com.iusofts.agentplus.llm.dto.LlmModelDTO;
 import dev.langchain4j.community.model.dashscope.QwenChatModel;
+import dev.langchain4j.community.model.dashscope.QwenStreamingChatModel;
 import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.model.openai.OpenAiChatModel;
+import dev.langchain4j.model.openai.OpenAiStreamingChatModel;
 import org.springframework.util.StringUtils;
 
 /**
- * LLM 模型工厂（封装所有厂商 ChatModel 构建逻辑）。
+ * LLM 模型工厂（封装所有厂商 ChatModel 构建逻辑）
  *
  * <p>新增模型厂商仅修改此类，无 DB 依赖。</p>
  *
@@ -39,6 +42,24 @@ public class LlmModelFactory {
         return buildOpenAiCompatible(modelDTO, config);
     }
 
+    /**
+     * 构建 StreamingChatModel 实例（用于流式输出）。
+     *
+     * @param modelDTO 模型连接配置 DTO
+     * @param config   生成参数配置（可为 null）
+     * @return StreamingChatModel 实例
+     */
+    public static StreamingChatModel createStreamingChatModel(LlmModelDTO modelDTO, LlmModelConfigDTO config) {
+        String provider = modelDTO.getProvider() == null ? "" : modelDTO.getProvider().trim().toLowerCase();
+
+        if (PROVIDER_DASHSCOPE.equals(provider)) {
+            return buildQwenStreaming(modelDTO, config);
+        }
+
+        // doubao/openai/其他：走 OpenAI 兼容接口
+        return buildOpenAiCompatibleStreaming(modelDTO, config);
+    }
+
     private static ChatModel buildQwen(LlmModelDTO modelDTO, LlmModelConfigDTO config) {
         QwenChatModel.QwenChatModelBuilder builder = QwenChatModel.builder()
                 .apiKey(modelDTO.getApiKey())
@@ -60,8 +81,50 @@ public class LlmModelFactory {
         return builder.build();
     }
 
+    private static StreamingChatModel buildQwenStreaming(LlmModelDTO modelDTO, LlmModelConfigDTO config) {
+        QwenStreamingChatModel.QwenStreamingChatModelBuilder builder = QwenStreamingChatModel.builder()
+                .apiKey(modelDTO.getApiKey())
+                .modelName(modelDTO.getModelName());
+
+        if (StringUtils.hasText(modelDTO.getBaseUrl())) {
+            builder.baseUrl(modelDTO.getBaseUrl());
+        }
+
+        if (config != null) {
+            if (config.getTemperature() != null) {
+                builder.temperature(config.getTemperature().floatValue());
+            }
+            if (config.getMaxTokens() != null) {
+                builder.maxTokens(config.getMaxTokens());
+            }
+        }
+
+        return builder.build();
+    }
+
     private static ChatModel buildOpenAiCompatible(LlmModelDTO modelDTO, LlmModelConfigDTO config) {
         OpenAiChatModel.OpenAiChatModelBuilder builder = OpenAiChatModel.builder()
+                .apiKey(modelDTO.getApiKey())
+                .modelName(modelDTO.getModelName());
+
+        if (StringUtils.hasText(modelDTO.getBaseUrl())) {
+            builder.baseUrl(modelDTO.getBaseUrl());
+        }
+
+        if (config != null) {
+            if (config.getTemperature() != null) {
+                builder.temperature(config.getTemperature());
+            }
+            if (config.getMaxTokens() != null) {
+                builder.maxTokens(config.getMaxTokens());
+            }
+        }
+
+        return builder.build();
+    }
+
+    private static StreamingChatModel buildOpenAiCompatibleStreaming(LlmModelDTO modelDTO, LlmModelConfigDTO config) {
+        OpenAiStreamingChatModel.OpenAiStreamingChatModelBuilder builder = OpenAiStreamingChatModel.builder()
                 .apiKey(modelDTO.getApiKey())
                 .modelName(modelDTO.getModelName());
 

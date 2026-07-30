@@ -212,9 +212,10 @@ public class WorkflowEngine {
         ctx.setRootContext(rootContext);
         compiled.batchSubGraphs().forEach(ctx::registerBatchSubGraph);
 
-        // 设置事件回调
+        // 设置事件回调和流式标志
         if (eventCallback != null) {
             ctx.setEventCallback(eventCallback);
+            ctx.setStreamingExecution(true);
         }
 
         // 设置节点名称和类型映射

@@ -17,6 +17,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 
 /**
  * 测试用 {@link ChatModelProvider},不发起任何真实网络调用。
@@ -65,6 +66,11 @@ public class MockChatModelProvider implements ChatModelProvider {
         response.setOutputTokens(0);
         response.setTotalTokens(0);
         return response;
+    }
+
+    @Override
+    public AiChatResponse streamChat(AiChatRequest request, Consumer<String> tokenCallback) {
+        return null;
     }
 
     private static String defaultResponse(LLMNodeData data, List<ChatMessage> messages) {

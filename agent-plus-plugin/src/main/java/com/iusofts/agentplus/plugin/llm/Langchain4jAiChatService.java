@@ -10,8 +10,11 @@ import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.agent.tool.ToolSpecification;
 import dev.langchain4j.data.message.*;
 import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.request.json.*;
+import dev.langchain4j.model.chat.response.ChatResponse;
+import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
 import dev.langchain4j.model.output.FinishReason;
 import dev.langchain4j.model.output.TokenUsage;
 import org.springframework.stereotype.Service;
@@ -19,8 +22,10 @@ import org.springframework.util.CollectionUtils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CountDownLatch;
 
 /**
  * AiChatService 实现，基于 langchain4j。
@@ -39,6 +44,7 @@ public class Langchain4jAiChatService implements AiChatService, LlmModelCacheEvi
      * 缓存 key = modelId + 生成参数，避免每次调用重建 ChatModel。
      */
     private final ConcurrentMap<String, ChatModel> cache = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, StreamingChatModel> streamingCache = new ConcurrentHashMap<>();
 
     public Langchain4jAiChatService(LlmModelQueryProvider modelQueryProvider) {
         this.modelQueryProvider = modelQueryProvider;
@@ -52,6 +58,7 @@ public class Langchain4jAiChatService implements AiChatService, LlmModelCacheEvi
         // 同一 modelId 可能存在多个不同 temperature 的缓存条目，全部清理
         String prefix = modelId + "@";
         cache.keySet().removeIf(key -> key.startsWith(prefix));
+        streamingCache.keySet().removeIf(key -> key.startsWith(prefix));
     }
 
     @Override
@@ -79,10 +86,80 @@ public class Langchain4jAiChatService implements AiChatService, LlmModelCacheEvi
         }
 
         // 调用 langchain4j
-        dev.langchain4j.model.chat.response.ChatResponse response = chatModel.chat(requestBuilder.build());
+        ChatResponse response = chatModel.chat(requestBuilder.build());
 
         // 转换响应格式
         return toChatResponse(response);
+    }
+
+    @Override
+    public AiChatResponse streamChat(List<AiChatMessage> messages, Long modelId, LlmModelConfigDTO config,
+                                      List<ToolDefinition> tools, java.util.function.Consumer<String> tokenCallback) {
+        String cacheKey = buildCacheKey(modelId, config);
+        StreamingChatModel streamingChatModel = streamingCache.computeIfAbsent(cacheKey, k -> {
+            LlmModelDTO modelDTO = modelQueryProvider.getModel(modelId);
+            return LlmModelFactory.createStreamingChatModel(modelDTO, config);
+        });
+
+        // 转换消息格式
+        List<ChatMessage> lc4jMessages = new ArrayList<>();
+        for (AiChatMessage msg : messages) {
+            lc4jMessages.add(toLc4jMessage(msg));
+        }
+
+        // 构建请求，按需下发工具规格
+        ChatRequest.Builder requestBuilder = ChatRequest.builder().messages(lc4jMessages);
+        if (!CollectionUtils.isEmpty(tools)) {
+            List<ToolSpecification> specs = new ArrayList<>();
+            for (ToolDefinition tool : tools) {
+                specs.add(toToolSpecification(tool));
+            }
+            requestBuilder.toolSpecifications(specs);
+        }
+
+        // 使用 CompletableFuture 来等待流式响应完成
+        CompletableFuture<AiChatResponse> future = new CompletableFuture<>();
+        StringBuilder accumulatedContent = new StringBuilder();
+
+        // 使用 StreamingChatResponseHandler 处理流式响应
+        StreamingChatResponseHandler handler = new StreamingChatResponseHandler() {
+            @Override
+            public void onPartialResponse(String partialResponse) {
+                if (partialResponse != null && tokenCallback != null) {
+                    accumulatedContent.append(partialResponse);
+                    tokenCallback.accept(partialResponse);
+                }
+            }
+
+            @Override
+            public void onCompleteResponse(ChatResponse completeResponse) {
+                try {
+                    AiChatResponse response = toChatResponse(completeResponse);
+                    // 确保最终内容与累加的内容一致
+                    if (response.getContent() == null || response.getContent().isEmpty()) {
+                        response = response.toBuilder().content(accumulatedContent.toString()).build();
+                    }
+                    future.complete(response);
+                } catch (Exception e) {
+                    future.completeExceptionally(e);
+                }
+            }
+
+            @Override
+            public void onError(Throwable error) {
+                future.completeExceptionally(error);
+            }
+        };
+
+        // 调用流式 API
+        streamingChatModel.chat(requestBuilder.build(), handler);
+
+        // 等待响应完成
+        try {
+            return future.get();
+        } catch (Exception e) {
+            throw new RuntimeException("流式调用失败", e);
+        }
     }
 
     private ChatMessage toLc4jMessage(AiChatMessage message) {
@@ -118,7 +195,7 @@ public class Langchain4jAiChatService implements AiChatService, LlmModelCacheEvi
         }
     }
 
-    private AiChatResponse toChatResponse(dev.langchain4j.model.chat.response.ChatResponse lc4jResponse) {
+    private AiChatResponse toChatResponse(ChatResponse lc4jResponse) {
         AiMessage aiMessage = lc4jResponse.aiMessage();
         String content = aiMessage.text();
 

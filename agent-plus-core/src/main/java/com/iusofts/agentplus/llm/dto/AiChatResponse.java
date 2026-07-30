@@ -11,7 +11,7 @@ import java.util.List;
  * AI 聊天响应。
  */
 @Data
-@Builder
+@Builder(toBuilder = true)
 @NoArgsConstructor
 @AllArgsConstructor
 public class AiChatResponse {

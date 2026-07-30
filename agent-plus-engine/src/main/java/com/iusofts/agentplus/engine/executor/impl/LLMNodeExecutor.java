@@ -144,6 +144,16 @@ public class LLMNodeExecutor implements NodeExecutor {
                 // 模型未请求工具调用，得到最终回答，结束循环
                 if (CollectionUtils.isEmpty(response.getToolCalls())) {
                     text = response.getContent();
+                    // 如果是流式执行，发送最后一个 token 事件
+                    if (ctx.isStreamingExecution() && (toolDefinitions == null || toolDefinitions.isEmpty())) {
+                        String nodeId = node.getId();
+                        String nodeType = node.getType();
+                        String nodeName = ctx.getNodeName(nodeId);
+                        ctx.emitEvent(com.iusofts.agentplus.aiflow.stream.LLMTokenEvent.token(
+                            ctx.getRunId(), nodeId, nodeType, nodeName,
+                            "", text, true
+                        ));
+                    }
                     break;
                 }
 
@@ -187,6 +197,24 @@ public class LLMNodeExecutor implements NodeExecutor {
         // 方案一：设置业务属性到 Span Attributes
         TraceUtil.setAiAttributes("FLOW", ctx.getFlowId(), node.getId(),
             ctx.getOperatorId(), ctx.getOrgId());
+
+        // 如果是流式执行且没有工具，则使用流式调用
+        if (ctx.isStreamingExecution() && (tools == null || tools.isEmpty())) {
+            // 获取节点信息用于事件
+            String nodeId = node.getId();
+            String nodeType = node.getType();
+            String nodeName = ctx.getNodeName(nodeId);
+            StringBuilder accumulatedContent = new StringBuilder();
+
+            return chatModelProvider.streamChat(request, token -> {
+                accumulatedContent.append(token);
+                // 发送 LLM token 事件
+                ctx.emitEvent(com.iusofts.agentplus.aiflow.stream.LLMTokenEvent.token(
+                    ctx.getRunId(), nodeId, nodeType, nodeName,
+                    token, accumulatedContent.toString(), false
+                ));
+            });
+        }
 
         return chatModelProvider.chat(request);
     }

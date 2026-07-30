@@ -86,6 +86,28 @@ public class DefaultChatModelProvider implements ChatModelProvider {
                 .build();
     }
 
+    @Override
+    public AiChatResponse streamChat(AiChatRequest request, java.util.function.Consumer<String> tokenCallback) {
+        // 兜底实现：先调用普通 chat 获取完整响应
+        AiChatResponse response = chat(request);
+
+        // 将完整内容拆分成 "token" 发送
+        String content = response.getContent();
+        if (content != null && tokenCallback != null) {
+            for (int i = 0; i < content.length(); i++) {
+                tokenCallback.accept(String.valueOf(content.charAt(i)));
+                try {
+                    Thread.sleep(10);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        }
+
+        return response;
+    }
+
     private List<dev.langchain4j.data.message.ChatMessage> convertToLangChain4j(List<AiChatMessage> messages) {
         List<dev.langchain4j.data.message.ChatMessage> result = new java.util.ArrayList<>();
         for (AiChatMessage msg : messages) {

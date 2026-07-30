@@ -118,6 +118,48 @@ public class AiModelChatModelProvider implements ChatModelProvider {
             request.getConfig(), request.getTools());
     }
 
+    @Override
+    @TraceSpan(name = "llm.streamChat", kind = SpanKind.INTERNAL)
+    public AiChatResponse streamChat(AiChatRequest request, java.util.function.Consumer<String> tokenCallback) {
+        LocalDateTime startTime = LocalDateTime.now();
+        LlmModelDTO modelDTO = null;
+        if (request.getModelId() != null) {
+            try {
+                modelDTO = modelQueryProvider.getModel(request.getModelId());
+                if (modelDTO != null) {
+                    TraceUtil.setLabel(modelDTO.getModelName());
+                    TraceUtil.setSpanAttribute(TraceUtil.ATTR_MODEL_PROVIDER, modelDTO.getProvider());
+                }
+            } catch (Exception e) {
+                // 查询模型信息失败不影响主流程，日志将不带模型详情
+            }
+        }
+        try {
+            AiChatResponse response = doStreamChat(request, tokenCallback);
+            if (TraceUtil.hasActiveSpan()) {
+                TraceUtil.setSpanAttribute(ATTR_TOKENS, response.getTotalTokens());
+                newRecorder(startTime, modelDTO, request)
+                    .output(response.getContent(), response.getInputTokens(), response.getOutputTokens())
+                    .toolCalls(response.getToolCalls(), response.getFinishReason())
+                    .success()
+                    .record();
+            }
+            return response;
+        } catch (RuntimeException e) {
+            if (TraceUtil.hasActiveSpan()) {
+                newRecorder(startTime, modelDTO, request)
+                    .error(null, e.getMessage())
+                    .record();
+            }
+            throw e;
+        }
+    }
+
+    private AiChatResponse doStreamChat(AiChatRequest request, java.util.function.Consumer<String> tokenCallback) {
+        return aiChatService.streamChat(request.getMessages(), request.getModelId(),
+            request.getConfig(), request.getTools(), tokenCallback);
+    }
+
     /** 从当前 Span Attributes 构造日志记录器。 */
     private LlmLogRecorder.LlmCallRecorder newRecorder(LocalDateTime startTime,
                                                         LlmModelDTO modelDTO,

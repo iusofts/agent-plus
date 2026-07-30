@@ -58,6 +58,11 @@ public class ExecutionContext implements Serializable {
     @Setter
     private transient WorkflowStreamEventCallback eventCallback;
 
+    /** 是否为流式执行（仅根 context 持有） */
+    @Getter
+    @Setter
+    private transient boolean streamingExecution;
+
     /** 节点ID -> 节点名称/类型 映射（仅根 context 持有） */
     private transient Map<String, String> nodeNameMap;
     private transient Map<String, String> nodeTypeMap;

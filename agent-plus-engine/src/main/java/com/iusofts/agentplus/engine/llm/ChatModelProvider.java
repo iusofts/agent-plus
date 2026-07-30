@@ -5,6 +5,8 @@ import com.iusofts.agentplus.llm.dto.AiChatRequest;
 import com.iusofts.agentplus.llm.dto.AiChatResponse;
 import dev.langchain4j.model.chat.ChatModel;
 
+import java.util.function.Consumer;
+
 /**
  * LLM 模型工厂。
  *
@@ -36,4 +38,16 @@ public interface ChatModelProvider {
      * @return 聊天响应
      */
     AiChatResponse chat(AiChatRequest request);
+
+    /**
+     * 流式执行聊天请求（支持工具调用，支持 token 回调），并自动记录日志到 {@code ai_llm_call_log}。
+     *
+     * <p>链路信息（traceId、来源、操作人）自动从当前 OpenTelemetry Span 获取，
+     * 调用方需在调用前通过 {@link com.iusofts.agentplus.trace.TraceUtil} 设置属性。
+     *
+     * @param request 聊天请求参数（模型 id、消息、配置、工具）
+     * @param tokenCallback 每个 token 的回调
+     * @return 聊天响应
+     */
+    AiChatResponse streamChat(AiChatRequest request, Consumer<String> tokenCallback);
 }
