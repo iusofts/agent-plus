@@ -3,6 +3,8 @@ package com.iusofts.agentplus.chat.service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.iusofts.agentplus.aiflow.stream.WorkflowStreamEvent;
+import com.iusofts.agentplus.aiflow.stream.LLMTokenEvent;
+import com.iusofts.agentplus.aiflow.stream.WorkflowCompleteEvent;
 import com.iusofts.agentplus.basic.exception.SystemBusinessException;
 import com.iusofts.agentplus.basic.utils.ModelMapperUtil;
 import com.iusofts.agentplus.basic.utils.StringUtils;
@@ -437,6 +439,261 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
 
     @Override
     public Flux<WorkflowStreamEvent> streamChat(AiServiceChatReqVo chatReqVo) {
-        throw new SystemBusinessException("当前智能体类型暂不支持流式输出");
+        // 1. 确定智能体与会话
+        Long agentId = chatReqVo.getAgentId();
+        AiConversation conversation = null;
+        boolean newConversation = chatReqVo.getConversationId() == null;
+        if (!newConversation) {
+            conversation = aiConversationService.getById(chatReqVo.getConversationId());
+            if (conversation == null) {
+                throw new SystemBusinessException("会话不存在");
+            }
+            if (agentId == null) {
+                agentId = conversation.getAgentId();
+            }
+        }
+
+        AiAgent aiAgent = agentId != null ? aiAgentMapper.selectById(agentId) : null;
+        if (aiAgent == null) {
+            throw new SystemBusinessException("智能体不存在");
+        }
+        Long modelId = aiAgent.getModelId();
+        if (modelId == null) {
+            throw new SystemBusinessException("智能体未配置模型");
+        }
+
+        // 2. 加载历史对话消息
+        List<AiMessageVo> dialog = new ArrayList<>();
+        if (!newConversation) {
+            dialog.addAll(aiMessageService.getList(chatReqVo.getConversationId()));
+        }
+        List<AiMessageVo> requestMsgs = new ArrayList<>();
+        if (StringUtils.hasText(chatReqVo.getContent())) {
+            AiMessageVo userMsg = new AiMessageVo();
+            userMsg.setRole("user");
+            userMsg.setContent(chatReqVo.getContent());
+            userMsg.setFileList(chatReqVo.getFileList());
+            requestMsgs.add(userMsg);
+        }
+        dialog.addAll(requestMsgs);
+
+        String userQuestion = chatReqVo.getContent();
+
+        // 3. 构建发送给模型的消息
+        TraceUtil.setOperator(chatReqVo.getOperatorId(), chatReqVo.getOrgId());
+        String knowledgeContext = retrieveKnowledge(aiAgent, userQuestion, conversation != null ? conversation.getId() : null);
+        String systemContent = buildSystemPrompt(aiAgent, knowledgeContext);
+
+        List<AiChatMessage> msgList = new ArrayList<>();
+        if (StringUtils.hasText(systemContent)) {
+            msgList.add(AiChatMessage.builder().role("system").content(systemContent).build());
+        }
+        msgList.addAll(buildDialogContext(dialog, aiAgent));
+
+        LlmModelConfigDTO config = buildModelConfig(aiAgent);
+
+        // 4. 构建绑定工具规格
+        List<ToolDefinition> toolDefinitions = buildToolDefinitions(aiAgent);
+
+        // 5. 先创建会话（如果是新对话）
+        if (newConversation) {
+            conversation = new AiConversation();
+            conversation.setId(idService.generateUid(UidTypeEnum.CHAT).longValue());
+            conversation.setAgentId(agentId);
+            conversation.setTitle(buildTitle(chatReqVo.getContent()));
+            conversation.setCurrentRounds(0);
+            conversation.setOrgId(chatReqVo.getOrgId());
+            conversation.setCreateBy(chatReqVo.getOperatorId());
+        } else {
+            conversation.setAgentId(agentId);
+        }
+        final AiConversation finalConversation = conversation;
+
+        // 6. 先保存用户消息
+        if (StringUtils.isNotBlank(chatReqVo.getContent())) {
+            AiMessageVo userMsg = new AiMessageVo();
+            userMsg.setRole("user");
+            userMsg.setContent(chatReqVo.getContent());
+            userMsg.setFileList(chatReqVo.getFileList());
+            userMsg.setConversationId(conversation.getId());
+            userMsg.setAgentId(aiAgent.getId());
+            AiMessage userAiMessage = ModelMapperUtil.strictMap(userMsg, AiMessage.class);
+            userAiMessage.setId(idService.generateUid(UidTypeEnum.CHAT).longValue());
+            userAiMessage.setCreateBy(chatReqVo.getOperatorId());
+            userAiMessage.setOrgId(chatReqVo.getOrgId());
+            aiMessageService.save(userAiMessage);
+        }
+
+        // 7. 生成 runId
+        final String runId = String.valueOf(idService.generateUid(UidTypeEnum.CHAT));
+
+        // 创建 final 变量用于 lambda 捕获
+        final List<AiChatMessage> finalMsgList = new ArrayList<>(msgList);
+        final List<ToolDefinition> finalToolDefinitions = toolDefinitions;
+        final Long finalModelId = modelId;
+        final LlmModelConfigDTO finalConfig = config;
+        final AiAgent finalAiAgent = aiAgent;
+        final Long finalConversationId = conversation != null ? conversation.getId() : null;
+
+        // 8. 创建 Flux 流式响应
+        return Flux.create(sink -> {
+            try {
+                // 设置调用来源到 Span
+                TraceUtil.setCallSource("CHAT", finalConversationId);
+
+                // 如果有工具，暂不支持工具调用的流式（工具调用需要同步执行）
+                if (finalToolDefinitions != null && !finalToolDefinitions.isEmpty()) {
+                    // 有工具绑定，使用非流式调用，然后一次性返回
+                    Map<String, Long> toolNameToId = buildToolNameToIdMap(finalAiAgent);
+                    List<ToolCallTraceVo> toolTraces = new ArrayList<>();
+
+                    // 复制一份 msgList 用于工具调用循环
+                    List<AiChatMessage> loopMsgList = new ArrayList<>(finalMsgList);
+
+                    AiChatResponse response = null;
+                    for (int iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
+                        TraceUtil.setCallSource("CHAT", finalConversationId);
+
+                        response = chatModelProvider.chat(AiChatRequest.builder()
+                            .modelId(finalModelId)
+                            .messages(loopMsgList)
+                            .config(finalConfig)
+                            .tools(finalToolDefinitions)
+                            .build());
+
+                        if (CollectionUtils.isEmpty(response.getToolCalls())) {
+                            break;
+                        }
+
+                        loopMsgList.add(AiChatMessage.builder()
+                            .role("assistant")
+                            .content(response.getContent())
+                            .toolCalls(response.getToolCalls())
+                            .build());
+
+                        for (ToolCall toolCall : response.getToolCalls()) {
+                            ToolCallTraceVo trace = executeToolCall(toolCall, toolNameToId, loopMsgList);
+                            toolTraces.add(trace);
+                        }
+                    }
+
+                    // 保存 final 引用
+                    final AiChatResponse finalResponse = response;
+                    final List<ToolCallTraceVo> finalToolTraces = toolTraces;
+
+                    // 发送完整内容作为一个 LLMTokenEvent (isLast=true)
+                    sink.next(LLMTokenEvent.token(runId, "llm", "llm", "LLM",
+                        finalResponse.getContent(), finalResponse.getContent(), true));
+
+                    // 构建输出结果
+                    Map<String, Object> output = new HashMap<>();
+                    output.put("text", finalResponse.getContent());
+                    output.put("inputTokens", finalResponse.getInputTokens());
+                    output.put("outputTokens", finalResponse.getOutputTokens());
+                    output.put("totalTokens", finalResponse.getTotalTokens());
+                    if (!finalToolTraces.isEmpty()) {
+                        output.put("toolCalls", finalToolTraces);
+                    }
+
+                    // 发送完成事件
+                    sink.next(WorkflowCompleteEvent.create(runId, output));
+
+                    // 保存助手消息和更新会话
+                    saveAssistantMessageAndUpdateConversation(finalResponse.getContent(),
+                        finalResponse.getInputTokens(), finalResponse.getOutputTokens(), finalResponse.getTotalTokens(),
+                        finalConversation, finalAiAgent, chatReqVo, finalToolTraces, newConversation);
+
+                    sink.complete();
+                } else {
+                    // 无工具绑定，使用真实流式调用
+                    StringBuilder accumulatedContent = new StringBuilder();
+                    final int[] totalTokens = {0, 0}; // inputTokens, outputTokens
+
+                    AiChatResponse response = chatModelProvider.streamChat(
+                        AiChatRequest.builder()
+                            .modelId(finalModelId)
+                            .messages(finalMsgList)
+                            .config(finalConfig)
+                            .tools(null)
+                            .build(),
+                        token -> {
+                            accumulatedContent.append(token);
+                            sink.next(LLMTokenEvent.token(runId, "llm", "llm", "LLM",
+                                token, accumulatedContent.toString(), false));
+                        }
+                    );
+
+                    // 保存 final 引用
+                    final AiChatResponse finalResponse = response;
+                    final String finalAccumulatedContent = accumulatedContent.toString();
+
+                    // 发送最后一个 token 事件
+                    sink.next(LLMTokenEvent.token(runId, "llm", "llm", "LLM",
+                        "", finalAccumulatedContent, true));
+
+                    // 累加 token
+                    if (finalResponse.getInputTokens() != null) totalTokens[0] += finalResponse.getInputTokens();
+                    if (finalResponse.getOutputTokens() != null) totalTokens[1] += finalResponse.getOutputTokens();
+
+                    // 构建输出结果
+                    Map<String, Object> output = new HashMap<>();
+                    output.put("text", finalResponse.getContent());
+                    output.put("inputTokens", totalTokens[0]);
+                    output.put("outputTokens", totalTokens[1]);
+                    output.put("totalTokens", totalTokens[0] + totalTokens[1]);
+
+                    // 发送完成事件
+                    sink.next(WorkflowCompleteEvent.create(runId, output));
+
+                    // 保存助手消息和更新会话
+                    saveAssistantMessageAndUpdateConversation(finalResponse.getContent(),
+                        totalTokens[0], totalTokens[1], totalTokens[0] + totalTokens[1],
+                        finalConversation, finalAiAgent, chatReqVo, null, newConversation);
+
+                    sink.complete();
+                }
+            } catch (Exception e) {
+                sink.error(e);
+            }
+        });
+    }
+
+    /**
+     * 保存助手消息和更新会话
+     */
+    private void saveAssistantMessageAndUpdateConversation(String content, Integer inputTokens, Integer outputTokens, Integer totalTokens,
+                                                           AiConversation conversation, AiAgent aiAgent, AiServiceChatReqVo chatReqVo,
+                                                           List<ToolCallTraceVo> toolTraces, boolean newConversation) {
+        // 构建助手消息
+        AiMessageVo resultMessage = new AiMessageVo();
+        resultMessage.setRole("assistant");
+        resultMessage.setContent(content);
+        resultMessage.setInputTokens(inputTokens);
+        resultMessage.setOutputTokens(outputTokens);
+        resultMessage.setTotalTokens(totalTokens);
+        if (toolTraces != null && !toolTraces.isEmpty()) {
+            resultMessage.setToolCalls(toolTraces);
+        }
+        resultMessage.setConversationId(conversation.getId());
+
+        // 保存助手消息
+        AiMessage aiMessage = ModelMapperUtil.strictMap(resultMessage, AiMessage.class);
+        aiMessage.setId(idService.generateUid(UidTypeEnum.CHAT).longValue());
+        aiMessage.setConversationId(conversation.getId());
+        aiMessage.setAgentId(aiAgent.getId());
+        aiMessage.setCreateBy(chatReqVo.getOperatorId());
+        aiMessage.setOrgId(chatReqVo.getOrgId());
+        aiMessageService.save(aiMessage);
+
+        // 更新会话
+        int rounds = conversation.getCurrentRounds() == null ? 0 : conversation.getCurrentRounds();
+        conversation.setCurrentRounds(rounds + 1);
+        conversation.setUpdateTime(LocalDateTime.now());
+        conversation.setLastChatTime(LocalDateTime.now());
+        if (newConversation) {
+            aiConversationService.save(conversation);
+        } else {
+            aiConversationService.updateById(conversation);
+        }
     }
 }

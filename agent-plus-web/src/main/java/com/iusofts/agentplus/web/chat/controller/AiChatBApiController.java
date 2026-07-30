@@ -58,8 +58,7 @@ public class AiChatBApiController extends BApiController {
         if (agentType != null && agentType == 2) {
             return flowChatService.streamChat(chatReqVo);
         } else {
-            // 自主规划类型暂不支持流式
-            throw new RuntimeException("当前智能体类型暂不支持流式输出");
+            return aiChatService.streamChat(chatReqVo);
         }
     }
 
