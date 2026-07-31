@@ -115,7 +115,7 @@ public class AiChatBApiController extends BApiController {
         subRef.set(stream.subscribe(
             event -> {
                 try {
-                    log.info(event.getTimestamp() + "," + event.getType());
+                    log.debug(event.getTimestamp() + "," + event.getType());
                     emitter.send(SseEmitter.event()
                         .name(event.getType())
                         .data(event, MediaType.APPLICATION_JSON));
