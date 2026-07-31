@@ -3,6 +3,7 @@ package com.iusofts.agentplus.chat.service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.iusofts.agentplus.aiflow.stream.WorkflowStreamEvent;
+import com.iusofts.agentplus.aiflow.stream.ConversationInitEvent;
 import com.iusofts.agentplus.aiflow.stream.LLMTokenEvent;
 import com.iusofts.agentplus.aiflow.stream.WorkflowCompleteEvent;
 import com.iusofts.agentplus.basic.exception.SystemBusinessException;
@@ -534,10 +535,16 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
         final LlmModelConfigDTO finalConfig = config;
         final AiAgent finalAiAgent = aiAgent;
         final Long finalConversationId = conversation != null ? conversation.getId() : null;
+        final boolean finalNewConversation = newConversation;
 
         // 8. 创建 Flux 流式响应
         return Flux.create(sink -> {
             try {
+                // 新建会话时，首事件把 conversationId 推回前端
+                if (finalNewConversation && finalConversationId != null) {
+                    sink.next(ConversationInitEvent.create(runId, finalConversationId));
+                }
+
                 // 设置调用来源到 Span
                 TraceUtil.setCallSource("CHAT", finalConversationId);
 

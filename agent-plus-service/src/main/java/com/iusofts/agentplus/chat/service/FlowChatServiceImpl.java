@@ -7,6 +7,7 @@ import com.iusofts.agentplus.aiflow.constants.FlowGlobalInputConstants;
 import com.iusofts.agentplus.aiflow.interfaces.IAiFlowExecutorService;
 import com.iusofts.agentplus.aiflow.mapper.AiFlowMapper;
 import com.iusofts.agentplus.aiflow.stream.WorkflowStreamEvent;
+import com.iusofts.agentplus.aiflow.stream.ConversationInitEvent;
 import com.iusofts.agentplus.aiflow.vo.FlowExecuteResult;
 import com.iusofts.agentplus.ailog.entity.AiKnowledgeRetrievalLog;
 import com.iusofts.agentplus.ailog.entity.AiLlmCallLog;
@@ -356,14 +357,22 @@ public class FlowChatServiceImpl implements IAiChatServiceInterface {
             trialFlag
         );
 
-        // 7. 返回事件流，并在完成后保存会话和助手消息
+        // 7. 返回事件流。新建会话时，首事件把 conversationId 推回前端；
+        //    流完成后保存会话和助手消息
+        if (isNewConversation && finalConversation.getId() != null) {
+            String initRunId = String.valueOf(idService.generateUid(UidTypeEnum.CHAT));
+            Flux<WorkflowStreamEvent> withInit = Flux.concat(
+                Flux.just(ConversationInitEvent.create(initRunId, finalConversation.getId())),
+                stream
+            );
+            return withInit.doOnComplete(() -> {
+                aiConversationService.save(finalConversation);
+                // 保存助手消息将在第二阶段实现，因为我们需要从 WorkflowCompleteEvent 中的结果
+            });
+        }
         return stream.doOnComplete(() -> {
             // 保存会话
-            if (isNewConversation) {
-                aiConversationService.save(finalConversation);
-            } else {
-                aiConversationService.updateById(finalConversation);
-            }
+            aiConversationService.updateById(finalConversation);
             // 保存助手消息将在第二阶段实现，因为我们需要从 WorkflowCompleteEvent 中的结果
         });
     }

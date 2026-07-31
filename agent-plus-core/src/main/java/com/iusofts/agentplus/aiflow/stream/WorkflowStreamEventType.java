@@ -15,7 +15,9 @@ public enum WorkflowStreamEventType {
     /** 工作流执行完成 */
     WORKFLOW_COMPLETE("workflow_complete"),
     /** LLM token 输出（第二阶段） */
-    LLM_TOKEN("llm_token");
+    LLM_TOKEN("llm_token"),
+    /** 会话初始化（仅在新建会话时由聊天流首事件推送，携带 conversationId） */
+    CONVERSATION_INIT("conversation_init");
 
     private final String value;
 
