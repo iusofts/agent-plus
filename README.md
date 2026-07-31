@@ -16,7 +16,7 @@
 基于 Spring Boot 3.5 + JDK 21 + LangChain4j 构建的企业级 AI Agent 应用开发平台，提供模型接入、知识库（RAG）、工具调用、工作流编排、智能体（Agent）等完整能力。
 
 **[📖 使用文档](http://iusofts.com/)** |
-**[🚀 在线体验](http://www.iusofts.com/vue-agent-template/)** |
+**[🚀 在线体验](https://iusofts.com/agent-plus/dist/)** |
 **[🐛 问题反馈](https://gitcode.com/iusofts/agent-plus/issues)** |
 **[💡 功能建议](https://gitcode.com/iusofts/agent-plus/discussions)**
 
