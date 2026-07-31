@@ -33,6 +33,7 @@ public class WebAppConfig implements WebMvcConfigurer {
                 .excludePathPatterns("/bapi/imageVerifyCode")
                 .excludePathPatterns("/bapi/appVersion/**")
                 .excludePathPatterns("/bapi/bsStatistics/**")
+                .excludePathPatterns("/bapi/testSse")
                 .excludePathPatterns("/api/**");
         
 
