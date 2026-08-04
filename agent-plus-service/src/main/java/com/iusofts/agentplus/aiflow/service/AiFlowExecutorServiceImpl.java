@@ -14,6 +14,7 @@ import com.iusofts.agentplus.aiflow.mapper.AiFlowMapper;
 import com.iusofts.agentplus.aiflow.mapper.AiFlowRuntimeMapper;
 import com.iusofts.agentplus.aiflow.mapper.AiFlowRuntimeNodeMapper;
 import com.iusofts.agentplus.aiflow.mapper.AiFlowVersionMapper;
+import com.iusofts.agentplus.aiflow.stream.WorkflowCompleteEvent;
 import com.iusofts.agentplus.aiflow.utils.AiFlowCommonUtils;
 import com.iusofts.agentplus.aiflow.vo.FlowExecuteResult;
 import com.iusofts.agentplus.aiflow.vo.workflow.Node;
@@ -455,7 +456,23 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
 
                 // 执行工作流并转发事件，完成后更新运行状态
                 workflowEngine.streamExecute(executeRequest)
-                        .doOnNext(sink::tryEmitNext)
+                        .doOnNext(event -> {
+                            sink.tryEmitNext(event);
+                            // 回填真实 traceId：WorkflowCompleteEvent 携带的 runId 是
+                            // 引擎在 OTel root span 上拿到的真实 traceId(SDK 未初始化时
+                            // 与 placeholder 一致,此时无需 update)。与同步版 executeFlow
+                            // 在 engine.execute() 返回后取 execResult.getRunId() 回填等价。
+                            if (event instanceof WorkflowCompleteEvent) {
+                                String realTraceId = ((WorkflowCompleteEvent) event).getRunId();
+                                if (realTraceId != null && !realTraceId.equals(placeholderTraceId)) {
+                                    AiFlowRuntime traceUpdate = new AiFlowRuntime();
+                                    traceUpdate.setId(runtime.getId());
+                                    traceUpdate.setTraceId(realTraceId);
+                                    aiFlowRuntimeMapper.updateById(traceUpdate);
+                                    runtime.setTraceId(realTraceId);
+                                }
+                            }
+                        })
                         .doOnError(error -> {
                             handleStreamError(runtime, startTime, error);
                             sink.tryEmitError(error);

@@ -330,14 +330,29 @@ public class FlowChatServiceImpl implements IAiChatServiceInterface {
         }
 
         // 6. 执行流式工作流
+        // versionId 优先：试运行指定版本时用 streamExecuteVersion 跑指定版本;
+        // 不传时走 streamExecuteFlow 取线上最新已发布版本（与同步 chat() 行为一致）
         Integer trialFlag = chatReqVo.getTrialFlag() != null ? chatReqVo.getTrialFlag() : 0;
-        Flux<WorkflowStreamEvent> stream = aiFlowExecutorService.streamExecuteFlow(
-            chatFlowId,
-            inputs,
-            chatReqVo.getOperatorId(),
-            chatReqVo.getOrgId(),
-            trialFlag
-        );
+        Long versionId = chatReqVo.getVersionId();
+        Flux<WorkflowStreamEvent> stream;
+        if (versionId != null) {
+            stream = aiFlowExecutorService.streamExecuteVersion(
+                versionId,
+                chatFlowId,
+                inputs,
+                chatReqVo.getOperatorId(),
+                chatReqVo.getOrgId(),
+                trialFlag
+            );
+        } else {
+            stream = aiFlowExecutorService.streamExecuteFlow(
+                chatFlowId,
+                inputs,
+                chatReqVo.getOperatorId(),
+                chatReqVo.getOrgId(),
+                trialFlag
+            );
+        }
 
         // 7. 返回事件流。新建会话时,首事件把 conversationId 推回前端;
         //    流完成后保存会话;workflow_complete 事件到达时入库助手消息(End + 各 Output 节点)
