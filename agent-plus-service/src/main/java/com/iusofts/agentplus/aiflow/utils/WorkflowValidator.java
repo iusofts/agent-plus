@@ -1,8 +1,10 @@
 package com.iusofts.agentplus.aiflow.utils;
 
+import com.iusofts.agentplus.aiflow.vo.workflow.Edge;
 import com.iusofts.agentplus.aiflow.vo.workflow.Node;
 import com.iusofts.agentplus.aiflow.vo.workflow.Workflow;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.EndNodeData;
+import com.iusofts.agentplus.aiflow.vo.workflow.data.OutputNodeData;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.common.OutputParam;
 import com.iusofts.agentplus.basic.exception.InvalidParamException;
 import jakarta.validation.ConstraintViolation;
@@ -73,6 +75,36 @@ public class WorkflowValidator {
                             }
                         }
                     }
+                }
+            }
+
+            // 自定义校验：OutputNode 固定走 text 模式，outputParams 不能有 name=text；
+            // 且 Output 节点必须有下游边，否则图编译器会按"无出边 → END"提前结束流程。
+            List<Edge> allEdges = workflow.getEdges();
+            for (Node node : nodes) {
+                if (!(node.getData() instanceof OutputNodeData)) {
+                    continue;
+                }
+                String nodeLabel = resolveNodeLabel(node);
+                OutputNodeData outputNodeData = (OutputNodeData) node.getData();
+                if (outputNodeData.getOutputParams() != null) {
+                    for (OutputParam outputParam : outputNodeData.getOutputParams()) {
+                        if ("text".equals(outputParam.getName())) {
+                            messages.add("[" + nodeLabel + "] 输出节点的输出参数中不能包含name为text的字段，该字段已被输出内容占用");
+                        }
+                    }
+                }
+                boolean hasOutgoing = false;
+                if (allEdges != null) {
+                    for (Edge edge : allEdges) {
+                        if (node.getId().equals(edge.getSource())) {
+                            hasOutgoing = true;
+                            break;
+                        }
+                    }
+                }
+                if (!hasOutgoing) {
+                    messages.add("[" + nodeLabel + "] 输出节点必须有下游边，否则流程将提前结束");
                 }
             }
         }

@@ -18,6 +18,7 @@ import com.iusofts.agentplus.engine.executor.impl.ConditionNodeExecutor;
 import com.iusofts.agentplus.engine.executor.impl.EndNodeExecutor;
 import com.iusofts.agentplus.engine.executor.impl.KnowledgeNodeExecutor;
 import com.iusofts.agentplus.engine.executor.impl.LLMNodeExecutor;
+import com.iusofts.agentplus.engine.executor.impl.OutputNodeExecutor;
 import com.iusofts.agentplus.engine.executor.impl.StartNodeExecutor;
 import com.iusofts.agentplus.engine.executor.impl.ToolNodeExecutor;
 import com.iusofts.agentplus.engine.history.HistoryMessageProvider;
@@ -336,6 +337,7 @@ public class WorkflowEngine {
 
             registry.register(new StartNodeExecutor())
                     .register(new EndNodeExecutor())
+                    .register(new OutputNodeExecutor())
                     .register(new ConditionNodeExecutor())
                     .register(new AggregatorNodeExecutor())
                     .register(new BatchNodeExecutor())

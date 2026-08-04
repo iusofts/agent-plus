@@ -60,6 +60,7 @@ public class Node {
             @JsonSubTypes.Type(value = AggregatorNodeData.class, name = "Aggregator"),
             @JsonSubTypes.Type(value = ToolNodeData.class, name = "Tool"),
             @JsonSubTypes.Type(value = CodeNodeData.class, name = "Code"),
+            @JsonSubTypes.Type(value = OutputNodeData.class, name = "Output"),
             @JsonSubTypes.Type(value = EndNodeData.class, name = "End")
     })
     private NodeData data;
