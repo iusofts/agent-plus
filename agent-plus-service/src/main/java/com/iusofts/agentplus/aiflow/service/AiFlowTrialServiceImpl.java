@@ -9,6 +9,7 @@ import com.iusofts.agentplus.aiflow.entity.AiFlowRuntime;
 import com.iusofts.agentplus.aiflow.entity.AiFlowRuntimeNode;
 import com.iusofts.agentplus.aiflow.entity.AiFlowVersion;
 import com.iusofts.agentplus.aiflow.enums.FlowNodeType;
+import com.iusofts.agentplus.aiflow.enums.FlowTypeEnum;
 import com.iusofts.agentplus.aiflow.enums.NodeRunStatusEnum;
 import com.iusofts.agentplus.aiflow.enums.RunStatusEnum;
 import com.iusofts.agentplus.aiflow.interfaces.IAiFlowExecutorService;
@@ -171,7 +172,8 @@ public class AiFlowTrialServiceImpl implements IAiFlowTrialService {
                 runtime.setTraceId(traceId);
 
                 ExecutionContext ctx = new ExecutionContext(traceId, config, new LinkedHashMap<>(),
-                        version.getFlowId(), reqVo.getOperatorId(), reqVo.getOrgId());
+                        version.getFlowId(), reqVo.getOperatorId(), reqVo.getOrgId(),
+                        resolveFlowType(version.getFlowId()));
                 // 按参数名直接赋值:把用户给的值回填到各输入参数 paramMapKey 指向的位置,不走真实上游
                 applyDirectInputs(inputParams, inputs, ctx);
 
@@ -342,6 +344,15 @@ public class AiFlowTrialServiceImpl implements IAiFlowTrialService {
             name = node.getLabel();
         }
         return name;
+    }
+
+    /** 根据 flowId 查 AiFlow.type 并解析为 FlowTypeEnum,查不到时返回 null。 */
+    private FlowTypeEnum resolveFlowType(Long flowId) {
+        if (flowId == null) {
+            return null;
+        }
+        AiFlow aiFlow = aiFlowMapper.selectById(flowId);
+        return aiFlow == null ? null : FlowTypeEnum.getByCode(aiFlow.getType());
     }
 
     private Node findNode(Workflow workflow, String nodeId) {

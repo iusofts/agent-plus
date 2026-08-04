@@ -1,5 +1,6 @@
 package com.iusofts.agentplus.engine.context;
 
+import com.iusofts.agentplus.aiflow.enums.FlowTypeEnum;
 import com.iusofts.agentplus.aiflow.vo.workflow.config.EnvVar;
 import com.iusofts.agentplus.aiflow.vo.workflow.config.WorkflowConfig;
 import com.iusofts.agentplus.aiflow.stream.WorkflowStreamEvent;
@@ -46,6 +47,8 @@ public class ExecutionContext implements Serializable {
     private final Long operatorId;
     /** 所属组织 ID,用于 AI 日志的 operator 记录。 */
     private final Integer orgId;
+    /** 流程类型(工作流/对话流),由 WorkflowEngine 写入,供节点执行器区分对话流场景。 */
+    private final FlowTypeEnum flowType;
 
     /** 主图运行时可用的批处理子图,由 {@code WorkflowGraphCompiler} 预编译写入,BatchNodeExecutor 直接调用。 */
     private transient final Map<String, CompiledGraph<?>> batchSubGraphs = new ConcurrentHashMap<>();
@@ -70,7 +73,7 @@ public class ExecutionContext implements Serializable {
     public ExecutionContext(String runId,
                             WorkflowConfig config,
                             Map<String, Object> globalInputs) {
-        this(runId, config, globalInputs, null, null, null);
+        this(runId, config, globalInputs, null, null, null, null);
     }
 
     public ExecutionContext(String runId,
@@ -79,6 +82,16 @@ public class ExecutionContext implements Serializable {
                             Long flowId,
                             Long operatorId,
                             Integer orgId) {
+        this(runId, config, globalInputs, flowId, operatorId, orgId, null);
+    }
+
+    public ExecutionContext(String runId,
+                            WorkflowConfig config,
+                            Map<String, Object> globalInputs,
+                            Long flowId,
+                            Long operatorId,
+                            Integer orgId,
+                            FlowTypeEnum flowType) {
         this.runId = runId;
         this.config = config;
         this.globalInputs = globalInputs == null
@@ -90,6 +103,7 @@ public class ExecutionContext implements Serializable {
         this.flowId = flowId;
         this.operatorId = operatorId;
         this.orgId = orgId;
+        this.flowType = flowType;
     }
 
     private ExecutionContext(ExecutionContext parent, String scopeKey) {
@@ -102,6 +116,7 @@ public class ExecutionContext implements Serializable {
         this.flowId = parent.flowId;
         this.operatorId = parent.operatorId;
         this.orgId = parent.orgId;
+        this.flowType = parent.flowType;
         this.batchSubGraphs.putAll(parent.batchSubGraphs);
     }
 

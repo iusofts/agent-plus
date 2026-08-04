@@ -6,6 +6,7 @@ import com.iusofts.agentplus.aiflow.entity.AiFlow;
 import com.iusofts.agentplus.aiflow.entity.AiFlowRuntime;
 import com.iusofts.agentplus.aiflow.entity.AiFlowRuntimeNode;
 import com.iusofts.agentplus.aiflow.entity.AiFlowVersion;
+import com.iusofts.agentplus.aiflow.enums.FlowTypeEnum;
 import com.iusofts.agentplus.aiflow.enums.NodeRunStatusEnum;
 import com.iusofts.agentplus.aiflow.enums.PublishingStatusEnum;
 import com.iusofts.agentplus.aiflow.enums.RunStatusEnum;
@@ -130,6 +131,7 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
                             .orgId(orgId)
                             .trialFlag(trialFlag)
                             .flowName(aiFlow.getName())
+                            .flowType(FlowTypeEnum.getByCode(aiFlow.getType()))
                             .build()
             );
 
@@ -265,6 +267,7 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
                             .orgId(orgId)
                             .trialFlag(trialFlag)
                             .flowName(aiFlow != null ? aiFlow.getName() : null)
+                            .flowType(aiFlow == null ? null : FlowTypeEnum.getByCode(aiFlow.getType()))
                             .build()
             );
 
@@ -363,7 +366,7 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
             throw new SystemBusinessException("流程发布版本不存在");
         }
 
-        return streamExecuteVersionInternal(version, aiFlow.getName(), inputs, operatorId, orgId, trialFlag);
+        return streamExecuteVersionInternal(version, aiFlow.getName(), FlowTypeEnum.getByCode(aiFlow.getType()), inputs, operatorId, orgId, trialFlag);
     }
 
     /**
@@ -406,17 +409,22 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
             }
         }
 
-        // 获取流程名称
+        // 获取流程名称和类型
+        FlowTypeEnum flowType = null;
         if (version.getFlowId() != null) {
             AiFlow aiFlow = aiFlowMapper.selectById(version.getFlowId());
-            flowName = aiFlow != null ? aiFlow.getName() : null;
+            if (aiFlow != null) {
+                flowName = aiFlow.getName();
+                flowType = FlowTypeEnum.getByCode(aiFlow.getType());
+            }
         }
 
-        return streamExecuteVersionInternal(version, flowName, inputs, operatorId, orgId, trialFlag);
+        return streamExecuteVersionInternal(version, flowName, flowType, inputs, operatorId, orgId, trialFlag);
     }
 
     private Flux<WorkflowStreamEvent> streamExecuteVersionInternal(AiFlowVersion version,
                                                                    String flowName,
+                                                                   FlowTypeEnum flowType,
                                                                    Map<String, Object> inputs,
                                                                    Long operatorId,
                                                                    Integer orgId,
@@ -452,6 +460,7 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
                         .orgId(orgId)
                         .trialFlag(trialFlag)
                         .flowName(flowName)
+                        .flowType(flowType)
                         .build();
 
                 // 执行工作流并转发事件，完成后更新运行状态

@@ -1,5 +1,6 @@
 package com.iusofts.agentplus.aiflow.utils;
 
+import com.iusofts.agentplus.aiflow.enums.AnswerModeEnum;
 import com.iusofts.agentplus.aiflow.vo.workflow.Edge;
 import com.iusofts.agentplus.aiflow.vo.workflow.Node;
 import com.iusofts.agentplus.aiflow.vo.workflow.Workflow;
@@ -62,12 +63,12 @@ public class WorkflowValidator {
             messages.add(message);
         }
 
-        // 自定义校验：EndNode answerMode=text 时 outputParams 不能有 name=text
+        // 自定义校验：EndNode answerMode=TEXT 时 outputParams 不能有 name=text
         if (nodes != null) {
             for (Node node : nodes) {
                 if (node.getData() instanceof EndNodeData) {
                     EndNodeData endNodeData = (EndNodeData) node.getData();
-                    if ("text".equals(endNodeData.getAnswerMode()) && endNodeData.getOutputParams() != null) {
+                    if (endNodeData.getAnswerMode() == AnswerModeEnum.TEXT && endNodeData.getOutputParams() != null) {
                         for (OutputParam outputParam : endNodeData.getOutputParams()) {
                             if ("text".equals(outputParam.getName())) {
                                 String nodeLabel = resolveNodeLabel(node);

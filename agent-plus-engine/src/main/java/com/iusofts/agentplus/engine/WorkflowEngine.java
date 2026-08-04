@@ -119,7 +119,7 @@ public class WorkflowEngine {
             io.opentelemetry.context.Context rootContext = io.opentelemetry.context.Context.current();
 
             WorkflowExecutionResult result = doExecute(request.getWorkflow(), request.getConfig(), request.getInputs(),
-                    effectiveRunId, request.getFlowId(), request.getOperatorId(), request.getOrgId(), rootContext, null);
+                    effectiveRunId, request.getFlowId(), request.getOperatorId(), request.getOrgId(), request.getFlowType(), rootContext, null);
 
             // 出参载荷
             if (result.getOutput() != null && !result.getOutput().isEmpty()) {
@@ -176,7 +176,7 @@ public class WorkflowEngine {
                     WorkflowStreamEventCallback callback = sink::tryEmitNext;
 
                     WorkflowExecutionResult result = doExecute(request.getWorkflow(), request.getConfig(), request.getInputs(),
-                            effectiveRunId, request.getFlowId(), request.getOperatorId(), request.getOrgId(), rootContext, callback);
+                            effectiveRunId, request.getFlowId(), request.getOperatorId(), request.getOrgId(), request.getFlowType(), rootContext, callback);
 
                     // 推送工作流完成事件
                     sink.tryEmitNext(WorkflowCompleteEvent.create(effectiveRunId, result.getOutput()));
@@ -207,10 +207,11 @@ public class WorkflowEngine {
                                               Long flowId,
                                               Long operatorId,
                                               Integer orgId,
+                                              com.iusofts.agentplus.aiflow.enums.FlowTypeEnum flowType,
                                               io.opentelemetry.context.Context rootContext,
                                               WorkflowStreamEventCallback eventCallback) {
         WorkflowGraphCompiler.Compiled compiled = compiler.compile(workflow);
-        ExecutionContext ctx = new ExecutionContext(runId, config, inputs, flowId, operatorId, orgId);
+        ExecutionContext ctx = new ExecutionContext(runId, config, inputs, flowId, operatorId, orgId, flowType);
         ctx.setRootContext(rootContext);
         compiled.batchSubGraphs().forEach(ctx::registerBatchSubGraph);
 

@@ -1,5 +1,6 @@
 package com.iusofts.agentplus.engine;
 
+import com.iusofts.agentplus.aiflow.enums.FlowTypeEnum;
 import com.iusofts.agentplus.aiflow.vo.workflow.Workflow;
 import com.iusofts.agentplus.aiflow.vo.workflow.config.WorkflowConfig;
 import lombok.AllArgsConstructor;
@@ -66,6 +67,12 @@ public class WorkflowExecuteRequest {
      * 流程名称(可选，用于链路追踪标签)。
      */
     private String flowName;
+
+    /**
+     * 流程类型(可选)。为对话流(CHATFLOW)时,End 节点在 answerMode!=text 时
+     * 会输出兜底"流程未配置回答内容";工作流(WORKFLOW)行为不变。
+     */
+    private FlowTypeEnum flowType;
 
 
     /**
