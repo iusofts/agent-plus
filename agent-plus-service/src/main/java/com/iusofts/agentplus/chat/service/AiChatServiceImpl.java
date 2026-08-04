@@ -636,15 +636,37 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
         final Integer finalOrgId = chatReqVo.getOrgId();
 
         // 8. 创建 Flux 流式响应
+        // 先捕获当前的 OTel Context，供异步线程使用
+        final io.opentelemetry.context.Context capturedContext = io.opentelemetry.context.Context.current();
+
         return Flux.create(sink -> {
             try {
-                // 新建会话时，首事件把 conversationId 推回前端
-                if (finalNewConversation && finalConversationId != null) {
-                    sink.next(ConversationInitEvent.create(runId, finalConversationId));
-                }
+                // 在异步线程中用捕获的 Context 开启新的 root span
+                TraceUtil.span("chat.stream", SpanKind.INTERNAL, capturedContext, span -> {
+                    // 以 OTel traceId 作为 runId，保证 trace 能串起来
+                    String effectiveRunId = span.getSpanContext().isValid()
+                            ? span.getSpanContext().getTraceId()
+                            : runId;
 
-                // 设置调用来源到 Span
-                TraceUtil.setCallSource("CHAT", finalConversationId);
+                    // 设置 span 属性
+                    span.setAttribute("agentId", finalAiAgent.getId() != null ? finalAiAgent.getId() : 0L);
+                    if (finalConversationId != null) {
+                        span.setAttribute("conversationId", finalConversationId);
+                    }
+                    if (finalOperatorId != null) {
+                        span.setAttribute("operatorId", finalOperatorId);
+                    }
+                    if (finalOrgId != null) {
+                        span.setAttribute("orgId", finalOrgId.longValue());
+                    }
+
+                    // 新建会话时，首事件把 conversationId 推回前端
+                    if (finalNewConversation && finalConversationId != null) {
+                        sink.next(ConversationInitEvent.create(effectiveRunId, finalConversationId));
+                    }
+
+                    // 设置调用来源到 Span
+                    TraceUtil.setCallSource("CHAT", finalConversationId);
 
                 // 如果有工具，暂不支持工具调用的流式（工具调用需要同步执行）
                 if (finalToolDefinitions != null && !finalToolDefinitions.isEmpty()) {
@@ -688,7 +710,7 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
                     final List<ToolCallTraceVo> finalToolTraces = toolTraces;
 
                     // 发送完整内容作为一个 LLMTokenEvent (isLast=true)
-                    sink.next(LLMTokenEvent.token(runId, "llm", "llm", "LLM",
+                    sink.next(LLMTokenEvent.token(effectiveRunId, "llm", "llm", "LLM",
                         finalResponse.getContent(), finalResponse.getContent(), true));
 
                     // 构建输出结果
@@ -702,7 +724,7 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
                     }
 
                     // 发送完成事件
-                    sink.next(WorkflowCompleteEvent.create(runId, output));
+                    sink.next(WorkflowCompleteEvent.create(effectiveRunId, output));
 
                     // 保存助手消息和更新会话
                     saveAssistantMessageAndUpdateConversation(finalResponse.getContent(),
@@ -710,6 +732,7 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
                         finalConversation, finalAiAgent, chatReqVo, finalToolTraces, newConversation);
 
                     sink.complete();
+                    return null; // span lambda 需要返回值
                 } else {
                     // 无工具绑定，使用真实流式调用
                     StringBuilder accumulatedContent = new StringBuilder();
@@ -724,7 +747,7 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
                             .build(),
                         token -> {
                             accumulatedContent.append(token);
-                            sink.next(LLMTokenEvent.token(runId, "llm", "llm", "LLM",
+                            sink.next(LLMTokenEvent.token(effectiveRunId, "llm", "llm", "LLM",
                                 token, accumulatedContent.toString(), false));
                         }
                     );
@@ -734,7 +757,7 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
                     final String finalAccumulatedContent = accumulatedContent.toString();
 
                     // 发送最后一个 token 事件
-                    sink.next(LLMTokenEvent.token(runId, "llm", "llm", "LLM",
+                    sink.next(LLMTokenEvent.token(effectiveRunId, "llm", "llm", "LLM",
                         "", finalAccumulatedContent, true));
 
                     // 累加 token
@@ -749,7 +772,7 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
                     output.put("totalTokens", totalTokens[0] + totalTokens[1]);
 
                     // 发送完成事件
-                    sink.next(WorkflowCompleteEvent.create(runId, output));
+                    sink.next(WorkflowCompleteEvent.create(effectiveRunId, output));
 
                     // 保存助手消息和更新会话
                     saveAssistantMessageAndUpdateConversation(finalResponse.getContent(),
@@ -757,7 +780,9 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
                         finalConversation, finalAiAgent, chatReqVo, null, newConversation);
 
                     sink.complete();
+                    return null; // span lambda 需要返回值
                 }
+            });
             } catch (Exception e) {
                 sink.error(e);
             }
