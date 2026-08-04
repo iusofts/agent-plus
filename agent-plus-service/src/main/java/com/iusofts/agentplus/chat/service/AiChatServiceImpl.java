@@ -2,10 +2,15 @@ package com.iusofts.agentplus.chat.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.iusofts.agentplus.aiflow.entity.AiFlow;
+import com.iusofts.agentplus.aiflow.enums.RunStatusEnum;
+import com.iusofts.agentplus.aiflow.interfaces.IAiFlowExecutorService;
+import com.iusofts.agentplus.aiflow.mapper.AiFlowMapper;
 import com.iusofts.agentplus.aiflow.stream.WorkflowStreamEvent;
 import com.iusofts.agentplus.aiflow.stream.ConversationInitEvent;
 import com.iusofts.agentplus.aiflow.stream.LLMTokenEvent;
 import com.iusofts.agentplus.aiflow.stream.WorkflowCompleteEvent;
+import com.iusofts.agentplus.aiflow.vo.FlowExecuteResult;
 import com.iusofts.agentplus.basic.exception.SystemBusinessException;
 import com.iusofts.agentplus.basic.utils.ModelMapperUtil;
 import com.iusofts.agentplus.basic.utils.StringUtils;
@@ -30,6 +35,7 @@ import com.iusofts.agentplus.tool.ToolQueryProvider;
 import com.iusofts.agentplus.tool.dto.ToolDTO;
 import com.iusofts.agentplus.tool.dto.ToolExecuteRequest;
 import com.iusofts.agentplus.tool.dto.ToolExecuteResult;
+import com.iusofts.agentplus.tool.dto.ToolParam;
 import com.iusofts.agentplus.trace.TraceUtil;
 import com.iusofts.agentplus.trace.annotation.TraceSpan;
 import io.opentelemetry.api.trace.SpanKind;
@@ -65,6 +71,8 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
     private AiMessageServiceImpl aiMessageService;
     @Resource
     private AiAgentMapper aiAgentMapper;
+    @Resource
+    private AiFlowMapper aiFlowMapper;
 
     @Resource
     private ChatModelProvider chatModelProvider;
@@ -74,6 +82,8 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
     private ToolRegistry toolRegistry;
     @Resource
     private ToolQueryProvider toolQueryProvider;
+    @Resource
+    private IAiFlowExecutorService aiFlowExecutorService;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -172,7 +182,8 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
 
             // 逐个执行工具，并把结果作为 tool 消息回填
             for (ToolCall toolCall : response.getToolCalls()) {
-                ToolCallTraceVo trace = executeToolCall(toolCall, toolNameToId, msgList);
+                ToolCallTraceVo trace = executeToolCall(toolCall, toolNameToId, msgList,
+                    aiAgent, reqVo.getOperatorId(), reqVo.getOrgId());
                 toolTraces.add(trace);
             }
         }
@@ -326,83 +337,147 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
     }
 
     /**
-     * 根据智能体绑定的 toolIds 构建下发给模型的工具规格列表（过滤禁用工具）。
+     * 根据智能体绑定的 toolIds 和 workflowIds 构建下发给模型的工具规格列表（过滤禁用工具）。
      */
     private List<ToolDefinition> buildToolDefinitions(AiAgent aiAgent) {
-        if (aiAgent == null || CollectionUtils.isEmpty(aiAgent.getToolIds())) {
-            return null;
-        }
         List<ToolDefinition> definitions = new ArrayList<>();
-        for (Long toolId : aiAgent.getToolIds()) {
-            if (toolId == null) {
-                continue;
+
+        // 添加普通工具
+        if (aiAgent != null && CollectionUtils.isNotEmpty(aiAgent.getToolIds())) {
+            for (Long toolId : aiAgent.getToolIds()) {
+                if (toolId == null) continue;
+                ToolDTO tool = toolQueryProvider.getById(toolId);
+                if (tool == null || tool.getStatus() == null || tool.getStatus() != 1) continue;
+                definitions.add(ToolDefinition.builder()
+                    .name(tool.getName())
+                    .description(tool.getDescription())
+                    .parameters(tool.getParamsSchema())
+                    .build());
             }
-            ToolDTO tool = toolQueryProvider.getById(toolId);
-            if (tool == null || tool.getStatus() == null || tool.getStatus() != 1) {
-                continue;
-            }
-            definitions.add(ToolDefinition.builder()
-                .name(tool.getName())
-                .description(tool.getDescription())
-                .parameters(tool.getParamsSchema())
-                .build());
         }
+
+        // 添加工作流工具
+        if (aiAgent != null && CollectionUtils.isNotEmpty(aiAgent.getWorkflowIds())) {
+            for (Long workflowId : aiAgent.getWorkflowIds()) {
+                if (workflowId == null) continue;
+                AiFlow flow = aiFlowMapper.selectById(workflowId);
+                if (flow == null || flow.getStatus() == null || flow.getStatus() != 1) continue;
+
+                definitions.add(ToolDefinition.builder()
+                    .name("workflow_" + workflowId)
+                    .description(flow.getDescription() != null ? flow.getDescription() : "执行工作流: " + flow.getName())
+                    .parameters(buildWorkflowParamsSchema())
+                    .build());
+            }
+        }
+
         return definitions.isEmpty() ? null : definitions;
     }
 
     /**
+     * 构建工作流参数列表。
+     */
+    private List<ToolParam> buildWorkflowParamsSchema() {
+        ToolParam queryParam = new ToolParam();
+        queryParam.setName("query");
+        queryParam.setDescription("用户输入/查询内容");
+        queryParam.setType("String");
+        queryParam.setRequired(true);
+        queryParam.setEnabled(true);
+        return List.of(queryParam);
+    }
+
+    /**
      * 构建工具名称到工具 ID 的映射，用于将模型返回的工具名解析回 toolId 以便执行。
+     * 用负数表示 workflowId 以区分普通工具。
      */
     private Map<String, Long> buildToolNameToIdMap(AiAgent aiAgent) {
         Map<String, Long> map = new HashMap<>();
-        if (aiAgent == null || CollectionUtils.isEmpty(aiAgent.getToolIds())) {
-            return map;
-        }
-        for (Long toolId : aiAgent.getToolIds()) {
-            if (toolId == null) {
-                continue;
+
+        // 普通工具
+        if (aiAgent != null && CollectionUtils.isNotEmpty(aiAgent.getToolIds())) {
+            for (Long toolId : aiAgent.getToolIds()) {
+                if (toolId == null) continue;
+                ToolDTO tool = toolQueryProvider.getById(toolId);
+                if (tool == null || tool.getStatus() == null || tool.getStatus() != 1) continue;
+                map.put(tool.getName(), toolId);
             }
-            ToolDTO tool = toolQueryProvider.getById(toolId);
-            if (tool == null || tool.getStatus() == null || tool.getStatus() != 1) {
-                continue;
-            }
-            map.put(tool.getName(), toolId);
         }
+
+        // 工作流工具（用负数区分）
+        if (aiAgent != null && CollectionUtils.isNotEmpty(aiAgent.getWorkflowIds())) {
+            for (Long workflowId : aiAgent.getWorkflowIds()) {
+                if (workflowId == null) continue;
+                AiFlow flow = aiFlowMapper.selectById(workflowId);
+                if (flow == null || flow.getStatus() == null || flow.getStatus() != 1) continue;
+                map.put("workflow_" + workflowId, -workflowId);
+            }
+        }
+
         return map;
     }
 
     /**
      * 执行一次模型请求的工具调用，将结果作为 tool 消息追加到上下文，并返回可展示的调用轨迹。
      */
-    private ToolCallTraceVo executeToolCall(ToolCall toolCall, Map<String, Long> toolNameToId, List<AiChatMessage> msgList) {
+    private ToolCallTraceVo executeToolCall(ToolCall toolCall, Map<String, Long> toolNameToId, List<AiChatMessage> msgList,
+                                             AiAgent aiAgent, Long operatorId, Integer orgId) {
         ToolCallTraceVo trace = new ToolCallTraceVo();
         trace.setToolName(toolCall.getName());
 
         Map<String, Object> params = parseArguments(toolCall.getArguments());
         trace.setArguments(params);
 
-        Long toolId = toolNameToId.get(toolCall.getName());
-        ToolExecuteResult result;
-        if (toolId == null) {
-            result = ToolExecuteResult.error("未找到工具: " + toolCall.getName());
-        } else {
-            trace.setToolId(toolId);
-            result = toolRegistry.execute(ToolExecuteRequest.builder()
-                .toolId(toolId)
-                .params(params)
-                .build());
-        }
+        Long idOrNegativeWorkflowId = toolNameToId.get(toolCall.getName());
 
-        trace.setSuccess(result.isSuccess());
-        trace.setResult(result.getData());
-        trace.setErrorMessage(result.getErrorMessage());
+        // 判断是普通工具还是工作流（负数表示工作流）
+        if (idOrNegativeWorkflowId != null && idOrNegativeWorkflowId < 0) {
+            // 工作流调用
+            Long workflowId = -idOrNegativeWorkflowId;
+            trace.setToolId(workflowId);
+
+            try {
+                Map<String, Object> inputs = new HashMap<>();
+                inputs.putAll(params);
+                inputs.put("agentId", aiAgent.getId());
+                inputs.put("operatorId", operatorId);
+
+                FlowExecuteResult result = aiFlowExecutorService.executeFlow(workflowId, inputs, operatorId, orgId, 0);
+
+                trace.setSuccess(result.getRunStatus() == RunStatusEnum.SUCCESS.getCode());
+                trace.setResult(result.getOutput());
+                if (!trace.isSuccess()) {
+                    trace.setErrorMessage(result.getErrorMsg());
+                }
+            } catch (Exception e) {
+                trace.setSuccess(false);
+                trace.setErrorMessage("工作流执行异常: " + e.getMessage());
+            }
+        } else {
+            // 普通工具调用
+            Long toolId = idOrNegativeWorkflowId;
+            ToolExecuteResult result;
+            if (toolId == null) {
+                result = ToolExecuteResult.error("未找到工具: " + toolCall.getName());
+            } else {
+                trace.setToolId(toolId);
+                result = toolRegistry.execute(ToolExecuteRequest.builder()
+                    .toolId(toolId)
+                    .params(params)
+                    .build());
+            }
+
+            trace.setSuccess(result.isSuccess());
+            trace.setResult(result.getData());
+            trace.setErrorMessage(result.getErrorMessage());
+        }
 
         // 回填工具执行结果，供模型下一轮推理
         msgList.add(AiChatMessage.builder()
             .role("tool")
             .toolCallId(toolCall.getId())
             .name(toolCall.getName())
-            .content(serializeToolResult(result))
+            .content(serializeToolResult(trace.isSuccess(), trace.getResult(), trace.getErrorMessage()))
             .build());
 
         return trace;
@@ -424,7 +499,7 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
     }
 
     /**
-     * 将工具执行结果序列化为回填给模型的文本。
+     * 将工具执行结果序列化为回填给模型的文本（兼容旧方法）。
      */
     private String serializeToolResult(ToolExecuteResult result) {
         try {
@@ -435,6 +510,21 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
         } catch (Exception e) {
             log.warn("序列化工具执行结果失败", e);
             return String.valueOf(result.getData());
+        }
+    }
+
+    /**
+     * 将执行结果序列化为回填给模型的文本（通用版本）。
+     */
+    private String serializeToolResult(boolean success, Object data, String errorMessage) {
+        try {
+            if (success) {
+                return objectMapper.writeValueAsString(data);
+            }
+            return "执行失败: " + errorMessage;
+        } catch (Exception e) {
+            log.warn("序列化执行结果失败", e);
+            return String.valueOf(data);
         }
     }
 
@@ -542,6 +632,8 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
         final AiAgent finalAiAgent = aiAgent;
         final Long finalConversationId = conversation != null ? conversation.getId() : null;
         final boolean finalNewConversation = newConversation;
+        final Long finalOperatorId = chatReqVo.getOperatorId();
+        final Integer finalOrgId = chatReqVo.getOrgId();
 
         // 8. 创建 Flux 流式响应
         return Flux.create(sink -> {
@@ -585,7 +677,8 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
                             .build());
 
                         for (ToolCall toolCall : response.getToolCalls()) {
-                            ToolCallTraceVo trace = executeToolCall(toolCall, toolNameToId, loopMsgList);
+                            ToolCallTraceVo trace = executeToolCall(toolCall, toolNameToId, loopMsgList,
+                                finalAiAgent, finalOperatorId, finalOrgId);
                             toolTraces.add(trace);
                         }
                     }
