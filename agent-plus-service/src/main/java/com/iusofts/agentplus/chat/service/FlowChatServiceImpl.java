@@ -355,9 +355,13 @@ public class FlowChatServiceImpl implements IAiChatServiceInterface {
         }
 
         // 7. 返回事件流。新建会话时,首事件把 conversationId 推回前端;
-        //    流完成后保存会话;workflow_complete 事件到达时入库助手消息(End + 各 Output 节点)
+        //    新建会话场景下,先持久化会话再发首事件,保证前端收到 conversation_init
+        //    事件后立即刷新会话列表就能查到该会话(否则会出现"事件已到但接口查不到"的竞态);
+        //    workflow_complete 事件到达时入库助手消息(End + 各 Output 节点)
         //    注:workflow_complete 携带的 finalOutput 含 End 节点的 text 和 outputs 数组(每个 Output 一条)
         if (isNewConversation && finalConversation.getId() != null) {
+            // 先持久化会话,让前端 conversation_init → 刷新会话列表 的链路能立即看到
+            aiConversationService.save(finalConversation);
             String initRunId = String.valueOf(idService.generateUid(UidTypeEnum.CHAT));
             Flux<WorkflowStreamEvent> withInit = Flux.concat(
                 Flux.just(ConversationInitEvent.create(initRunId, finalConversation.getId())),
@@ -366,7 +370,8 @@ public class FlowChatServiceImpl implements IAiChatServiceInterface {
             return withInit
                     .doOnNext(event -> handleStreamEventForPersist(event, finalConversation, aiAgent, chatReqVo))
                     .doOnComplete(() -> {
-                        aiConversationService.save(finalConversation);
+                        // 会话已在上面 save,这里只 update 增量字段(rounds/lastChatTime 等)
+                        aiConversationService.updateById(finalConversation);
                     });
         }
         return stream

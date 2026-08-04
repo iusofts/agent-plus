@@ -510,6 +510,12 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
         }
         final AiConversation finalConversation = conversation;
 
+        // 5.1 新建会话场景下立即持久化,保证前端收到 conversation_init 事件后
+        //     立即刷新会话列表就能查到该会话(避免"事件已到但接口查不到"的竞态)
+        if (newConversation) {
+            aiConversationService.save(finalConversation);
+        }
+
         // 6. 先保存用户消息
         if (StringUtils.isNotBlank(chatReqVo.getContent())) {
             AiMessageVo userMsg = new AiMessageVo();
@@ -666,7 +672,10 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
     }
 
     /**
-     * 保存助手消息和更新会话
+     * 保存助手消息和更新会话。
+     * <p>新建会话的场景下,会话已在 streamChat 入口处先 save 一次(让前端
+     * 收到 conversation_init 后能立即查到),这里只 update 增量字段;
+     * 已有会话场景下同样只 update。</p>
      */
     private void saveAssistantMessageAndUpdateConversation(String content, Integer inputTokens, Integer outputTokens, Integer totalTokens,
                                                            AiConversation conversation, AiAgent aiAgent, AiServiceChatReqVo chatReqVo,
@@ -692,15 +701,11 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
         aiMessage.setOrgId(chatReqVo.getOrgId());
         aiMessageService.save(aiMessage);
 
-        // 更新会话
+        // 更新会话(新建会话已先 save,这里只 update 增量字段;newConversation 参数保留以兼容未来扩展)
         int rounds = conversation.getCurrentRounds() == null ? 0 : conversation.getCurrentRounds();
         conversation.setCurrentRounds(rounds + 1);
         conversation.setUpdateTime(LocalDateTime.now());
         conversation.setLastChatTime(LocalDateTime.now());
-        if (newConversation) {
-            aiConversationService.save(conversation);
-        } else {
-            aiConversationService.updateById(conversation);
-        }
+        aiConversationService.updateById(conversation);
     }
 }
