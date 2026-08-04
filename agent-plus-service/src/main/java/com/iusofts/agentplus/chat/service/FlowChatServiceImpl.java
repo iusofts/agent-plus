@@ -8,6 +8,7 @@ import com.iusofts.agentplus.aiflow.interfaces.IAiFlowExecutorService;
 import com.iusofts.agentplus.aiflow.mapper.AiFlowMapper;
 import com.iusofts.agentplus.aiflow.stream.WorkflowStreamEvent;
 import com.iusofts.agentplus.aiflow.stream.ConversationInitEvent;
+import com.iusofts.agentplus.aiflow.stream.WorkflowCompleteEvent;
 import com.iusofts.agentplus.aiflow.vo.FlowExecuteResult;
 import com.iusofts.agentplus.ailog.entity.AiKnowledgeRetrievalLog;
 import com.iusofts.agentplus.ailog.entity.AiLlmCallLog;
@@ -149,66 +150,21 @@ public class FlowChatServiceImpl implements IAiChatServiceInterface {
         int outputTokens = tokens[1];
         int totalTokens = tokens[2];
 
-        // 6. 构建返回结果(End 节点 + N 个 Output 节点 → 多条独立消息)
+        // 6. 构建返回结果:取 End 节点的 text 作为返回值 resultMessage(给前端展示)
+        //    实际的入库逻辑(End + 各 Output 节点)委托给 saveAssistantMessages
+        //    无 text 时不兜底,content 留空(让前端知道没有内容)
         Map<String, Object> output = executeResult.getOutput();
-        List<AiMessageVo> assistantMessages = new ArrayList<>();
-
-        // 6.1 End 节点的消息(finalOutput.text = End 节点的 text,带 tokens)
+        AiMessageVo resultMessage = new AiMessageVo();
+        resultMessage.setRole("assistant");
+        resultMessage.setAgentId(agentId);
         if (output.containsKey("text")) {
-            AiMessageVo endMsg = new AiMessageVo();
-            endMsg.setRole("assistant");
-            endMsg.setAgentId(agentId);
-            Object textObj = output.get("text");
-            endMsg.setContent(textObj != null ? textObj.toString() : "");
-            endMsg.setInputTokens(inputTokens);
-            endMsg.setOutputTokens(outputTokens);
-            endMsg.setTotalTokens(totalTokens);
-            assistantMessages.add(endMsg);
+            resultMessage.setContent(String.valueOf(output.get("text")));
         }
+        resultMessage.setInputTokens(inputTokens);
+        resultMessage.setOutputTokens(outputTokens);
+        resultMessage.setTotalTokens(totalTokens);
 
-        // 6.2 Output 节点的消息(每个 Output 节点各入库一条,顺序为执行顺序)
-        if (output.containsKey("outputs")) {
-            Object outputsObj = output.get("outputs");
-            if (outputsObj instanceof List) {
-                List<?> outputs = (List<?>) outputsObj;
-                for (Object entry : outputs) {
-                    if (entry instanceof Map) {
-                        Map<?, ?> entryMap = (Map<?, ?>) entry;
-                        Object textObj = entryMap.get("text");
-                        if (textObj != null) {
-                            AiMessageVo outMsg = new AiMessageVo();
-                            outMsg.setRole("assistant");
-                            outMsg.setAgentId(agentId);
-                            outMsg.setContent(String.valueOf(textObj));
-                            // Output 节点不携带 tokens(End 节点汇总的 tokens 已写在 End 消息上)
-                            assistantMessages.add(outMsg);
-                        }
-                    }
-                }
-            }
-        }
-
-        // 6.3 兜底:finalOutput 既无 text 也无 outputs 时,序列化整个 output 作为单条消息
-        if (assistantMessages.isEmpty()) {
-            AiMessageVo fallback = new AiMessageVo();
-            fallback.setRole("assistant");
-            fallback.setAgentId(agentId);
-            try {
-                fallback.setContent(objectMapper.writeValueAsString(output));
-            } catch (Exception e) {
-                log.warn("序列化输出结果失败", e);
-                fallback.setContent(output.toString());
-            }
-            fallback.setInputTokens(inputTokens);
-            fallback.setOutputTokens(outputTokens);
-            fallback.setTotalTokens(totalTokens);
-            assistantMessages.add(fallback);
-        }
-
-        // 取第一条作为返回值(对外返回的 resultMessage,前端展示)
-        AiMessageVo resultMessage = assistantMessages.get(0);
-
-        // 7. 落库：会话、用户消息、助手回复(可能多条)
+        // 7. 落库：会话、用户消息、助手回复(End + 各 Output 节点,委托给 saveAssistantMessages)
         if (newConversation) {
             conversation = new AiConversation();
             conversation.setId(idService.generateUid(UidTypeEnum.CHAT).longValue());
@@ -237,20 +193,10 @@ public class FlowChatServiceImpl implements IAiChatServiceInterface {
             userAiMessage.setOrgId(reqVo.getOrgId());
             newMessageList.add(userAiMessage);
         }
-
-        // 保存助手回复消息(可能多条:End + 各 Output)
-        for (AiMessageVo assistantMsg : assistantMessages) {
-            assistantMsg.setConversationId(conversation.getId());
-            AiMessage aiMessage = ModelMapperUtil.strictMap(assistantMsg, AiMessage.class);
-            aiMessage.setId(idService.generateUid(UidTypeEnum.CHAT).longValue());
-            aiMessage.setConversationId(conversation.getId());
-            aiMessage.setAgentId(aiAgent.getId());
-            aiMessage.setCreateBy(reqVo.getOperatorId());
-            aiMessage.setOrgId(reqVo.getOrgId());
-            newMessageList.add(aiMessage);
-        }
-
         aiMessageService.saveBatch(newMessageList);
+
+        // 保存助手回复消息(End 节点 + 各 Output 节点)——委托给 saveAssistantMessages
+        saveAssistantMessages(conversation, aiAgent, reqVo, traceId, output);
 
         // 更新会话
         int rounds = conversation.getCurrentRounds() == null ? 0 : conversation.getCurrentRounds();
@@ -393,24 +339,130 @@ public class FlowChatServiceImpl implements IAiChatServiceInterface {
             trialFlag
         );
 
-        // 7. 返回事件流。新建会话时，首事件把 conversationId 推回前端；
-        //    流完成后保存会话和助手消息
+        // 7. 返回事件流。新建会话时,首事件把 conversationId 推回前端;
+        //    流完成后保存会话;workflow_complete 事件到达时入库助手消息(End + 各 Output 节点)
+        //    注:workflow_complete 携带的 finalOutput 含 End 节点的 text 和 outputs 数组(每个 Output 一条)
         if (isNewConversation && finalConversation.getId() != null) {
             String initRunId = String.valueOf(idService.generateUid(UidTypeEnum.CHAT));
             Flux<WorkflowStreamEvent> withInit = Flux.concat(
                 Flux.just(ConversationInitEvent.create(initRunId, finalConversation.getId())),
                 stream
             );
-            return withInit.doOnComplete(() -> {
-                aiConversationService.save(finalConversation);
-                // 保存助手消息将在第二阶段实现，因为我们需要从 WorkflowCompleteEvent 中的结果
-            });
+            return withInit
+                    .doOnNext(event -> handleStreamEventForPersist(event, finalConversation, aiAgent, chatReqVo))
+                    .doOnComplete(() -> {
+                        aiConversationService.save(finalConversation);
+                    });
         }
-        return stream.doOnComplete(() -> {
-            // 保存会话
-            aiConversationService.updateById(finalConversation);
-            // 保存助手消息将在第二阶段实现，因为我们需要从 WorkflowCompleteEvent 中的结果
-        });
+        return stream
+                .doOnNext(event -> handleStreamEventForPersist(event, finalConversation, aiAgent, chatReqVo))
+                .doOnComplete(() -> {
+                    aiConversationService.updateById(finalConversation);
+                });
+    }
+
+    /**
+     * 流式事件拦截:workflow_complete 事件到达时入库助手消息(End 节点 + 各 Output 节点)。
+     * 注:每个工作流执行只会触发一次 workflow_complete,所以入库是幂等的。
+     */
+    private void handleStreamEventForPersist(WorkflowStreamEvent event,
+                                              AiConversation conversation,
+                                              AiAgent aiAgent,
+                                              AiServiceChatReqVo reqVo) {
+        if (!(event instanceof WorkflowCompleteEvent)) {
+            return;
+        }
+        WorkflowCompleteEvent completeEvent = (WorkflowCompleteEvent) event;
+        Map<String, Object> output = completeEvent.getOutput();
+        if (output == null) {
+            return;
+        }
+        // runId / traceId 用于 token 统计
+        String runId = completeEvent.getRunId();
+        if (runId == null) {
+            runId = completeEvent.getTraceId();
+        }
+        saveAssistantMessages(conversation, aiAgent, reqVo, runId, output);
+    }
+
+    /**
+     * 入库助手消息(各 Output 节点先,End 节点后,按执行顺序):
+     * - finalOutput.outputs[].text → 各 1 条(Output 节点,按数组顺序 = 执行顺序)
+     * - finalOutput.text → 1 条(End 节点,带 tokens)
+     * - 既无 text 也无 outputs 时,不兜底,只 log warn(由上层处理)
+     *
+     * @param runId traceId/runId(用于 token 统计)
+     */
+    private void saveAssistantMessages(AiConversation conversation,
+                                        AiAgent aiAgent,
+                                        AiServiceChatReqVo reqVo,
+                                        String runId,
+                                        Map<String, Object> output) {
+        int inputTokens = 0;
+        int outputTokens = 0;
+        int totalTokens = 0;
+        if (runId != null) {
+            int[] tokens = countTokensByTraceId(runId);
+            inputTokens = tokens[0];
+            outputTokens = tokens[1];
+            totalTokens = tokens[2];
+        }
+
+        List<AiMessageVo> assistantVos = new ArrayList<>();
+
+        // 1. Output 节点的消息(各一条,按 finalOutput.outputs 数组顺序 = 执行顺序)
+        if (output.containsKey("outputs")) {
+            Object outputsObj = output.get("outputs");
+            if (outputsObj instanceof List) {
+                List<?> outputs = (List<?>) outputsObj;
+                for (Object entry : outputs) {
+                    if (entry instanceof Map) {
+                        Map<?, ?> entryMap = (Map<?, ?>) entry;
+                        Object textObj = entryMap.get("text");
+                        if (textObj != null) {
+                            AiMessageVo outMsg = new AiMessageVo();
+                            outMsg.setRole("assistant");
+                            outMsg.setAgentId(aiAgent.getId());
+                            outMsg.setContent(String.valueOf(textObj));
+                            // Output 节点不携带 tokens(End 节点汇总的 tokens 写在 End 消息上)
+                            assistantVos.add(outMsg);
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. End 节点的消息(finalOutput.text,带 tokens)—— 排在 Output 之后
+        if (output.containsKey("text")) {
+            AiMessageVo endMsg = new AiMessageVo();
+            endMsg.setRole("assistant");
+            endMsg.setAgentId(aiAgent.getId());
+            Object textObj = output.get("text");
+            endMsg.setContent(textObj != null ? textObj.toString() : "");
+            endMsg.setInputTokens(inputTokens);
+            endMsg.setOutputTokens(outputTokens);
+            endMsg.setTotalTokens(totalTokens);
+            assistantVos.add(endMsg);
+        }
+
+        // 3. 既无 text 也无 outputs 时,不兜底,只 log warn(由上层处理;正常流程不会出现)
+        if (assistantVos.isEmpty()) {
+            log.warn("[FlowChatServiceImpl] saveAssistantMessages: finalOutput 既无 text 也无 outputs," +
+                    "不执行入库.runId={}, output={}", runId, output);
+            return;
+        }
+
+        // 4. 逐条入库(顺序保持:Output 在前,End 在后)
+        for (AiMessageVo vo : assistantVos) {
+            vo.setConversationId(conversation.getId());
+            AiMessage aiMessage = ModelMapperUtil.strictMap(vo, AiMessage.class);
+            aiMessage.setId(idService.generateUid(UidTypeEnum.CHAT).longValue());
+            aiMessage.setConversationId(conversation.getId());
+            aiMessage.setAgentId(aiAgent.getId());
+            aiMessage.setCreateBy(reqVo.getOperatorId());
+            aiMessage.setOrgId(reqVo.getOrgId());
+            aiMessageService.save(aiMessage);
+        }
     }
 
 }
