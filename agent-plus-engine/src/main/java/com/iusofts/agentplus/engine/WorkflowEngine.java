@@ -1,5 +1,6 @@
 package com.iusofts.agentplus.engine;
 
+import com.iusofts.agentplus.aiflow.enums.FlowNodeType;
 import com.iusofts.agentplus.aiflow.vo.workflow.Node;
 import com.iusofts.agentplus.aiflow.vo.workflow.Workflow;
 import com.iusofts.agentplus.aiflow.vo.workflow.config.WorkflowConfig;
@@ -267,6 +268,9 @@ public class WorkflowEngine {
                                                   Workflow workflow,
                                                   ExecutionContext ctx) {
         Map<String, Object> merged = new LinkedHashMap<>();
+
+        // 1. 合并 End 节点:text 直接作为 finalOutput.text(原行为);
+        //    其他字段(inputTokens/outputTokens 等)直接合并。
         for (Node n : workflow.getNodes()) {
             if (!endNodeIds.contains(n.getId())) {
                 continue;
@@ -275,9 +279,34 @@ public class WorkflowEngine {
                 continue;
             }
             NodeOutput out = ctx.getOutput(n.getId());
-            if (out != null) {
+            if (out != null && out.getOutputs() != null) {
                 merged.putAll(out.getOutputs());
             }
+        }
+
+        // 2. 合并 Output 节点:每个 Output 节点作为独立消息条目放进 finalOutput.outputs 数组
+        //    (供 ChatService 收到 workflow_complete 时各入库一条 ai_message);
+        //    Output 节点内容<b>不</b>覆盖 finalOutput.text(End 节点的 text)。
+        java.util.List<Map<String, Object>> outputs = new java.util.ArrayList<>();
+        for (Node n : workflow.getNodes()) {
+            if (!FlowNodeType.OUTPUT.getCode().equalsIgnoreCase(n.getType())) {
+                continue;
+            }
+            if (ctx.getStatus(n.getId()) != NodeExecutionStatus.SUCCESS) {
+                continue;
+            }
+            NodeOutput out = ctx.getOutput(n.getId());
+            if (out == null || out.getOutputs() == null) {
+                continue;
+            }
+            Map<String, Object> entry = new LinkedHashMap<>();
+            entry.put("nodeId", n.getId());
+            entry.put("nodeName", n.getData() == null ? null : n.getData().getLabel());
+            entry.putAll(out.getOutputs());
+            outputs.add(entry);
+        }
+        if (!outputs.isEmpty()) {
+            merged.put("outputs", outputs);
         }
         return merged;
     }
