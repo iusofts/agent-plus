@@ -74,7 +74,7 @@ public class KnowledgeIngestionService {
     @Resource
     private LlmLogRecorder llmLogRecorder;
 
-    @TraceSpan(name = "knowledge.index", kind = SpanKind.INTERNAL)
+    @TraceSpan(name = "knowledge.index", label = "处理文档", kind = SpanKind.INTERNAL)
     public void process(Long documentId) {
         String lockKey = LOCK_PREFIX + documentId;
         if (!redisLock.tryLock(lockKey, LOCK_EXPIRE_SECONDS, TimeUnit.SECONDS)) {

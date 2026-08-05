@@ -96,7 +96,7 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
     private static final int MAX_TOOL_ITERATIONS = 5;
 
     @Override
-    @TraceSpan(name = "chat.agent", kind = SpanKind.SERVER)
+    @TraceSpan(name = "chat.agent", label = "发送聊天消息", kind = SpanKind.SERVER)
     public AiMessageVo chat(AiServiceChatReqVo reqVo) {
         // 1. 确定智能体与会话
         Long agentId = reqVo.getAgentId();
@@ -531,6 +531,7 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
     }
 
     @Override
+    @TraceSpan(name = "chat.stream.agent", label = "发送聊天消息(流式)", kind = SpanKind.SERVER)
     public Flux<WorkflowStreamEvent> streamChat(AiServiceChatReqVo chatReqVo) {
         // 1. 确定智能体与会话
         Long agentId = chatReqVo.getAgentId();
@@ -643,7 +644,7 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
 
         return Flux.create(sink -> {
             try {
-                // 在异步线程中用捕获的 Context 开启新的 root span
+                // 在异步线程中以捕获的父 Context 创建子 span（保持与同步阶段同一 traceId）
                 TraceUtil.span("chat.stream", SpanKind.INTERNAL, capturedContext, span -> {
                     // 以 OTel traceId 作为 runId，保证 trace 能串起来
                     String effectiveRunId = span.getSpanContext().isValid()
