@@ -51,6 +51,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static com.iusofts.agentplus.trace.TraceUtil.ATTR_LABEL;
+
 /**
  * AI 服务实现。
  *
@@ -649,6 +651,7 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
                             : runId;
 
                     // 设置 span 属性
+                    span.setAttribute(ATTR_LABEL, finalConversation.getTitle());
                     span.setAttribute("agentId", finalAiAgent.getId() != null ? finalAiAgent.getId() : 0L);
                     if (finalConversationId != null) {
                         span.setAttribute("conversationId", finalConversationId);
