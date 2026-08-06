@@ -98,6 +98,7 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
     @Override
     @TraceSpan(name = "chat.agent", label = "发送聊天消息", kind = SpanKind.SERVER)
     public AiMessageVo chat(AiServiceChatReqVo reqVo) {
+        TraceUtil.setOperator(reqVo.getOperatorId(), reqVo.getOrgId());
         // 1. 确定智能体与会话
         Long agentId = reqVo.getAgentId();
         AiConversation conversation = null;
@@ -531,6 +532,7 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
     @Override
     @TraceSpan(name = "chat.stream.agent", label = "发送聊天消息(流式)", kind = SpanKind.SERVER)
     public Flux<WorkflowStreamEvent> streamChat(AiServiceChatReqVo chatReqVo) {
+        TraceUtil.setOperator(chatReqVo.getOperatorId(), chatReqVo.getOrgId());
         // 1. 确定智能体与会话
         Long agentId = chatReqVo.getAgentId();
         AiConversation conversation = null;

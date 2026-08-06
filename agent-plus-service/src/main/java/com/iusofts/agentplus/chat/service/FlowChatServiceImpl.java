@@ -30,6 +30,9 @@ import com.iusofts.agentplus.id.service.IdService;
 import com.iusofts.agentplus.id.service.IdService.UidTypeEnum;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.iusofts.agentplus.trace.TraceUtil;
+import com.iusofts.agentplus.trace.annotation.TraceSpan;
+import io.opentelemetry.api.trace.SpanKind;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -71,7 +74,9 @@ public class FlowChatServiceImpl implements IAiChatServiceInterface {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
+    @TraceSpan(name = "chat.stream.agent", label = "发送聊天消息(对话流)", kind = SpanKind.SERVER)
     public AiMessageVo chat(AiServiceChatReqVo reqVo) {
+        TraceUtil.setOperator(reqVo.getOperatorId(), reqVo.getOrgId());
         // 1. 确定智能体与会话
         Long agentId = reqVo.getAgentId();
         AiConversation conversation = null;
