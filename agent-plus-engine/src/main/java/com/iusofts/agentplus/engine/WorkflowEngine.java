@@ -1,40 +1,30 @@
 package com.iusofts.agentplus.engine;
 
+import com.alibaba.fastjson2.JSON;
 import com.iusofts.agentplus.aiflow.enums.FlowNodeType;
+import com.iusofts.agentplus.aiflow.stream.WorkflowCompleteEvent;
+import com.iusofts.agentplus.aiflow.stream.WorkflowStreamEvent;
 import com.iusofts.agentplus.aiflow.vo.workflow.Node;
 import com.iusofts.agentplus.aiflow.vo.workflow.Workflow;
 import com.iusofts.agentplus.aiflow.vo.workflow.config.WorkflowConfig;
-import com.iusofts.agentplus.aiflow.stream.WorkflowCompleteEvent;
-import com.iusofts.agentplus.aiflow.stream.WorkflowStreamEvent;
 import com.iusofts.agentplus.engine.context.ExecutionContext;
 import com.iusofts.agentplus.engine.context.NodeExecutionStatus;
 import com.iusofts.agentplus.engine.context.NodeOutput;
 import com.iusofts.agentplus.engine.exception.WorkflowExecutionException;
 import com.iusofts.agentplus.engine.executor.NodeExecutor;
 import com.iusofts.agentplus.engine.executor.NodeExecutorRegistry;
-import com.iusofts.agentplus.engine.executor.impl.AggregatorNodeExecutor;
-import com.iusofts.agentplus.engine.executor.impl.BatchNodeExecutor;
-import com.iusofts.agentplus.engine.executor.impl.CodeNodeExecutor;
-import com.iusofts.agentplus.engine.executor.impl.ConditionNodeExecutor;
-import com.iusofts.agentplus.engine.executor.impl.EndNodeExecutor;
-import com.iusofts.agentplus.engine.executor.impl.KnowledgeNodeExecutor;
-import com.iusofts.agentplus.engine.executor.impl.LLMNodeExecutor;
-import com.iusofts.agentplus.engine.executor.impl.OutputNodeExecutor;
-import com.iusofts.agentplus.engine.executor.impl.StartNodeExecutor;
-import com.iusofts.agentplus.engine.executor.impl.ToolNodeExecutor;
-import com.iusofts.agentplus.engine.history.HistoryMessageProvider;
-import com.iusofts.agentplus.engine.stream.WorkflowStreamEventCallback;
-import com.iusofts.agentplus.engine.tool.ToolRegistry;
-import com.iusofts.agentplus.tool.ToolQueryProvider;
+import com.iusofts.agentplus.engine.executor.impl.*;
 import com.iusofts.agentplus.engine.graph.ExecutionContextTracker;
 import com.iusofts.agentplus.engine.graph.WorkflowGraphCompiler;
 import com.iusofts.agentplus.engine.graph.WorkflowState;
+import com.iusofts.agentplus.engine.history.HistoryMessageProvider;
 import com.iusofts.agentplus.engine.knowledge.KnowledgeRetriever;
 import com.iusofts.agentplus.engine.knowledge.NoopKnowledgeRetriever;
 import com.iusofts.agentplus.engine.llm.ChatModelProvider;
+import com.iusofts.agentplus.engine.stream.WorkflowStreamEventCallback;
+import com.iusofts.agentplus.engine.tool.ToolRegistry;
+import com.iusofts.agentplus.tool.ToolQueryProvider;
 import com.iusofts.agentplus.trace.TraceUtil;
-import com.alibaba.fastjson2.JSON;
-import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanKind;
 import org.bsc.langgraph4j.CompiledGraph;
 import org.slf4j.Logger;
@@ -44,10 +34,9 @@ import reactor.core.publisher.Sinks;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
-import static com.iusofts.agentplus.trace.TraceUtil.ATTR_LABEL;
+import static com.iusofts.agentplus.trace.constants.TraceConstant.ATTR_LABEL;
 
 /**
  * 工作流执行引擎入口。

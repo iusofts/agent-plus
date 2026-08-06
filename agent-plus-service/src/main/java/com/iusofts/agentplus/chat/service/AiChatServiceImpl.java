@@ -51,7 +51,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static com.iusofts.agentplus.trace.TraceUtil.ATTR_LABEL;
+import static com.iusofts.agentplus.trace.constants.TraceConstant.ATTR_LABEL;
+
 
 /**
  * AI 服务实现。

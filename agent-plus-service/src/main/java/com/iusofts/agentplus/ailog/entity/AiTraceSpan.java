@@ -73,6 +73,9 @@ public class AiTraceSpan implements Serializable {
     @Schema(description = "组织ID")
     private Integer orgId;
 
+    @Schema(description = "操作人")
+    private Long operatorId;
+
     @Schema(description = "试运行标记 0:正式 1:试运行")
     private Integer trialFlag;
 

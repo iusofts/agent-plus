@@ -21,7 +21,9 @@ import java.time.LocalDateTime;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import static com.iusofts.agentplus.trace.TraceUtil.ATTR_TOKENS;
+import static com.iusofts.agentplus.trace.constants.TraceConstant.ATTR_MODEL_PROVIDER;
+import static com.iusofts.agentplus.trace.constants.TraceConstant.ATTR_TOKENS;
+
 
 /**
  * 基于数据库的 ChatModelProvider 实现（无 DB 依赖，依赖抽象）。
@@ -86,7 +88,7 @@ public class AiModelChatModelProvider implements ChatModelProvider {
                 modelDTO = modelQueryProvider.getModel(request.getModelId());
                 if (modelDTO != null) {
                     TraceUtil.setLabel(modelDTO.getModelName());
-                    TraceUtil.setSpanAttribute(TraceUtil.ATTR_MODEL_PROVIDER, modelDTO.getProvider());
+                    TraceUtil.setSpanAttribute(ATTR_MODEL_PROVIDER, modelDTO.getProvider());
                 }
             } catch (Exception e) {
                 // 查询模型信息失败不影响主流程，日志将不带模型详情
@@ -128,7 +130,7 @@ public class AiModelChatModelProvider implements ChatModelProvider {
                 modelDTO = modelQueryProvider.getModel(request.getModelId());
                 if (modelDTO != null) {
                     TraceUtil.setLabel(modelDTO.getModelName());
-                    TraceUtil.setSpanAttribute(TraceUtil.ATTR_MODEL_PROVIDER, modelDTO.getProvider());
+                    TraceUtil.setSpanAttribute(ATTR_MODEL_PROVIDER, modelDTO.getProvider());
                 }
             } catch (Exception e) {
                 // 查询模型信息失败不影响主流程，日志将不带模型详情

@@ -5,6 +5,7 @@ import com.iusofts.agentplus.ailog.entity.AiTraceSpanPayload;
 import com.iusofts.agentplus.ailog.service.AiTraceSpanPayloadService;
 import com.iusofts.agentplus.ailog.service.AiTraceSpanService;
 import com.iusofts.agentplus.trace.TraceUtil;
+import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.sdk.common.CompletableResultCode;
 import io.opentelemetry.sdk.trace.data.SpanData;
@@ -23,6 +24,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+
+import static com.iusofts.agentplus.trace.constants.TraceConstant.ATTR_TOKENS;
 
 /**
  * 自定义 SpanExporter —— 将 OTel Span 数据批量写入 MySQL。
@@ -75,8 +78,8 @@ public class MySqlSpanExporter implements SpanExporter {
 
                 // 记录 span 自己的原始 tokens
                 Map<String, Object> attrs = entity.getAttributes();
-                if (attrs != null && attrs.containsKey(TraceUtil.ATTR_TOKENS)) {
-                    Object val = attrs.get(TraceUtil.ATTR_TOKENS);
+                if (attrs != null && attrs.containsKey(ATTR_TOKENS)) {
+                    Object val = attrs.get(ATTR_TOKENS);
                     if (val instanceof Number num) {
                         spanIdToOwnTokens.put(entity.getSpanId(), num.longValue());
                     }
@@ -97,8 +100,8 @@ public class MySqlSpanExporter implements SpanExporter {
             for (AiTraceSpan entity : entities) {
                 // 如果父级自己已经有 tokens 了，就不汇总子级的了
                 Map<String, Object> attrs = entity.getAttributes();
-                if (attrs != null && attrs.containsKey(TraceUtil.ATTR_TOKENS)) {
-                    Object val = attrs.get(TraceUtil.ATTR_TOKENS);
+                if (attrs != null && attrs.containsKey(ATTR_TOKENS)) {
+                    Object val = attrs.get(ATTR_TOKENS);
                     if (val instanceof Number num && num.longValue() > 0) {
                         continue;
                     }
@@ -110,7 +113,7 @@ public class MySqlSpanExporter implements SpanExporter {
                         attrs = new HashMap<>();
                         entity.setAttributes(attrs);
                     }
-                    attrs.put(TraceUtil.ATTR_TOKENS, totalTokens);
+                    attrs.put(ATTR_TOKENS, totalTokens);
                 }
             }
 
@@ -200,27 +203,26 @@ public class MySqlSpanExporter implements SpanExporter {
             Map<String, Object> attrMap = new HashMap<>();
             attrs.forEach((key, value) -> {
                 String k = key.getKey();
-                if (ATTR_PAYLOAD_INPUT.equals(k)) {
-                    payloadOut.setInputPayload(value == null ? null : value.toString());
-                } else if (ATTR_PAYLOAD_OUTPUT.equals(k)) {
-                    payloadOut.setOutputPayload(value == null ? null : value.toString());
-                } else {
-                    attrMap.put(k, value);
+                if (ATTR_PAYLOAD_INPUT.equals(k) || ATTR_PAYLOAD_OUTPUT.equals(k)) {
+                    return;
                 }
+                attrMap.put(k, value);
             });
             if (!attrMap.isEmpty()) {
                 entity.setAttributes(attrMap);
             }
 
             // 提取业务字段
-            Object orgIdVal = attrMap.get("orgId");
-            if (orgIdVal instanceof Number num) {
-                entity.setOrgId(num.intValue());
-            }
-            Object trialVal = attrMap.get("trialFlag");
-            if (trialVal instanceof Boolean b) {
-                entity.setTrialFlag(b ? 1 : 0);
-            }
+            Long orgId = attrs.get(AttributeKey.longKey("orgId"));
+            entity.setOrgId(orgId != null ? orgId.intValue() : 0);
+            entity.setOperatorId(attrs.get(AttributeKey.longKey("operatorId")));
+
+            Long trialFlag = attrs.get(AttributeKey.longKey("trialFlag"));
+            entity.setTrialFlag(trialFlag != null ? trialFlag.intValue() : 0);
+
+            payloadOut.setInputPayload(attrs.get(AttributeKey.stringKey(ATTR_PAYLOAD_INPUT)));
+            payloadOut.setOutputPayload(attrs.get(AttributeKey.stringKey(ATTR_PAYLOAD_OUTPUT)));
+
         }
 
         // 回填 payload 的关联键

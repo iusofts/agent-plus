@@ -2,37 +2,37 @@ package com.iusofts.agentplus.plugin.vectorstore;
 
 import com.iusofts.agentplus.engine.knowledge.KnowledgeRetriever;
 import com.iusofts.agentplus.knowledge.EmbeddingModelQueryProvider;
+import com.iusofts.agentplus.knowledge.KnowledgeBaseQueryProvider;
 import com.iusofts.agentplus.knowledge.dto.EmbeddingModelDTO;
 import com.iusofts.agentplus.knowledge.dto.KnowledgeBaseDTO;
 import com.iusofts.agentplus.knowledge.dto.KnowledgeChunk;
 import com.iusofts.agentplus.knowledge.dto.KnowledgeRetrieveResult;
-import com.iusofts.agentplus.knowledge.KnowledgeBaseQueryProvider;
 import com.iusofts.agentplus.llm.log.LlmLogRecorder;
 import com.iusofts.agentplus.trace.TraceUtil;
 import com.iusofts.agentplus.trace.annotation.TraceSpan;
 import dev.langchain4j.data.embedding.Embedding;
-import io.opentelemetry.api.trace.SpanKind;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.output.Response;
 import dev.langchain4j.store.embedding.EmbeddingMatch;
+import io.opentelemetry.api.trace.SpanKind;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
-
-import org.springframework.beans.factory.annotation.Autowired;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static com.iusofts.agentplus.trace.TraceUtil.ATTR_MODELNAME;
-import static com.iusofts.agentplus.trace.TraceUtil.ATTR_TOKENS;
+import static com.iusofts.agentplus.trace.constants.TraceConstant.ATTR_MODELNAME;
+import static com.iusofts.agentplus.trace.constants.TraceConstant.ATTR_TOKENS;
+
 
 /**
  * 基于 Redis 向量库的知识库检索实现（无 DB 依赖，依赖抽象）。
