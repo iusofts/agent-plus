@@ -27,6 +27,7 @@ import com.iusofts.agentplus.tool.dto.ToolDTO;
 import com.iusofts.agentplus.tool.dto.ToolExecuteRequest;
 import com.iusofts.agentplus.tool.dto.ToolExecuteResult;
 import com.iusofts.agentplus.tool.ToolQueryProvider;
+import dev.langchain4j.model.chat.ChatModel;
 import org.apache.commons.collections4.CollectionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

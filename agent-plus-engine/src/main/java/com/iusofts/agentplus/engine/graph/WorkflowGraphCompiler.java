@@ -14,6 +14,7 @@ import com.iusofts.agentplus.engine.executor.NodeExecutor;
 import com.iusofts.agentplus.engine.executor.NodeExecutorRegistry;
 import com.iusofts.agentplus.engine.util.ParamResolver;
 import com.iusofts.agentplus.trace.TraceUtil;
+import com.iusofts.agentplus.trace.constants.TraceConstant;
 import com.alibaba.fastjson2.JSON;
 import io.opentelemetry.api.trace.SpanKind;
 import org.bsc.langgraph4j.CompiledGraph;
@@ -273,17 +274,17 @@ public class WorkflowGraphCompiler {
             try {
                 LOGGER.debug("execute node id={} type={}", nodeId, nodeType);
                 // 使用 rootContext 作为父 context，确保所有节点都是平级的
-                NodeOutput out = TraceUtil.span("node." + nodeId, SpanKind.INTERNAL, ctx.getRootContext(), span -> {
-                    span.setAttribute("nodeId", nodeId);
-                    span.setAttribute("nodeType", nodeType);
-                    span.setAttribute("label", nodeName);
+                NodeOutput out = TraceUtil.span(TraceConstant.SPAN_NODE_EXECUTE_PREFIX + nodeId, SpanKind.INTERNAL, ctx.getRootContext(), span -> {
+                    span.setAttribute(TraceConstant.ATTR_NODE_ID, nodeId);
+                    span.setAttribute(TraceConstant.ATTR_NODE_TYPE, nodeType);
+                    span.setAttribute(TraceConstant.ATTR_LABEL, nodeName);
 
                     // 入参载荷：已解析的实际入参值（仅 InputParamNodeData 子类有入参）
                     if (node.getData() instanceof InputParamNodeData inputParamNode) {
                         java.util.List<com.iusofts.agentplus.aiflow.vo.workflow.data.common.InputParam> params = inputParamNode.getInputParams();
                         if (params != null && !params.isEmpty()) {
                             java.util.Map<String, Object> resolved = ParamResolver.resolveInputs(params, ctx);
-                            span.setAttribute("ap.payload.input", JSON.toJSONString(resolved));
+                            span.setAttribute(TraceConstant.ATTR_PAYLOAD_INPUT, JSON.toJSONString(resolved));
                         }
                     }
 
@@ -291,10 +292,10 @@ public class WorkflowGraphCompiler {
 
                     // 出参载荷：节点输出结果
                     if (result != null && result.getOutputs() != null && !result.getOutputs().isEmpty()) {
-                        span.setAttribute("ap.payload.output", JSON.toJSONString(result.getOutputs()));
+                        span.setAttribute(TraceConstant.ATTR_PAYLOAD_OUTPUT, JSON.toJSONString(result.getOutputs()));
                     }
 
-                    span.setAttribute("nodeStatus", "SUCCESS");
+                    span.setAttribute(TraceConstant.ATTR_NODE_STATUS, TraceConstant.NODE_STATUS_SUCCESS);
                     return result;
                 });
                 ctx.putOutput(out);

@@ -28,6 +28,7 @@ import com.iusofts.agentplus.aiflow.vo.workflow.data.NodeData;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.common.InputParam;
 import com.iusofts.agentplus.aiflow.utils.AiFlowCommonUtils;
 import com.iusofts.agentplus.aiflow.vo.workflow.data.common.ParamMapKey;
+import com.iusofts.agentplus.basic.enums.YesNoEnums;
 import com.iusofts.agentplus.basic.exception.SystemBusinessException;
 import com.iusofts.agentplus.engine.WorkflowEngine;
 import com.iusofts.agentplus.engine.WorkflowExecutionResult;
@@ -38,6 +39,7 @@ import com.iusofts.agentplus.engine.context.NodeTiming;
 import com.iusofts.agentplus.engine.executor.NodeExecutor;
 import com.iusofts.agentplus.engine.util.ParamResolver;
 import com.iusofts.agentplus.trace.TraceUtil;
+import com.iusofts.agentplus.trace.constants.TraceConstant;
 import com.alibaba.fastjson2.JSON;
 import io.opentelemetry.api.trace.SpanKind;
 import jakarta.annotation.Resource;
@@ -150,17 +152,17 @@ public class AiFlowTrialServiceImpl implements IAiFlowTrialService {
 
         try {
             // 使用 root() 作为父 Context，确保每次都是新的 trace，不继承上一次请求的残留 Context
-            return TraceUtil.span("flowTrial.runNode", SpanKind.INTERNAL, io.opentelemetry.context.Context.root(), span -> {
+            return TraceUtil.span(TraceConstant.SPAN_FLOW_TRIAL_RUN_NODE, SpanKind.INTERNAL, io.opentelemetry.context.Context.root(), span -> {
                 // 以 OTel traceId 作为本次单节点试运行的 traceId
                 String traceId = span.getSpanContext().isValid()
                         ? span.getSpanContext().getTraceId()
                         : placeholderTraceId;
-                span.setAttribute("nodeId", target.getId());
-                span.setAttribute("nodeType", target.getType());
-                span.setAttribute("label", resolveNodeName(target));
-                span.setAttribute("trialFlag", true);
+                span.setAttribute(TraceConstant.ATTR_NODE_ID, target.getId());
+                span.setAttribute(TraceConstant.ATTR_NODE_TYPE, target.getType());
+                span.setAttribute(TraceConstant.ATTR_LABEL, resolveNodeName(target));
+                span.setAttribute(TraceConstant.ATTR_TRIAL_FLAG, YesNoEnums.YES.getCode());
                 if (reqVo.getOrgId() != null) {
-                    span.setAttribute("orgId", reqVo.getOrgId().longValue());
+                    span.setAttribute(TraceConstant.KEY_ORG_ID, reqVo.getOrgId().longValue());
                 }
                 result.setTraceId(traceId);
                 // 先单独更新 traceId 字段，避免后续 updateById 时唯一键冲突
@@ -180,7 +182,7 @@ public class AiFlowTrialServiceImpl implements IAiFlowTrialService {
                 // 入参载荷:与 WorkflowGraphCompiler 一致,记录已解析的实际入参值,供 Trace 落库
                 Map<String, Object> resolvedInputs = ParamResolver.resolveInputs(inputParams, ctx);
                 if (resolvedInputs != null && !resolvedInputs.isEmpty()) {
-                    span.setAttribute("ap.payload.input", JSON.toJSONString(resolvedInputs));
+                    span.setAttribute(TraceConstant.ATTR_PAYLOAD_INPUT, JSON.toJSONString(resolvedInputs));
                 }
 
                 NodeExecutor executor = workflowEngine.registry().get(target.getType());
@@ -191,9 +193,9 @@ public class AiFlowTrialServiceImpl implements IAiFlowTrialService {
 
                 // 出参载荷:节点输出结果,供 Trace 落库
                 if (outputs != null && !outputs.isEmpty()) {
-                    span.setAttribute("ap.payload.output", JSON.toJSONString(outputs));
+                    span.setAttribute(TraceConstant.ATTR_PAYLOAD_OUTPUT, JSON.toJSONString(outputs));
                 }
-                span.setAttribute("nodeStatus", "SUCCESS");
+                span.setAttribute(TraceConstant.ATTR_NODE_STATUS, TraceConstant.NODE_STATUS_SUCCESS);
 
                 long costMs = Duration.between(nodeStart, nodeEnd).toMillis();
                 int nodeStatus = NodeRunStatusEnum.SUCCESS.getCode();

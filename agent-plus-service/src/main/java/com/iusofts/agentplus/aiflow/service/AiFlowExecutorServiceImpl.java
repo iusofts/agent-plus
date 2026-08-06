@@ -109,7 +109,7 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
 
         // 3. 创建运行实例（占位 traceId）
         String placeholderTraceId = AiFlowCommonUtils.newPlaceholderTraceId();
-        AiFlowRuntime runtime = newRuntime(version, placeholderTraceId, inputs, operatorId, trialFlag);
+        AiFlowRuntime runtime = newRuntime(version, placeholderTraceId, operatorId, trialFlag);
         runtime.setFlowName(aiFlow.getName());
         aiFlowRuntimeMapper.insert(runtime);
 
@@ -242,7 +242,7 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
 
         // 3. 创建运行实例（占位 traceId）
         String placeholderTraceId = AiFlowCommonUtils.newPlaceholderTraceId();
-        AiFlowRuntime runtime = newRuntime(version, placeholderTraceId, inputs, operatorId, trialFlag);
+        AiFlowRuntime runtime = newRuntime(version, placeholderTraceId, operatorId, trialFlag);
         AiFlow aiFlow = aiFlowMapper.selectById(version.getFlowId());
         if (aiFlow != null) {
             runtime.setFlowName(aiFlow.getName());
@@ -435,7 +435,7 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
 
         // 2. 创建运行实例（占位 traceId）
         String placeholderTraceId = AiFlowCommonUtils.newPlaceholderTraceId();
-        AiFlowRuntime runtime = newRuntime(version, placeholderTraceId, inputs, operatorId, trialFlag);
+        AiFlowRuntime runtime = newRuntime(version, placeholderTraceId, operatorId, trialFlag);
         if (flowName != null) {
             runtime.setFlowName(flowName);
         }
@@ -514,8 +514,7 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
 
     // ========== 内部辅助方法 ==========
 
-    private AiFlowRuntime newRuntime(AiFlowVersion version, String traceId,
-                                     Map<String, Object> inputs, Long operatorId, int trialFlag) {
+    private AiFlowRuntime newRuntime(AiFlowVersion version, String traceId, Long operatorId, int trialFlag) {
         AiFlowRuntime runtime = new AiFlowRuntime();
         runtime.setFlowId(version.getFlowId());
         runtime.setVersionNo(version.getVersionNo());

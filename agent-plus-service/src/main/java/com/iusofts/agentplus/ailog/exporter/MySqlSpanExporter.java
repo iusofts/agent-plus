@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import static com.iusofts.agentplus.trace.constants.TraceConstant.ATTR_TOKENS;
+import static com.iusofts.agentplus.trace.constants.TraceConstant.*;
 
 /**
  * 自定义 SpanExporter —— 将 OTel Span 数据批量写入 MySQL。
@@ -45,11 +45,6 @@ import static com.iusofts.agentplus.trace.constants.TraceConstant.ATTR_TOKENS;
 public class MySqlSpanExporter implements SpanExporter {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MySqlSpanExporter.class);
-
-    /** 载荷 attribute key：入参。 */
-    private static final String ATTR_PAYLOAD_INPUT = "ap.payload.input";
-    /** 载荷 attribute key：出参。 */
-    private static final String ATTR_PAYLOAD_OUTPUT = "ap.payload.output";
 
     @Resource
     private AiTraceSpanService aiTraceSpanService;
@@ -213,11 +208,11 @@ public class MySqlSpanExporter implements SpanExporter {
             }
 
             // 提取业务字段
-            Long orgId = attrs.get(AttributeKey.longKey("orgId"));
+            Long orgId = attrs.get(AttributeKey.longKey(KEY_ORG_ID));
             entity.setOrgId(orgId != null ? orgId.intValue() : 0);
-            entity.setOperatorId(attrs.get(AttributeKey.longKey("operatorId")));
+            entity.setOperatorId(attrs.get(AttributeKey.longKey(KEY_OPERATOR_ID)));
 
-            Long trialFlag = attrs.get(AttributeKey.longKey("trialFlag"));
+            Long trialFlag = attrs.get(AttributeKey.longKey(ATTR_TRIAL_FLAG));
             entity.setTrialFlag(trialFlag != null ? trialFlag.intValue() : 0);
 
             payloadOut.setInputPayload(attrs.get(AttributeKey.stringKey(ATTR_PAYLOAD_INPUT)));

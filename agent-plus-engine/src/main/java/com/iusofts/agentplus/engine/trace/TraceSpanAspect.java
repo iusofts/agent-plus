@@ -1,6 +1,7 @@
 package com.iusofts.agentplus.engine.trace;
 
 import com.iusofts.agentplus.trace.annotation.TraceSpan;
+import com.iusofts.agentplus.trace.constants.TraceConstant;
 import com.alibaba.fastjson2.JSON;
 import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.trace.Span;
@@ -51,7 +52,7 @@ public class TraceSpanAspect {
         // 设置 label 属性
         String label = traceSpan.label();
         if (label != null && !label.isEmpty()) {
-            span.setAttribute("label", label);
+            span.setAttribute(TraceConstant.ATTR_LABEL, label);
         }
 
         // 记录方法入参为载荷（写入约定 payload key，由 exporter 落附表）
@@ -64,7 +65,7 @@ public class TraceSpanAspect {
                     String name = (paramNames != null && i < paramNames.length) ? paramNames[i] : ("arg" + i);
                     inputMap.put(name, paramValues[i]);
                 }
-                span.setAttribute("ap.payload.input", JSON.toJSONString(inputMap));
+                span.setAttribute(TraceConstant.ATTR_PAYLOAD_INPUT, JSON.toJSONString(inputMap));
             } catch (Exception ignore) {
                 // 序列化失败不影响主流程
             }
@@ -75,7 +76,7 @@ public class TraceSpanAspect {
             // 记录返回值载荷
             if (result != null) {
                 try {
-                    span.setAttribute("ap.payload.output", JSON.toJSONString(result));
+                    span.setAttribute(TraceConstant.ATTR_PAYLOAD_OUTPUT, JSON.toJSONString(result));
                 } catch (Exception ignore) {
                     // 序列化失败不影响主流程
                 }
@@ -84,7 +85,7 @@ public class TraceSpanAspect {
         } catch (Throwable e) {
             span.setStatus(StatusCode.ERROR, e.getMessage());
             span.recordException(e);
-            span.setAttribute("error.type", e.getClass().getSimpleName());
+            span.setAttribute(TraceConstant.ATTR_ERROR_TYPE, e.getClass().getSimpleName());
             throw e;
         } finally {
             span.end();

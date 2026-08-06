@@ -30,7 +30,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static com.iusofts.agentplus.trace.constants.TraceConstant.ATTR_MODELNAME;
+import static com.iusofts.agentplus.trace.constants.TraceConstant.ATTR_MODEL_NAME;
 import static com.iusofts.agentplus.trace.constants.TraceConstant.ATTR_TOKENS;
 
 
@@ -112,7 +112,7 @@ public class RedisKnowledgeRetriever implements KnowledgeRetriever {
             try {
                 modelDTO = embeddingModelQueryProvider.getModel(kb.getEmbeddingModelId());
                 if (modelDTO != null) {
-                    TraceUtil.setSpanAttribute(ATTR_MODELNAME, modelDTO.getModelName());
+                    TraceUtil.setSpanAttribute(ATTR_MODEL_NAME, modelDTO.getModelName());
                 }
             } catch (Exception e) {
                 log.debug("查询嵌入模型信息失败,日志将不带模型详情", e);

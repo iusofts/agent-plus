@@ -38,6 +38,7 @@ import com.iusofts.agentplus.tool.dto.ToolExecuteResult;
 import com.iusofts.agentplus.tool.dto.ToolParam;
 import com.iusofts.agentplus.trace.TraceUtil;
 import com.iusofts.agentplus.trace.annotation.TraceSpan;
+import com.iusofts.agentplus.trace.constants.TraceConstant;
 import io.opentelemetry.api.trace.SpanKind;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -50,8 +51,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-
-import static com.iusofts.agentplus.trace.constants.TraceConstant.ATTR_LABEL;
 
 
 /**
@@ -186,7 +185,7 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
             // 逐个执行工具，并把结果作为 tool 消息回填
             for (ToolCall toolCall : response.getToolCalls()) {
                 ToolCallTraceVo trace = executeToolCall(toolCall, toolNameToId, msgList,
-                    aiAgent, reqVo.getOperatorId(), reqVo.getOrgId());
+                        reqVo.getOperatorId(), reqVo.getOrgId());
                 toolTraces.add(trace);
             }
         }
@@ -424,7 +423,7 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
      * 执行一次模型请求的工具调用，将结果作为 tool 消息追加到上下文，并返回可展示的调用轨迹。
      */
     private ToolCallTraceVo executeToolCall(ToolCall toolCall, Map<String, Long> toolNameToId, List<AiChatMessage> msgList,
-                                             AiAgent aiAgent, Long operatorId, Integer orgId) {
+                                            Long operatorId, Integer orgId) {
         ToolCallTraceVo trace = new ToolCallTraceVo();
         trace.setToolName(toolCall.getName());
 
@@ -442,8 +441,6 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
             try {
                 Map<String, Object> inputs = new HashMap<>();
                 inputs.putAll(params);
-                inputs.put("agentId", aiAgent.getId());
-                inputs.put("operatorId", operatorId);
 
                 FlowExecuteResult result = aiFlowExecutorService.executeFlow(workflowId, inputs, operatorId, orgId, 0);
 
@@ -646,23 +643,23 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
         return Flux.create(sink -> {
             try {
                 // 在异步线程中以捕获的父 Context 创建子 span（保持与同步阶段同一 traceId）
-                TraceUtil.span("chat.stream", SpanKind.INTERNAL, capturedContext, span -> {
+                TraceUtil.span(TraceConstant.SPAN_CHAT_STREAM, SpanKind.INTERNAL, capturedContext, span -> {
                     // 以 OTel traceId 作为 runId，保证 trace 能串起来
                     String effectiveRunId = span.getSpanContext().isValid()
                             ? span.getSpanContext().getTraceId()
                             : runId;
 
                     // 设置 span 属性
-                    span.setAttribute(ATTR_LABEL, finalConversation.getTitle());
-                    span.setAttribute("agentId", finalAiAgent.getId() != null ? finalAiAgent.getId() : 0L);
+                    span.setAttribute(TraceConstant.ATTR_LABEL, finalConversation.getTitle());
+                    span.setAttribute(TraceConstant.ATTR_AGENT_ID, finalAiAgent.getId() != null ? finalAiAgent.getId() : 0L);
                     if (finalConversationId != null) {
-                        span.setAttribute("conversationId", finalConversationId);
+                        span.setAttribute(TraceConstant.ATTR_CONVERSATION_ID, finalConversationId);
                     }
                     if (finalOperatorId != null) {
-                        span.setAttribute("operatorId", finalOperatorId);
+                        span.setAttribute(TraceConstant.KEY_OPERATOR_ID, finalOperatorId);
                     }
                     if (finalOrgId != null) {
-                        span.setAttribute("orgId", finalOrgId.longValue());
+                        span.setAttribute(TraceConstant.KEY_ORG_ID, finalOrgId.longValue());
                     }
 
                     // 新建会话时，首事件把 conversationId 推回前端
@@ -705,7 +702,7 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
 
                         for (ToolCall toolCall : response.getToolCalls()) {
                             ToolCallTraceVo trace = executeToolCall(toolCall, toolNameToId, loopMsgList,
-                                finalAiAgent, finalOperatorId, finalOrgId);
+                                finalOperatorId, finalOrgId);
                             toolTraces.add(trace);
                         }
                     }

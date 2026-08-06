@@ -1,6 +1,7 @@
 package com.iusofts.agentplus.ailog.dto;
 
 import com.iusofts.agentplus.trace.TraceUtil;
+import com.iusofts.agentplus.trace.constants.TraceConstant;
 
 /**
  * AI 调用链路上下文。
@@ -13,16 +14,21 @@ import com.iusofts.agentplus.trace.TraceUtil;
 @Deprecated
 public class AiTraceContext {
 
-    /** OTel Span Attribute 键：调用来源 */
-    public static final String ATTR_CALL_SOURCE = "ai.call_source";
-    /** OTel Span Attribute 键：来源 ID */
-    public static final String ATTR_SOURCE_ID = "ai.source_id";
-    /** OTel Span Attribute 键：来源节点 ID */
-    public static final String ATTR_SOURCE_NODE_ID = "ai.source_node_id";
-    /** OTel Span Attribute 键：操作人 ID */
-    public static final String ATTR_OPERATOR_ID = "ai.operator_id";
-    /** OTel Span Attribute 键：组织 ID */
-    public static final String ATTR_ORG_ID = "ai.org_id";
+    /** @deprecated 已迁移到 {@link TraceConstant#KEY_CALL_SOURCE} */
+    @Deprecated
+    public static final String ATTR_CALL_SOURCE = TraceConstant.KEY_CALL_SOURCE;
+    /** @deprecated 已迁移到 {@link TraceConstant#KEY_SOURCE_ID} */
+    @Deprecated
+    public static final String ATTR_SOURCE_ID = TraceConstant.KEY_SOURCE_ID;
+    /** @deprecated 已迁移到 {@link TraceConstant#KEY_SOURCE_NODE_ID} */
+    @Deprecated
+    public static final String ATTR_SOURCE_NODE_ID = TraceConstant.KEY_SOURCE_NODE_ID;
+    /** @deprecated 已迁移到 {@link TraceConstant#KEY_OPERATOR_ID} */
+    @Deprecated
+    public static final String ATTR_OPERATOR_ID = TraceConstant.KEY_OPERATOR_ID;
+    /** @deprecated 已迁移到 {@link TraceConstant#KEY_ORG_ID} */
+    @Deprecated
+    public static final String ATTR_ORG_ID = TraceConstant.KEY_ORG_ID;
 
     /**
      * 链路追踪 ID。

@@ -33,7 +33,7 @@ public @interface TraceSpan {
     SpanKind kind() default SpanKind.INTERNAL;
 
     /**
-     * span 标签，会自动设置为 span.setAttribute("label", label)。
+     * span 标签，会自动设置为 {@code span.setAttribute(ATTR_LABEL, label)}。
      */
     String label() default "";
 }

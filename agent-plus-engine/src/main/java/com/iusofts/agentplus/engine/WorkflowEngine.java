@@ -25,6 +25,7 @@ import com.iusofts.agentplus.engine.stream.WorkflowStreamEventCallback;
 import com.iusofts.agentplus.engine.tool.ToolRegistry;
 import com.iusofts.agentplus.tool.ToolQueryProvider;
 import com.iusofts.agentplus.trace.TraceUtil;
+import com.iusofts.agentplus.trace.constants.TraceConstant;
 import io.opentelemetry.api.trace.SpanKind;
 import org.bsc.langgraph4j.CompiledGraph;
 import org.slf4j.Logger;
@@ -35,8 +36,6 @@ import reactor.core.publisher.Sinks;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-
-import static com.iusofts.agentplus.trace.constants.TraceConstant.ATTR_LABEL;
 
 /**
  * 工作流执行引擎入口。
@@ -78,30 +77,30 @@ public class WorkflowEngine {
      */
     public WorkflowExecutionResult execute(WorkflowExecuteRequest request) {
         // 不传父 Context，使用当前 Context 自动串接（来自自主规划或外部调用）
-        return TraceUtil.span("workflow.execute", SpanKind.INTERNAL, null, span -> {
+        return TraceUtil.span(TraceConstant.SPAN_WORKFLOW_EXECUTE, SpanKind.INTERNAL, null, span -> {
             // 以 OTel traceId 作为 runId;SDK 未初始化时回退传入值
             String effectiveRunId = span.getSpanContext().isValid()
                     ? span.getSpanContext().getTraceId()
                     : request.getRunId();
 
-            span.setAttribute(ATTR_LABEL, request.getFlowName() != null ? request.getFlowName() : "");
-            span.setAttribute("workflow.runId", effectiveRunId);
+            span.setAttribute(TraceConstant.ATTR_LABEL, request.getFlowName() != null ? request.getFlowName() : "");
+            span.setAttribute(TraceConstant.ATTR_WORKFLOW_RUN_ID, effectiveRunId);
             if (request.getFlowId() != null) {
-                span.setAttribute("flowId", request.getFlowId());
+                span.setAttribute(TraceConstant.ATTR_WORKFLOW_ID, request.getFlowId());
             }
             if (request.getOperatorId() != null) {
-                span.setAttribute("operatorId", request.getOperatorId());
+                span.setAttribute(TraceConstant.KEY_OPERATOR_ID, request.getOperatorId());
             }
             if (request.getOrgId() != null) {
-                span.setAttribute("orgId", request.getOrgId().longValue());
+                span.setAttribute(TraceConstant.KEY_ORG_ID, request.getOrgId().longValue());
             }
             if (request.getTrialFlag() != null) {
-                span.setAttribute("trialFlag", request.getTrialFlag() != 0);
+                span.setAttribute(TraceConstant.ATTR_TRIAL_FLAG, request.getTrialFlag());
             }
 
             // 入参载荷
             if (request.getInputs() != null && !request.getInputs().isEmpty()) {
-                span.setAttribute("ap.payload.input", JSON.toJSONString(request.getInputs()));
+                span.setAttribute(TraceConstant.ATTR_PAYLOAD_INPUT, JSON.toJSONString(request.getInputs()));
             }
 
             // 保存当前 context 作为 root context，供后续节点 span 使用
@@ -112,7 +111,7 @@ public class WorkflowEngine {
 
             // 出参载荷
             if (result.getOutput() != null && !result.getOutput().isEmpty()) {
-                span.setAttribute("ap.payload.output", JSON.toJSONString(result.getOutput()));
+                span.setAttribute(TraceConstant.ATTR_PAYLOAD_OUTPUT, JSON.toJSONString(result.getOutput()));
             }
 
             return result;
@@ -132,30 +131,30 @@ public class WorkflowEngine {
         // 在单独的线程中执行工作流
         CompletableFuture.runAsync(() -> {
             try {
-                TraceUtil.span("workflow.streamExecute", SpanKind.INTERNAL, null, span -> {
+                TraceUtil.span(TraceConstant.SPAN_WORKFLOW_STREAM_EXECUTE, SpanKind.INTERNAL, null, span -> {
                     // 以 OTel traceId 作为 runId;SDK 未初始化时回退传入值
                     String effectiveRunId = span.getSpanContext().isValid()
                             ? span.getSpanContext().getTraceId()
                             : request.getRunId();
 
-                    span.setAttribute(ATTR_LABEL, request.getFlowName() != null ? request.getFlowName() : "");
-                    span.setAttribute("workflow.runId", effectiveRunId);
+                    span.setAttribute(TraceConstant.ATTR_LABEL, request.getFlowName() != null ? request.getFlowName() : "");
+                    span.setAttribute(TraceConstant.ATTR_WORKFLOW_RUN_ID, effectiveRunId);
                     if (request.getFlowId() != null) {
-                        span.setAttribute("flowId", request.getFlowId());
+                        span.setAttribute(TraceConstant.ATTR_WORKFLOW_ID, request.getFlowId());
                     }
                     if (request.getOperatorId() != null) {
-                        span.setAttribute("operatorId", request.getOperatorId());
+                        span.setAttribute(TraceConstant.KEY_OPERATOR_ID, request.getOperatorId());
                     }
                     if (request.getOrgId() != null) {
-                        span.setAttribute("orgId", request.getOrgId().longValue());
+                        span.setAttribute(TraceConstant.KEY_ORG_ID, request.getOrgId().longValue());
                     }
                     if (request.getTrialFlag() != null) {
-                        span.setAttribute("trialFlag", request.getTrialFlag() != 0);
+                        span.setAttribute(TraceConstant.ATTR_TRIAL_FLAG, request.getTrialFlag() != 0);
                     }
 
                     // 入参载荷
                     if (request.getInputs() != null && !request.getInputs().isEmpty()) {
-                        span.setAttribute("ap.payload.input", JSON.toJSONString(request.getInputs()));
+                        span.setAttribute(TraceConstant.ATTR_PAYLOAD_INPUT, JSON.toJSONString(request.getInputs()));
                     }
 
                     // 保存当前 context 作为 root context，供后续节点 span 使用
@@ -172,7 +171,7 @@ public class WorkflowEngine {
 
                     // 出参载荷
                     if (result.getOutput() != null && !result.getOutput().isEmpty()) {
-                        span.setAttribute("ap.payload.output", JSON.toJSONString(result.getOutput()));
+                        span.setAttribute(TraceConstant.ATTR_PAYLOAD_OUTPUT, JSON.toJSONString(result.getOutput()));
                     }
 
                     return result;

@@ -23,8 +23,8 @@ import static com.iusofts.agentplus.trace.constants.TraceConstant.*;
  * <p>使用示例：
  * <pre>{@code
  * // 同步 Span 模板
- * String result = TraceUtil.span("workflow.execute", SpanKind.INTERNAL, span -> {
- *     span.setAttribute("workflow.instanceId", instanceId);
+ * String result = TraceUtil.span(TraceConstant.SPAN_WORKFLOW_EXECUTE, SpanKind.INTERNAL, span -> {
+ *     span.setAttribute(TraceConstant.ATTR_WORKFLOW_ID, instanceId);
  *     return doBusinessLogic();
  * });
  *
@@ -191,9 +191,9 @@ public final class TraceUtil {
         // 同时设置到 Span Attributes 用于记录
         Span span = Span.current();
         if (span != null && span.getSpanContext().isValid()) {
-            if (callSource != null) span.setAttribute(ATTR_CALL_SOURCE, callSource);
-            if (sourceId != null) span.setAttribute(ATTR_SOURCE_ID, sourceId);
-            if (sourceNodeId != null) span.setAttribute(ATTR_SOURCE_NODE_ID, sourceNodeId);
+            if (callSource != null) span.setAttribute(KEY_CALL_SOURCE, callSource);
+            if (sourceId != null) span.setAttribute(KEY_SOURCE_ID, sourceId);
+            if (sourceNodeId != null) span.setAttribute(KEY_SOURCE_NODE_ID, sourceNodeId);
         }
     }
 
@@ -218,8 +218,8 @@ public final class TraceUtil {
         // 同时设置到 Span Attributes 用于记录
         Span span = Span.current();
         if (span != null && span.getSpanContext().isValid()) {
-            if (operatorId != null) span.setAttribute(ATTR_OPERATOR_ID, operatorId);
-            if (orgId != null) span.setAttribute(ATTR_ORG_ID, orgId);
+            if (operatorId != null) span.setAttribute(KEY_OPERATOR_ID, operatorId);
+            if (orgId != null) span.setAttribute(KEY_ORG_ID, orgId);
         }
     }
 
@@ -257,11 +257,11 @@ public final class TraceUtil {
         // 同时设置到 Span Attributes 用于记录
         Span span = Span.current();
         if (span != null && span.getSpanContext().isValid()) {
-            if (callSource != null) span.setAttribute(ATTR_CALL_SOURCE, callSource);
-            if (sourceId != null) span.setAttribute(ATTR_SOURCE_ID, sourceId);
-            if (sourceNodeId != null) span.setAttribute(ATTR_SOURCE_NODE_ID, sourceNodeId);
-            if (operatorId != null) span.setAttribute(ATTR_OPERATOR_ID, operatorId);
-            if (orgId != null) span.setAttribute(ATTR_ORG_ID, orgId);
+            if (callSource != null) span.setAttribute(KEY_CALL_SOURCE, callSource);
+            if (sourceId != null) span.setAttribute(KEY_SOURCE_ID, sourceId);
+            if (sourceNodeId != null) span.setAttribute(KEY_SOURCE_NODE_ID, sourceNodeId);
+            if (operatorId != null) span.setAttribute(KEY_OPERATOR_ID, operatorId);
+            if (orgId != null) span.setAttribute(KEY_ORG_ID, orgId);
         }
     }
 
