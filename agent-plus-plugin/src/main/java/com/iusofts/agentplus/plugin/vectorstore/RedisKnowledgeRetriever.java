@@ -183,7 +183,7 @@ public class RedisKnowledgeRetriever implements KnowledgeRetriever {
         try {
             String kbName = kb != null ? kb.getName() : null;
             LlmLogRecorder.KnowledgeRetrievalRecorder call = recorder.recordKnowledgeRetrieval()
-                .traceId(LlmLogRecorder.generateTraceId())
+                .traceId(TraceUtil.currentTraceId())
                 .startTime(start)
                 .source(CallSource.fromCode(TraceUtil.getCallSource()), TraceUtil.getSourceId(), TraceUtil.getSourceNodeId())
                 .knowledgeBase(knowledgeId, kbName)
@@ -232,9 +232,9 @@ public class RedisKnowledgeRetriever implements KnowledgeRetriever {
         try {
             
             LlmLogRecorder.LlmCallRecorder call = recorder.recordLlmCall()
-                .traceId(LlmLogRecorder.generateTraceId())
+                .traceId(TraceUtil.currentTraceId())
                 .startTime(start)
-                .source(CallSource.EMBED_RETRIEVE, kb.getId(), TraceUtil.getSourceFlowId(), TraceUtil.getSourceNodeId())
+                .sourceFromTrace()
                 .embeddingModel(modelDTO)
                 .inputContent(query)
                 .operator(TraceUtil.getOperatorId(), TraceUtil.getOrgId());

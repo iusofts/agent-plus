@@ -134,7 +134,7 @@ public class KnowledgeStoreService {
             String inputContent = batchTexts.stream().filter(c -> c != null).collect(Collectors.joining("\n"));
 
             LlmLogRecorder.LlmCallRecorder call = recorder.recordLlmCall()
-                .traceId(LlmLogRecorder.generateTraceId())
+                .traceId(TraceUtil.currentTraceId())
                 .startTime(startTime)
                 .embeddingModel(modelDTO)
                 .inputContent(inputContent);

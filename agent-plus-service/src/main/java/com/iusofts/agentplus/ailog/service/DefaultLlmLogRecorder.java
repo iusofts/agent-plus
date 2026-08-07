@@ -12,6 +12,7 @@ import com.iusofts.agentplus.knowledge.dto.EmbeddingModelDTO;
 import com.iusofts.agentplus.knowledge.dto.KnowledgeChunk;
 import com.iusofts.agentplus.knowledge.dto.KnowledgeRetrieveResult;
 import com.iusofts.agentplus.llm.log.LlmLogRecorder;
+import com.iusofts.agentplus.trace.TraceUtil;
 import com.iusofts.agentplus.trace.constants.CallSource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -71,7 +72,7 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
             this.entity = new AiLlmCallLog();
             this.startTime = LocalDateTime.now();
             this.entity.setStartTime(startTime);
-            this.entity.setTraceId(LlmLogRecorder.generateTraceId());
+            this.entity.setTraceId(TraceUtil.currentTraceId());
             this.entity.setCallStatus(1);
         }
 
@@ -105,6 +106,15 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
             entity.setSourceId(sourceId);
             entity.setSourceNodeId(sourceNodeId);
             entity.setSourceFlowId(sourceFlowId);
+            return this;
+        }
+
+        @Override
+        public LlmCallRecorder sourceFromTrace() {
+            entity.setCallSource(TraceUtil.getCallSource());
+            entity.setSourceId(TraceUtil.getSourceId());
+            entity.setSourceNodeId(TraceUtil.getSourceNodeId());
+            entity.setSourceFlowId(TraceUtil.getSourceFlowId());
             return this;
         }
 
@@ -246,7 +256,7 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
             this.entity = new AiKnowledgeRetrievalLog();
             this.startTime = LocalDateTime.now();
             this.entity.setStartTime(startTime);
-            this.entity.setTraceId(LlmLogRecorder.generateTraceId());
+            this.entity.setTraceId(TraceUtil.currentTraceId());
             this.entity.setCallStatus(1);
         }
 
