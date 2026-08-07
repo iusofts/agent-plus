@@ -21,6 +21,8 @@ import java.time.ZoneId;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static com.iusofts.agentplus.trace.constants.TraceConstant.ROOT_SPAN_ID;
+
 /**
  * AI Trace 查询服务实现。
  *
@@ -101,11 +103,11 @@ public class AiTraceQueryServiceImpl implements IAiTraceQueryService {
             childrenMap.computeIfAbsent(parentSpanId, k -> new ArrayList<>()).add(span);
         }
 
-        // 找到根节点 (parentSpanId 为 "0000000000000000" 或为空，且没有父 span 的)
+        // 找到根节点 (parentSpanId 为 ROOT_SPAN_ID 或为空，且没有父 span 的)
         AiTraceSpan rootSpan = null;
         for (AiTraceSpan span : spans) {
             String parentSpanId = span.getParentSpanId();
-            if ("0000000000000000".equals(parentSpanId)
+            if (ROOT_SPAN_ID.equals(parentSpanId)
                     || parentSpanId == null
                     || parentSpanId.isEmpty()
                     || !spanMap.containsKey(parentSpanId)) {

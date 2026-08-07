@@ -16,6 +16,8 @@ public final class TraceConstant {
 
     private TraceConstant() {
     }
+    
+    public static final String ROOT_SPAN_ID = "0000000000000000";
 
     // ==================== Baggage / Span Attribute 共享 Key ====================
     // Baggage 与 Span Attribute 共用同一字面量,这里统一定义一次,Baggage 与属性两端都引用。
