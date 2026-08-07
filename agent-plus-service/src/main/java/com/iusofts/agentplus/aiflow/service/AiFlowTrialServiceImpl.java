@@ -52,6 +52,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.iusofts.agentplus.trace.constants.TraceConstant.PLACEHOLDER_TRACE_ID;
+
 /**
  * <p>
  * 流程试运行 服务实现类
@@ -141,9 +143,9 @@ public class AiFlowTrialServiceImpl implements IAiFlowTrialService {
         List<InputParam> inputParams = extractInputParams(target);
 
         Map<String, Object> inputs = reqVo.getInputs() == null ? new LinkedHashMap<>() : reqVo.getInputs();
-        String placeholderTraceId = AiFlowCommonUtils.newPlaceholderTraceId();
+        String placeholderTraceId = PLACEHOLDER_TRACE_ID;
 
-        AiFlowRuntime runtime = newRuntime(version, placeholderTraceId, inputs, reqVo.getOperatorId(), TRIAL_FLAG_NODE);
+        AiFlowRuntime runtime = newRuntime(version, placeholderTraceId, reqVo.getOperatorId(), TRIAL_FLAG_NODE);
         aiFlowRuntimeMapper.insert(runtime);
 
         LocalDateTime start = runtime.getStartTime();
@@ -174,7 +176,7 @@ public class AiFlowTrialServiceImpl implements IAiFlowTrialService {
                 runtime.setTraceId(traceId);
 
                 ExecutionContext ctx = new ExecutionContext(traceId, config, new LinkedHashMap<>(),
-                        version.getFlowId(), reqVo.getOperatorId(), reqVo.getOrgId(),
+                        version.getFlowId(), runtime.getId(), reqVo.getOperatorId(), reqVo.getOrgId(),
                         resolveFlowType(version.getFlowId()));
                 // 按参数名直接赋值:把用户给的值回填到各输入参数 paramMapKey 指向的位置,不走真实上游
                 applyDirectInputs(inputParams, inputs, ctx);
@@ -269,8 +271,7 @@ public class AiFlowTrialServiceImpl implements IAiFlowTrialService {
         return version;
     }
 
-    private AiFlowRuntime newRuntime(AiFlowVersion version, String traceId,
-                                     Map<String, Object> inputs, Long operatorId, int trialFlag) {
+    private AiFlowRuntime newRuntime(AiFlowVersion version, String traceId, Long operatorId, int trialFlag) {
         AiFlowRuntime runtime = new AiFlowRuntime();
         runtime.setFlowId(version.getFlowId());
         AiFlow aiFlow = aiFlowMapper.selectById(version.getFlowId());

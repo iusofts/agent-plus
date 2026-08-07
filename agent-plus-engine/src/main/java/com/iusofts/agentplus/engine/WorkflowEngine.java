@@ -87,7 +87,7 @@ public class WorkflowEngine {
             io.opentelemetry.context.Context rootContext = io.opentelemetry.context.Context.current();
 
             WorkflowExecutionResult result = doExecute(request.getWorkflow(), request.getConfig(), request.getInputs(),
-                    effectiveRunId, request.getFlowId(), request.getOperatorId(), request.getOrgId(), request.getFlowType(), rootContext, null);
+                    effectiveRunId, request.getFlowId(), request.getRuntimeId(), request.getOperatorId(), request.getOrgId(), request.getFlowType(), rootContext, null);
 
             // 出参载荷
             if (result.getOutput() != null && !result.getOutput().isEmpty()) {
@@ -121,7 +121,7 @@ public class WorkflowEngine {
                     WorkflowStreamEventCallback callback = sink::tryEmitNext;
 
                     WorkflowExecutionResult result = doExecute(request.getWorkflow(), request.getConfig(), request.getInputs(),
-                            effectiveRunId, request.getFlowId(), request.getOperatorId(), request.getOrgId(), request.getFlowType(), rootContext, callback);
+                            effectiveRunId, request.getFlowId(), request.getRuntimeId(), request.getOperatorId(), request.getOrgId(), request.getFlowType(), rootContext, callback);
 
                     // 推送工作流完成事件
                     sink.tryEmitNext(WorkflowCompleteEvent.create(effectiveRunId, result.getOutput()));
@@ -150,13 +150,14 @@ public class WorkflowEngine {
                                               Map<String, Object> inputs,
                                               String runId,
                                               Long flowId,
+                                              Long runtimeId,
                                               Long operatorId,
                                               Integer orgId,
                                               com.iusofts.agentplus.aiflow.enums.FlowTypeEnum flowType,
                                               io.opentelemetry.context.Context rootContext,
                                               WorkflowStreamEventCallback eventCallback) {
         WorkflowGraphCompiler.Compiled compiled = compiler.compile(workflow);
-        ExecutionContext ctx = new ExecutionContext(runId, config, inputs, flowId, operatorId, orgId, flowType);
+        ExecutionContext ctx = new ExecutionContext(runId, config, inputs, flowId, runtimeId, operatorId, orgId, flowType);
         ctx.setRootContext(rootContext);
         compiled.batchSubGraphs().forEach(ctx::registerBatchSubGraph);
 
@@ -337,7 +338,7 @@ public class WorkflowEngine {
         span.setAttribute(TraceConstant.ATTR_WORKFLOW_RUN_ID, effectiveRunId);
 
         // 设置AI属性
-        TraceUtil.setAiAttributes(CallSource.FLOW, request.getRuntimeId(), null, request.getOperatorId(), request.getOrgId());
+        TraceUtil.setAiAttributes(CallSource.FLOW, request.getRuntimeId(), request.getFlowId(), null, request.getOperatorId(), request.getOrgId());
 
         span.setAttribute(TraceConstant.ATTR_TRIAL_FLAG, request.getTrialFlag());
 

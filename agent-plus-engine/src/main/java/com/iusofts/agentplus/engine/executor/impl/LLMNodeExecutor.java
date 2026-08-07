@@ -189,7 +189,7 @@ public class LLMNodeExecutor implements NodeExecutor {
             .build();
 
         // 方案一：设置业务属性到 Span Attributes
-        TraceUtil.setAiAttributes(CallSource.FLOW, ctx.getFlowId(), node.getId(),
+        TraceUtil.setAiAttributes(CallSource.FLOW, ctx.getFlowId(), ctx.getFlowId(), node.getId(),
             ctx.getOperatorId(), ctx.getOrgId());
 
         // 如果是流式执行且没有工具，则使用流式调用

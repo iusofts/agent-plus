@@ -240,7 +240,7 @@ public final class TraceUtil {
     /**
      * 一次性设置所有业务属性到 Baggage 和 Span Attributes。
      */
-    public static void setAiAttributes(String callSource, Long sourceId, String sourceNodeId,
+    public static void setAiAttributes(String callSource, Long sourceId, Long sourceFlowId, String sourceNodeId,
                                         Long operatorId, Integer orgId) {
         BaggageBuilder builder = Baggage.current().toBuilder();
         boolean updated = false;
@@ -250,6 +250,10 @@ public final class TraceUtil {
         }
         if (sourceId != null) {
             builder.put(KEY_SOURCE_ID, String.valueOf(sourceId));
+            updated = true;
+        }
+        if (sourceFlowId != null) {
+            builder.put(KEY_SOURCE_FLOW_ID, String.valueOf(sourceFlowId));
             updated = true;
         }
         if (sourceNodeId != null) {
@@ -273,6 +277,7 @@ public final class TraceUtil {
         if (span != null && span.getSpanContext().isValid()) {
             if (callSource != null) span.setAttribute(KEY_CALL_SOURCE, callSource);
             if (sourceId != null) span.setAttribute(KEY_SOURCE_ID, sourceId);
+            if (sourceFlowId != null) span.setAttribute(KEY_SOURCE_FLOW_ID, sourceFlowId);
             if (sourceNodeId != null) span.setAttribute(KEY_SOURCE_NODE_ID, sourceNodeId);
             if (operatorId != null) span.setAttribute(KEY_OPERATOR_ID, operatorId);
             if (orgId != null) span.setAttribute(KEY_ORG_ID, orgId);
@@ -282,9 +287,9 @@ public final class TraceUtil {
     /**
      * 一次性设置所有业务属性。{@code callSource} 推荐传入 {@link CallSource} 枚举。
      */
-    public static void setAiAttributes(CallSource callSource, Long sourceId, String sourceNodeId,
+    public static void setAiAttributes(CallSource callSource, Long sourceId, Long sourceFlowId, String sourceNodeId,
                                         Long operatorId, Integer orgId) {
-        setAiAttributes(callSource == null ? null : callSource.getCode(), sourceId, sourceNodeId, operatorId, orgId);
+        setAiAttributes(callSource == null ? null : callSource.getCode(), sourceId, sourceFlowId, sourceNodeId, operatorId, orgId);
     }
 
     // ==================== 业务属性读取（从 Baggage 中读取） ====================
@@ -322,7 +327,7 @@ public final class TraceUtil {
      * 从 Baggage 获取来源流程 ID。
      */
     public static Long getSourceFlowId() {
-        String val = Baggage.current().getEntryValue(KEY_OPERATOR_ID);
+        String val = Baggage.current().getEntryValue(KEY_SOURCE_FLOW_ID);
         if (val == null || val.isEmpty()) {
             return null;
         }

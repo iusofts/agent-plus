@@ -43,6 +43,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
+import static com.iusofts.agentplus.trace.constants.TraceConstant.PLACEHOLDER_TRACE_ID;
+
 /**
  * AI流程公共执行服务。
  * 抽离流程执行的通用逻辑，供试运行和对话流智能体共用。
@@ -108,7 +110,7 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
         WorkflowConfig config = AiFlowCommonUtils.deserializeConfig(version.getConfigJson(), objectMapper);
 
         // 3. 创建运行实例（占位 traceId）
-        String placeholderTraceId = AiFlowCommonUtils.newPlaceholderTraceId();
+        String placeholderTraceId = PLACEHOLDER_TRACE_ID;
         AiFlowRuntime runtime = newRuntime(version, placeholderTraceId, operatorId, trialFlag);
         runtime.setFlowName(aiFlow.getName());
         aiFlowRuntimeMapper.insert(runtime);
@@ -242,7 +244,7 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
         WorkflowConfig config = AiFlowCommonUtils.deserializeConfig(version.getConfigJson(), objectMapper);
 
         // 3. 创建运行实例（占位 traceId）
-        String placeholderTraceId = AiFlowCommonUtils.newPlaceholderTraceId();
+        String placeholderTraceId = PLACEHOLDER_TRACE_ID;
         AiFlowRuntime runtime = newRuntime(version, placeholderTraceId, operatorId, trialFlag);
         AiFlow aiFlow = aiFlowMapper.selectById(version.getFlowId());
         if (aiFlow != null) {
@@ -436,7 +438,7 @@ public class AiFlowExecutorServiceImpl implements IAiFlowExecutorService {
         WorkflowConfig config = AiFlowCommonUtils.deserializeConfig(version.getConfigJson(), objectMapper);
 
         // 2. 创建运行实例（占位 traceId）
-        String placeholderTraceId = AiFlowCommonUtils.newPlaceholderTraceId();
+        String placeholderTraceId = PLACEHOLDER_TRACE_ID;
         AiFlowRuntime runtime = newRuntime(version, placeholderTraceId, operatorId, trialFlag);
         if (flowName != null) {
             runtime.setFlowName(flowName);

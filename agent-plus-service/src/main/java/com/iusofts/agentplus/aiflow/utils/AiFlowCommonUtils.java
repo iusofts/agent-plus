@@ -16,36 +16,6 @@ import java.util.UUID;
  */
 public class AiFlowCommonUtils {
 
-    /**
-     * 生成新的追踪ID。
-     * 试运行会加上 trial- 前缀。
-     *
-     * @deprecated 从 OTel traceId 切换后不再使用。请使用 {@link #newPlaceholderTraceId()}
-     * 作为占位符，引擎执行后以 OTel traceId 回填。
-     */
-    @Deprecated
-    public static String newTraceId(boolean isTrial) {
-        String uuid = UUID.randomUUID().toString().replace("-", "");
-        return isTrial ? "trial-" + uuid : uuid;
-    }
-
-    /**
-     * 生成普通追踪ID（无前缀）。
-     *
-     * @deprecated 从 OTel traceId 切换后不再使用。
-     */
-    @Deprecated
-    public static String newTraceId() {
-        return UUID.randomUUID().toString().replace("-", "");
-    }
-
-    /**
-     * 生成占位 traceId，用于在引擎执行前临时占位，引擎执行后以 OTel traceId 回填。
-     * 仅用于 {@code ai_flow_runtime.trace_id} 的临时占位，不与任何业务逻辑关联。
-     */
-    public static String newPlaceholderTraceId() {
-        return UUID.randomUUID().toString().replace("-", "");
-    }
 
     /**
      * 反序列化工作流定义。

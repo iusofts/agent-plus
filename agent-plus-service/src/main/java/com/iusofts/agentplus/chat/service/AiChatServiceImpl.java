@@ -657,7 +657,7 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
                     // 设置 span 属性
                     span.setAttribute(TraceConstant.ATTR_LABEL, finalConversation.getTitle());
                     // 设置AI属性
-                    TraceUtil.setAiAttributes(CallSource.CHAT, finalConversationId, null, finalOperatorId, finalOrgId);
+                    TraceUtil.setAiAttributes(CallSource.CHAT, finalConversationId, null, null, finalOperatorId, finalOrgId);
 
                     // 新建会话时，首事件把 conversationId 推回前端
                     if (finalNewConversation && finalConversationId != null) {

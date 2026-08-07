@@ -43,6 +43,8 @@ public class ExecutionContext implements Serializable {
 
     /** 关联的流程 ID,用于 AI 日志的 fromFlow 记录。 */
     private final Long flowId;
+    /** 关联的流程 ID,用于 AI 日志的 流程实例 记录。 */
+    private final Long runtimeId;
     /** 触发用户 ID,用于 AI 日志的 operator 记录。 */
     private final Long operatorId;
     /** 所属组织 ID,用于 AI 日志的 operator 记录。 */
@@ -80,15 +82,17 @@ public class ExecutionContext implements Serializable {
                             WorkflowConfig config,
                             Map<String, Object> globalInputs,
                             Long flowId,
+                            Long runtimeId,
                             Long operatorId,
                             Integer orgId) {
-        this(runId, config, globalInputs, flowId, operatorId, orgId, null);
+        this(runId, config, globalInputs, flowId, runtimeId, operatorId, orgId, null);
     }
 
     public ExecutionContext(String runId,
                             WorkflowConfig config,
                             Map<String, Object> globalInputs,
                             Long flowId,
+                            Long runtimeId,
                             Long operatorId,
                             Integer orgId,
                             FlowTypeEnum flowType) {
@@ -101,6 +105,7 @@ public class ExecutionContext implements Serializable {
         this.parent = null;
         this.scopeKey = null;
         this.flowId = flowId;
+        this.runtimeId = runtimeId;
         this.operatorId = operatorId;
         this.orgId = orgId;
         this.flowType = flowType;
@@ -114,6 +119,7 @@ public class ExecutionContext implements Serializable {
         this.parent = parent;
         this.scopeKey = scopeKey;
         this.flowId = parent.flowId;
+        this.runtimeId = parent.runtimeId;
         this.operatorId = parent.operatorId;
         this.orgId = parent.orgId;
         this.flowType = parent.flowType;
