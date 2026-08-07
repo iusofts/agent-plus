@@ -49,6 +49,11 @@ public class WorkflowExecuteRequest {
     private Long flowId;
 
     /**
+     * 流程实例ID(可选)。
+     */
+    private Long runtimeId;
+
+    /**
      * 操作人ID(可选)。
      */
     private Long operatorId;

@@ -337,7 +337,7 @@ public class WorkflowEngine {
         span.setAttribute(TraceConstant.ATTR_WORKFLOW_RUN_ID, effectiveRunId);
 
         // 设置AI属性
-        TraceUtil.setAiAttributes(CallSource.FLOW, request.getFlowId(), null, request.getOperatorId(), request.getOrgId());
+        TraceUtil.setAiAttributes(CallSource.FLOW, request.getRuntimeId(), null, request.getOperatorId(), request.getOrgId());
 
         span.setAttribute(TraceConstant.ATTR_TRIAL_FLAG, request.getTrialFlag());
 
