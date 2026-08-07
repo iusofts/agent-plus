@@ -26,6 +26,8 @@ public final class TraceConstant {
     public static final String KEY_CALL_SOURCE = "ai.call_source";
     /** 来源 ID */
     public static final String KEY_SOURCE_ID = "ai.source_id";
+    /** 来源流程 ID */
+    public static final String KEY_SOURCE_FLOW_ID = "ai.source_flow_id";
     /** 来源节点 ID */
     public static final String KEY_SOURCE_NODE_ID = "ai.source_node_id";
     /** 操作人 ID */

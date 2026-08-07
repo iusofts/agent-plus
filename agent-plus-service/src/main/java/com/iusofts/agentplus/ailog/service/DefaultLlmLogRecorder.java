@@ -91,46 +91,20 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
         }
 
         @Override
-        public LlmCallRecorder fromAgent(Long agentId) {
-            entity.setCallSource(CallSource.AGENT.getCode());
-            entity.setSourceId(agentId);
-            return this;
-        }
-
-        @Override
-        public LlmCallRecorder fromChat(Long conversationId) {
-            entity.setCallSource(CallSource.CHAT.getCode());
-            entity.setSourceId(conversationId);
-            return this;
-        }
-
-        @Override
-        public LlmCallRecorder fromFlow(Long flowId, String nodeId) {
-            entity.setCallSource(CallSource.FLOW.getCode());
-            entity.setSourceId(flowId);
-            entity.setSourceNodeId(nodeId);
-            return this;
-        }
-
-        @Override
-        public LlmCallRecorder fromApi() {
-            entity.setCallSource(CallSource.API.getCode());
-            return this;
-        }
-
-        @Override
-        public LlmCallRecorder source(CallSource callSource, Long sourceId, String sourceNodeId) {
+        public LlmCallRecorder source(CallSource callSource, Long sourceId, Long sourceFlowId, String sourceNodeId) {
             entity.setCallSource(callSource == null ? null : callSource.getCode());
             entity.setSourceId(sourceId);
             entity.setSourceNodeId(sourceNodeId);
+            entity.setSourceFlowId(sourceFlowId);
             return this;
         }
 
         @Override
-        public LlmCallRecorder source(String callSource, Long sourceId, String sourceNodeId) {
+        public LlmCallRecorder source(String callSource, Long sourceId, Long sourceFlowId, String sourceNodeId) {
             entity.setCallSource(callSource);
             entity.setSourceId(sourceId);
             entity.setSourceNodeId(sourceNodeId);
+            entity.setSourceFlowId(sourceFlowId);
             return this;
         }
 
@@ -288,34 +262,6 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
                 this.startTime = startTime;
                 entity.setStartTime(startTime);
             }
-            return this;
-        }
-
-        @Override
-        public KnowledgeRetrievalRecorder fromAgent(Long agentId) {
-            entity.setCallSource(CallSource.AGENT.getCode());
-            entity.setSourceId(agentId);
-            return this;
-        }
-
-        @Override
-        public KnowledgeRetrievalRecorder fromChat(Long conversationId) {
-            entity.setCallSource(CallSource.CHAT.getCode());
-            entity.setSourceId(conversationId);
-            return this;
-        }
-
-        @Override
-        public KnowledgeRetrievalRecorder fromFlow(Long flowId, String nodeId) {
-            entity.setCallSource(CallSource.FLOW.getCode());
-            entity.setSourceId(flowId);
-            entity.setSourceNodeId(nodeId);
-            return this;
-        }
-
-        @Override
-        public KnowledgeRetrievalRecorder fromApi() {
-            entity.setCallSource(CallSource.API.getCode());
             return this;
         }
 

@@ -34,6 +34,9 @@ public class LlmCallLogItem {
     @Schema(description = "来源 ID")
     private Long sourceId;
 
+    @Schema(description = "来源流程 ID")
+    private Long sourceFlowId;
+
     @Schema(description = "来源节点 ID")
     private String sourceNodeId;
 

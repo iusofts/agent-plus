@@ -67,32 +67,6 @@ public class KnowledgeStoreService {
         List<Map<String, Object>> chunkMetadatas,
         Long embeddingModelId,
         Long knowledgeBaseId) {
-        return batchEmbedAndStore(collectionName, vectorIds, chunkTexts, chunkMetadatas,
-            embeddingModelId, knowledgeBaseId, null);
-    }
-
-    /**
-     * 分批次向量化并存储，自动记录日志。
-     *
-     * <p>链路信息自动从当前 OpenTelemetry Span 获取。
-     *
-     * @param collectionName 集合名称
-     * @param vectorIds      向量 ID 列表（与 chunkTexts 一一对应）
-     * @param chunkTexts     分块文本列表
-     * @param chunkMetadatas 分块元数据列表（与 chunkTexts 一一对应）
-     * @param embeddingModelId 嵌入模型 ID
-     * @param knowledgeBaseId 知识库 ID（用于日志记录）
-     * @param sourceNodeId 来源节点 ID（用于日志记录，优先从 Span 获取）
-     * @return 向量化累计消耗的 token 数（部分模型不返回用量时为 0）
-     */
-    public int batchEmbedAndStore(
-        String collectionName,
-        List<String> vectorIds,
-        List<String> chunkTexts,
-        List<Map<String, Object>> chunkMetadatas,
-        Long embeddingModelId,
-        Long knowledgeBaseId,
-        String sourceNodeId) {
 
         EmbeddingModelDTO embeddingModelDTO = embeddingModelQueryProvider.getModel(embeddingModelId);
         EmbeddingModel embeddingModel = EmbeddingModelFactory.createEmbeddingModel(embeddingModelDTO);
@@ -118,7 +92,7 @@ public class KnowledgeStoreService {
             try {
                 response = embeddingModel.embedAll(segments);
             } catch (RuntimeException e) {
-                recordEmbeddingCall(embeddingModelDTO, knowledgeBaseId, sourceNodeId, startTime,
+                recordEmbeddingCall(embeddingModelDTO, knowledgeBaseId, startTime,
                     batchTexts, null, e.getMessage());
                 throw e;
             }
@@ -129,7 +103,7 @@ public class KnowledgeStoreService {
                 totalEmbeddingTokens += tokenUsage.totalTokenCount();
             }
 
-            recordEmbeddingCall(embeddingModelDTO, knowledgeBaseId, sourceNodeId, startTime,
+            recordEmbeddingCall(embeddingModelDTO, knowledgeBaseId, startTime,
                 batchTexts, tokenUsage, null);
 
             vectorStoreManager.addAll(collectionName, batchVectorIds, embeddings, segments);
@@ -144,7 +118,6 @@ public class KnowledgeStoreService {
     private void recordEmbeddingCall(
         EmbeddingModelDTO modelDTO,
         Long knowledgeBaseId,
-        String sourceNodeId,
         LocalDateTime startTime,
         List<String> batchTexts,
         dev.langchain4j.model.output.TokenUsage tokenUsage,
@@ -166,16 +139,8 @@ public class KnowledgeStoreService {
                 .embeddingModel(modelDTO)
                 .inputContent(inputContent);
 
-            // 设置来源信息（优先从 Span 获取）
-            String spanSourceNodeId = TraceUtil.getSourceNodeId();
-            if (spanSourceNodeId != null) {
-                call.source(CallSource.EMBED_INDEX, knowledgeBaseId, spanSourceNodeId);
-            } else if (sourceNodeId != null) {
-                call.source(CallSource.EMBED_INDEX, knowledgeBaseId, sourceNodeId);
-            } else {
-                call.source(CallSource.EMBED_INDEX, knowledgeBaseId, null);
-            }
-
+            // 设置来源信息
+            call.source(CallSource.EMBED_INDEX, knowledgeBaseId, TraceUtil.getSourceFlowId(), TraceUtil.getSourceNodeId());
             // 设置操作人信息
             call.operator(TraceUtil.getOperatorId(), TraceUtil.getOrgId());
 

@@ -234,7 +234,7 @@ public class RedisKnowledgeRetriever implements KnowledgeRetriever {
             LlmLogRecorder.LlmCallRecorder call = recorder.recordLlmCall()
                 .traceId(LlmLogRecorder.generateTraceId())
                 .startTime(start)
-                .source(CallSource.EMBED_RETRIEVE, kb.getId(), TraceUtil.getSourceNodeId())
+                .source(CallSource.EMBED_RETRIEVE, kb.getId(), TraceUtil.getSourceFlowId(), TraceUtil.getSourceNodeId())
                 .embeddingModel(modelDTO)
                 .inputContent(query)
                 .operator(TraceUtil.getOperatorId(), TraceUtil.getOrgId());

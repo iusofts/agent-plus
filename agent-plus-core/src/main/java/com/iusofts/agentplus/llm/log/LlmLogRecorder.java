@@ -87,14 +87,6 @@ public interface LlmLogRecorder {
          */
         LlmCallRecorder startTime(LocalDateTime startTime);
 
-        LlmCallRecorder fromAgent(Long agentId);
-
-        LlmCallRecorder fromChat(Long conversationId);
-
-        LlmCallRecorder fromFlow(Long flowId, String nodeId);
-
-        LlmCallRecorder fromApi();
-
         /**
          * 自定义来源三元组。用于内置来源无法覆盖的场景，推荐传入
          * {@link CallSource} 枚举；如需新增来源请先在枚举中追加。
@@ -103,13 +95,13 @@ public interface LlmLogRecorder {
          * @param sourceId     来源 ID（如知识库 ID）
          * @param sourceNodeId 来源节点 ID，可空
          */
-        LlmCallRecorder source(CallSource callSource, Long sourceId, String sourceNodeId);
+        LlmCallRecorder source(CallSource callSource, Long sourceId, Long sourceFlowId, String sourceNodeId);
 
         /**
          * 自定义来源三元组（字符串字面量）。仅在来源来自外部不可控的字符串时使用，
          * 业务代码请优先传入 {@link CallSource} 枚举。
          */
-        LlmCallRecorder source(String callSource, Long sourceId, String sourceNodeId);
+        LlmCallRecorder source(String callSource, Long sourceId, Long sourceFlowId, String sourceNodeId);
 
         LlmCallRecorder model(LlmModelDTO modelDTO);
 
@@ -177,14 +169,7 @@ public interface LlmLogRecorder {
          * 但当检索先执行、日志后补记时，应显式传入检索真正开始的时刻以正确统计耗时。
          */
         KnowledgeRetrievalRecorder startTime(LocalDateTime startTime);
-
-        KnowledgeRetrievalRecorder fromAgent(Long agentId);
-
-        KnowledgeRetrievalRecorder fromChat(Long conversationId);
-
-        KnowledgeRetrievalRecorder fromFlow(Long flowId, String nodeId);
-
-        KnowledgeRetrievalRecorder fromApi();
+        
 
         /**
          * 自定义来源三元组。推荐传入 {@link CallSource} 枚举。

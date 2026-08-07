@@ -324,6 +324,7 @@ CREATE TABLE `ai_llm_call_log`  (
   `trace_id` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '链路追踪ID',
   `call_source` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '调用来源(AGENT/CHAT/FLOW/API)',
   `source_id` bigint(20) NULL DEFAULT NULL COMMENT '来源ID(智能体ID/会话ID/流程ID)',
+  `source_flow_id` bigint(20) NULL DEFAULT NULL COMMENT '来源流程ID',
   `source_node_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '来源节点ID(工作流节点ID)',
   `model_id` bigint(20) NULL DEFAULT NULL COMMENT '模型ID',
   `model_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '模型名称',

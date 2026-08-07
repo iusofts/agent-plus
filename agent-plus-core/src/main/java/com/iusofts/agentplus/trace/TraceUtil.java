@@ -162,16 +162,9 @@ public final class TraceUtil {
     // ==================== 业务属性设置（同时设置到 Baggage 和 Span Attributes） ====================
 
     /**
-     * 设置调用来源信息到 Baggage 和 Span Attributes。
-     */
-    public static void setCallSource(String callSource, Long sourceId) {
-        setCallSource(callSource, sourceId, null);
-    }
-
-    /**
      * 设置调用来源信息（含节点）到 Baggage 和 Span Attributes。
      */
-    public static void setCallSource(String callSource, Long sourceId, String sourceNodeId) {
+    public static void setCallSource(String callSource, Long sourceId, Long sourceFlowId, String sourceNodeId) {
         BaggageBuilder builder = Baggage.current().toBuilder();
         boolean updated = false;
         if (callSource != null) {
@@ -186,6 +179,10 @@ public final class TraceUtil {
             builder.put(KEY_SOURCE_NODE_ID, sourceNodeId);
             updated = true;
         }
+        if (sourceFlowId != null) {
+            builder.put(KEY_SOURCE_FLOW_ID, String.valueOf(sourceFlowId));
+            updated = true;
+        }
         if (updated) {
             builder.build().makeCurrent();
         }
@@ -196,6 +193,7 @@ public final class TraceUtil {
             if (callSource != null) span.setAttribute(KEY_CALL_SOURCE, callSource);
             if (sourceId != null) span.setAttribute(KEY_SOURCE_ID, sourceId);
             if (sourceNodeId != null) span.setAttribute(KEY_SOURCE_NODE_ID, sourceNodeId);
+            if (sourceFlowId != null) span.setAttribute(KEY_SOURCE_FLOW_ID, sourceFlowId);
         }
     }
 
@@ -203,14 +201,14 @@ public final class TraceUtil {
      * 设置调用来源信息到 Baggage 和 Span Attributes。推荐入口，避免散落魔法字符串。
      */
     public static void setCallSource(CallSource callSource, Long sourceId) {
-        setCallSource(callSource, sourceId, null);
+        setCallSource(callSource, sourceId, null, null);
     }
 
     /**
      * 设置调用来源信息（含节点）到 Baggage 和 Span Attributes。推荐入口。
      */
-    public static void setCallSource(CallSource callSource, Long sourceId, String sourceNodeId) {
-        setCallSource(callSource == null ? null : callSource.getCode(), sourceId, sourceNodeId);
+    public static void setCallSource(CallSource callSource, Long sourceId, Long sourceFlowId, String sourceNodeId) {
+        setCallSource(callSource == null ? null : callSource.getCode(), sourceId, sourceFlowId, sourceNodeId);
     }
 
     /**
@@ -318,6 +316,21 @@ public final class TraceUtil {
      */
     public static String getSourceNodeId() {
         return Baggage.current().getEntryValue(KEY_SOURCE_NODE_ID);
+    }
+
+    /**
+     * 从 Baggage 获取来源流程 ID。
+     */
+    public static Long getSourceFlowId() {
+        String val = Baggage.current().getEntryValue(KEY_OPERATOR_ID);
+        if (val == null || val.isEmpty()) {
+            return null;
+        }
+        try {
+            return Long.parseLong(val);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     /**

@@ -169,7 +169,7 @@ public class AiModelChatModelProvider implements ChatModelProvider {
         return llmLogRecorder.recordLlmCall()
             .traceId(LlmLogRecorder.generateTraceId())
             .startTime(startTime)
-            .source(TraceUtil.getCallSource(), TraceUtil.getSourceId(), TraceUtil.getSourceNodeId())
+            .source(TraceUtil.getCallSource(), TraceUtil.getSourceId(), TraceUtil.getSourceFlowId(), TraceUtil.getSourceNodeId())
             .model(modelDTO)
             .config(request.getConfig())
             .inputMessages(request.getMessages())

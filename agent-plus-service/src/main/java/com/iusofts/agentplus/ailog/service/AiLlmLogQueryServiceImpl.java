@@ -193,6 +193,7 @@ public class AiLlmLogQueryServiceImpl implements IAiLlmLogQueryService {
             .traceId(log.getTraceId())
             .callSource(log.getCallSource())
             .sourceId(log.getSourceId())
+            .sourceFlowId(log.getSourceFlowId())
             .sourceNodeId(log.getSourceNodeId())
             .modelName(log.getModelName())
             .modelProvider(log.getModelProvider())
