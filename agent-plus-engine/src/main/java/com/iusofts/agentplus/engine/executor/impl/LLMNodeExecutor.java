@@ -188,10 +188,6 @@ public class LLMNodeExecutor implements NodeExecutor {
             .tools(tools)
             .build();
 
-        // 方案一：设置业务属性到 Span Attributes
-        TraceUtil.setAiAttributes(CallSource.FLOW, ctx.getRuntimeId(), ctx.getFlowId(), node.getId(),
-            ctx.getOperatorId(), ctx.getOrgId());
-
         // 如果是流式执行且没有工具，则使用流式调用
         // 流程不再走逐 token 增量推送(LLMTokenEvent 已弃用),改为节点完成后 emit MessageCompleteEvent。
         // streamChat 内部仍用 SSE 拉取,LangChain 内部聚合成完整响应返回;我们只关心最终 content。

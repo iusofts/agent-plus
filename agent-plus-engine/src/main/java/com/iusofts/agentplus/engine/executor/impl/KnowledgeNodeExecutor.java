@@ -51,10 +51,6 @@ public class KnowledgeNodeExecutor implements NodeExecutor {
 
         int topK = data.getTopK() == null ? 3 : data.getTopK();
 
-        // 方案一：设置业务属性到 Span Attributes
-        TraceUtil.setAiAttributes(CallSource.FLOW, ctx.getRuntimeId(), ctx.getFlowId(), node.getId(),
-            ctx.getOperatorId(), ctx.getOrgId());
-
         KnowledgeRetrieveResult result = retriever.retrieve(data.getKnowledgeIds(), query, topK);
 
         Map<String, Object> outputs = JSON.parseObject(JSON.toJSONString(result));

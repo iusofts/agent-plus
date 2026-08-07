@@ -14,6 +14,7 @@ import com.iusofts.agentplus.engine.executor.NodeExecutor;
 import com.iusofts.agentplus.engine.executor.NodeExecutorRegistry;
 import com.iusofts.agentplus.engine.util.ParamResolver;
 import com.iusofts.agentplus.trace.TraceUtil;
+import com.iusofts.agentplus.trace.constants.CallSource;
 import com.iusofts.agentplus.trace.constants.TraceConstant;
 import com.alibaba.fastjson2.JSON;
 import io.opentelemetry.api.trace.SpanKind;
@@ -278,6 +279,10 @@ public class WorkflowGraphCompiler {
                     span.setAttribute(TraceConstant.ATTR_NODE_ID, nodeId);
                     span.setAttribute(TraceConstant.ATTR_NODE_TYPE, nodeType);
                     span.setAttribute(TraceConstant.ATTR_LABEL, nodeName);
+
+                    // 设置业务属性到 Span Attributes
+                    TraceUtil.setAiAttributes(CallSource.FLOW, ctx.getRuntimeId(), ctx.getFlowId(), node.getId(),
+                            ctx.getOperatorId(), ctx.getOrgId());
 
                     // 入参载荷：已解析的实际入参值（仅 InputParamNodeData 子类有入参）
                     if (node.getData() instanceof InputParamNodeData inputParamNode) {
