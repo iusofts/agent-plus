@@ -60,55 +60,16 @@ public class MySqlSpanExporter implements SpanExporter {
         try {
             List<AiTraceSpan> entities = new ArrayList<>(spans.size());
             List<AiTraceSpanPayload> payloads = new ArrayList<>();
-            Map<String, AiTraceSpan> spanIdToEntity = new HashMap<>();
-            Map<String, List<AiTraceSpan>> parentToChildren = new HashMap<>();
-            Map<String, Long> spanIdToOwnTokens = new HashMap<>();
 
-            // 第一步：转换并建立映射关系
+            // 仅做实体转换与载荷拆分落库，不在导出层汇总子级 tokens。
+            // 父子级 tokens 聚合改由 AiTraceQueryServiceImpl 在查询时计算。
             for (SpanData span : spans) {
                 AiTraceSpanPayload payload = new AiTraceSpanPayload();
                 AiTraceSpan entity = toEntity(span, payload);
                 entities.add(entity);
-                spanIdToEntity.put(entity.getSpanId(), entity);
-
-                // 记录 span 自己的原始 tokens
-                Map<String, Object> attrs = entity.getAttributes();
-                if (attrs != null && attrs.containsKey(ATTR_TOKENS)) {
-                    Object val = attrs.get(ATTR_TOKENS);
-                    if (val instanceof Number num) {
-                        spanIdToOwnTokens.put(entity.getSpanId(), num.longValue());
-                    }
-                }
-
-                // 建立父子关系
-                String parentSpanId = entity.getParentSpanId();
-                if (parentSpanId != null) {
-                    parentToChildren.computeIfAbsent(parentSpanId, k -> new ArrayList<>()).add(entity);
-                }
 
                 if (payload.getInputPayload() != null || payload.getOutputPayload() != null) {
                     payloads.add(payload);
-                }
-            }
-
-            // 第二步：汇总所有子孙级 tokens 到每个 span（如果自己没有的话）
-            for (AiTraceSpan entity : entities) {
-                // 如果父级自己已经有 tokens 了，就不汇总子级的了
-                Map<String, Object> attrs = entity.getAttributes();
-                if (attrs != null && attrs.containsKey(ATTR_TOKENS)) {
-                    Object val = attrs.get(ATTR_TOKENS);
-                    if (val instanceof Number num && num.longValue() > 0) {
-                        continue;
-                    }
-                }
-
-                long totalTokens = sumDescendantTokens(entity.getSpanId(), parentToChildren, spanIdToOwnTokens);
-                if (totalTokens > 0) {
-                    if (attrs == null) {
-                        attrs = new HashMap<>();
-                        entity.setAttributes(attrs);
-                    }
-                    attrs.put(ATTR_TOKENS, totalTokens);
                 }
             }
 
@@ -120,31 +81,6 @@ public class MySqlSpanExporter implements SpanExporter {
             LOGGER.error("MySqlSpanExporter 批量落库失败, 丢失 {} 条 span", spans.size(), e);
         }
         return CompletableResultCode.ofSuccess();
-    }
-
-    /**
-     * 递归汇总指定 span 及其所有子孙级的原始 tokens。
-     */
-    private long sumDescendantTokens(String spanId,
-                                      Map<String, List<AiTraceSpan>> parentToChildren,
-                                      Map<String, Long> spanIdToOwnTokens) {
-        long sum = 0L;
-
-        // 加上自己的 tokens
-        Long ownTokens = spanIdToOwnTokens.get(spanId);
-        if (ownTokens != null) {
-            sum += ownTokens;
-        }
-
-        // 递归加上所有子级的 tokens
-        List<AiTraceSpan> children = parentToChildren.get(spanId);
-        if (children != null) {
-            for (AiTraceSpan child : children) {
-                sum += sumDescendantTokens(child.getSpanId(), parentToChildren, spanIdToOwnTokens);
-            }
-        }
-
-        return sum;
     }
 
     @Override

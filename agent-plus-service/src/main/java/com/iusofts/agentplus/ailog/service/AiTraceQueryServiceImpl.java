@@ -44,11 +44,7 @@ public class AiTraceQueryServiceImpl implements IAiTraceQueryService {
     public AiFlowTraceVo queryTrace(AiFlowRuntimeTraceReqVo reqVo) {
         String traceId = reqVo.getTraceId();
 
-        List<AiTraceSpan> spans = aiTraceSpanMapper.selectList(
-                Wrappers.<AiTraceSpan>lambdaQuery()
-                        .eq(AiTraceSpan::getTraceId, traceId)
-                        .orderByAsc(AiTraceSpan::getStartTime));
-
+        List<AiTraceSpan> spans = loadSpansByTraceId(traceId);
         if (spans.isEmpty()) {
             throw new SystemBusinessException("链路数据不存在");
         }
@@ -80,11 +76,7 @@ public class AiTraceQueryServiceImpl implements IAiTraceQueryService {
     public List<AiFlowTraceTreeVo> queryTraceTree(AiFlowRuntimeTraceReqVo reqVo) {
         String traceId = reqVo.getTraceId();
 
-        List<AiTraceSpan> spans = aiTraceSpanMapper.selectList(
-                Wrappers.<AiTraceSpan>lambdaQuery()
-                        .eq(AiTraceSpan::getTraceId, traceId)
-                        .orderByAsc(AiTraceSpan::getStartTime));
-
+        List<AiTraceSpan> spans = loadSpansByTraceId(traceId);
         if (spans.isEmpty()) {
             throw new SystemBusinessException("链路数据不存在");
         }
@@ -93,15 +85,7 @@ public class AiTraceQueryServiceImpl implements IAiTraceQueryService {
         Map<String, AiTraceSpan> spanMap = spans.stream()
                 .collect(Collectors.toMap(AiTraceSpan::getSpanId, s -> s));
 
-        // 构建 parentSpanId -> children 的映射
-        Map<String, List<AiTraceSpan>> childrenMap = new LinkedHashMap<>();
-        for (AiTraceSpan span : spans) {
-            String parentSpanId = span.getParentSpanId();
-            if (parentSpanId == null) {
-                parentSpanId = "";
-            }
-            childrenMap.computeIfAbsent(parentSpanId, k -> new ArrayList<>()).add(span);
-        }
+        Map<String, List<AiTraceSpan>> childrenMap = buildChildrenMap(spans);
 
         // 找到根节点 (parentSpanId 为 ROOT_SPAN_ID 或为空，且没有父 span 的)
         AiTraceSpan rootSpan = null;
@@ -129,6 +113,32 @@ public class AiTraceQueryServiceImpl implements IAiTraceQueryService {
         return result;
     }
 
+    /**
+     * 按 traceId 加载链路下全部 span（按开始时间升序）。树视图、详情视图共用，
+     * 详情页需要拿到整条链路后才能对子级 tokens 进行聚合。
+     */
+    private List<AiTraceSpan> loadSpansByTraceId(String traceId) {
+        return aiTraceSpanMapper.selectList(
+                Wrappers.<AiTraceSpan>lambdaQuery()
+                        .eq(AiTraceSpan::getTraceId, traceId)
+                        .orderByAsc(AiTraceSpan::getStartTime));
+    }
+
+    /**
+     * 构建 parentSpanId -> children 的映射。parentSpanId 为空/null 的归到 "" 分组。
+     */
+    private Map<String, List<AiTraceSpan>> buildChildrenMap(List<AiTraceSpan> spans) {
+        Map<String, List<AiTraceSpan>> childrenMap = new LinkedHashMap<>();
+        for (AiTraceSpan span : spans) {
+            String parentSpanId = span.getParentSpanId();
+            if (parentSpanId == null) {
+                parentSpanId = "";
+            }
+            childrenMap.computeIfAbsent(parentSpanId, k -> new ArrayList<>()).add(span);
+        }
+        return childrenMap;
+    }
+
     private AiFlowTraceTreeVo buildTree(AiTraceSpan span, Map<String, List<AiTraceSpan>> childrenMap) {
         AiFlowTraceTreeVo vo = new AiFlowTraceTreeVo();
         vo.setId(span.getId());
@@ -136,7 +146,9 @@ public class AiTraceQueryServiceImpl implements IAiTraceQueryService {
         vo.setDur(span.getDurationMs() == null ? 0L : span.getDurationMs() * 1000L);
         vo.setCat(getSpanCat(span));
         vo.setNodeId(getNodeId(span));
-        vo.setTokens(getTokens(span));
+        // 自己携带 ai.tokens 时使用自身值，否则递归汇总所有子孙级 tokens。
+        // 原 Exporter 层的累加逻辑移到这里，避免落库时反复改写 attribute。
+        vo.setTokens(resolveTokens(span, childrenMap));
         vo.setStatus("UNSET".equals(span.getStatus()) ? "OK" : span.getStatus());
 
         List<AiTraceSpan> children = childrenMap.get(span.getSpanId());
@@ -147,6 +159,30 @@ public class AiTraceQueryServiceImpl implements IAiTraceQueryService {
         }
 
         return vo;
+    }
+
+    /**
+     * 解析 span 的展示 tokens：自己有则用自己的 tokens；否则递归汇总所有子孙级 tokens。
+     */
+    private Long resolveTokens(AiTraceSpan span, Map<String, List<AiTraceSpan>> childrenMap) {
+        Long own = getTokens(span);
+        if (own != null && own > 0) {
+            return own;
+        }
+        List<AiTraceSpan> children = childrenMap.get(span.getSpanId());
+        if (children == null || children.isEmpty()) {
+            return own;
+        }
+        long sum = 0L;
+        boolean hasAny = false;
+        for (AiTraceSpan child : children) {
+            Long childTokens = resolveTokens(child, childrenMap);
+            if (childTokens != null && childTokens > 0) {
+                sum += childTokens;
+                hasAny = true;
+            }
+        }
+        return hasAny ? sum : own;
     }
 
     private String getSpanLabel(AiTraceSpan span) {
@@ -238,7 +274,17 @@ public class AiTraceQueryServiceImpl implements IAiTraceQueryService {
         vo.setDur(span.getDurationMs() == null ? 0L : span.getDurationMs() * 1000L);
         vo.setCat(getSpanCat(span));
         vo.setNodeId(getNodeId(span));
-        vo.setTokens(getTokens(span));
+        // 与树视图同口径：自身携带 ai.tokens > 0 时直接返回（多为 LLM/工具等真实消耗点），
+        // 只有父级未记、子级才有消耗的场景才去加载整条 trace 做子孙级累加。
+        Long ownTokens = getTokens(span);
+        if (ownTokens != null && ownTokens > 0) {
+            vo.setTokens(ownTokens);
+        } else {
+            List<AiTraceSpan> traceSpans = loadSpansByTraceId(span.getTraceId());
+            vo.setTokens(traceSpans.isEmpty()
+                    ? ownTokens
+                    : resolveTokens(span, buildChildrenMap(traceSpans)));
+        }
         vo.setStatus("UNSET".equals(span.getStatus()) ? "OK" : span.getStatus());
         vo.setStatusMessage(span.getStatusMessage());
 
