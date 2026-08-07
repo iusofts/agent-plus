@@ -10,6 +10,7 @@ import com.iusofts.agentplus.knowledge.dto.KnowledgeRetrieveResult;
 import com.iusofts.agentplus.llm.log.LlmLogRecorder;
 import com.iusofts.agentplus.trace.TraceUtil;
 import com.iusofts.agentplus.trace.annotation.TraceSpan;
+import com.iusofts.agentplus.trace.constants.CallSource;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
@@ -49,9 +50,6 @@ import static com.iusofts.agentplus.trace.constants.TraceConstant.ATTR_TOKENS;
 public class RedisKnowledgeRetriever implements KnowledgeRetriever {
 
     private static final Logger log = LoggerFactory.getLogger(RedisKnowledgeRetriever.class);
-
-    /** embedding 向量化调用来源：检索场景。 */
-    private static final String CALL_SOURCE_EMBED_RETRIEVE = "EMBED_RETRIEVE";
 
     private final KnowledgeBaseQueryProvider knowledgeBaseQueryProvider;
     private final EmbeddingModelProvider embeddingModelProvider;
@@ -187,7 +185,7 @@ public class RedisKnowledgeRetriever implements KnowledgeRetriever {
             LlmLogRecorder.KnowledgeRetrievalRecorder call = recorder.recordKnowledgeRetrieval()
                 .traceId(LlmLogRecorder.generateTraceId())
                 .startTime(start)
-                .source(TraceUtil.getCallSource(), TraceUtil.getSourceId(), TraceUtil.getSourceNodeId())
+                .source(CallSource.fromCode(TraceUtil.getCallSource()), TraceUtil.getSourceId(), TraceUtil.getSourceNodeId())
                 .knowledgeBase(knowledgeId, kbName)
                 .query(query)
                 .topK(topK)
@@ -236,7 +234,7 @@ public class RedisKnowledgeRetriever implements KnowledgeRetriever {
             LlmLogRecorder.LlmCallRecorder call = recorder.recordLlmCall()
                 .traceId(LlmLogRecorder.generateTraceId())
                 .startTime(start)
-                .source(CALL_SOURCE_EMBED_RETRIEVE, kb.getId(), TraceUtil.getSourceNodeId())
+                .source(CallSource.EMBED_RETRIEVE, kb.getId(), TraceUtil.getSourceNodeId())
                 .embeddingModel(modelDTO)
                 .inputContent(query)
                 .operator(TraceUtil.getOperatorId(), TraceUtil.getOrgId());

@@ -4,6 +4,7 @@ import com.iusofts.agentplus.knowledge.dto.EmbeddingModelDTO;
 import com.iusofts.agentplus.knowledge.EmbeddingModelQueryProvider;
 import com.iusofts.agentplus.llm.log.LlmLogRecorder;
 import com.iusofts.agentplus.trace.TraceUtil;
+import com.iusofts.agentplus.trace.constants.CallSource;
 import dev.langchain4j.data.document.Metadata;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
@@ -32,9 +33,6 @@ import java.util.stream.Collectors;
 public class KnowledgeStoreService {
 
     private static final int EMBED_BATCH_SIZE = 20;
-
-    /** embedding 向量化调用来源：索引场景。 */
-    private static final String CALL_SOURCE_EMBED_INDEX = "EMBED_INDEX";
 
     private final EmbeddingModelQueryProvider embeddingModelQueryProvider;
     private final RedisVectorStoreManager vectorStoreManager;
@@ -171,11 +169,11 @@ public class KnowledgeStoreService {
             // 设置来源信息（优先从 Span 获取）
             String spanSourceNodeId = TraceUtil.getSourceNodeId();
             if (spanSourceNodeId != null) {
-                call.source(CALL_SOURCE_EMBED_INDEX, knowledgeBaseId, spanSourceNodeId);
+                call.source(CallSource.EMBED_INDEX, knowledgeBaseId, spanSourceNodeId);
             } else if (sourceNodeId != null) {
-                call.source(CALL_SOURCE_EMBED_INDEX, knowledgeBaseId, sourceNodeId);
+                call.source(CallSource.EMBED_INDEX, knowledgeBaseId, sourceNodeId);
             } else {
-                call.source(CALL_SOURCE_EMBED_INDEX, knowledgeBaseId, null);
+                call.source(CallSource.EMBED_INDEX, knowledgeBaseId, null);
             }
 
             // 设置操作人信息

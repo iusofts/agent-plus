@@ -23,6 +23,7 @@ import com.iusofts.agentplus.llm.dto.LlmModelConfigDTO;
 import com.iusofts.agentplus.llm.dto.ToolCall;
 import com.iusofts.agentplus.llm.dto.ToolDefinition;
 import com.iusofts.agentplus.trace.TraceUtil;
+import com.iusofts.agentplus.trace.constants.CallSource;
 import com.iusofts.agentplus.tool.dto.ToolDTO;
 import com.iusofts.agentplus.tool.dto.ToolExecuteRequest;
 import com.iusofts.agentplus.tool.dto.ToolExecuteResult;
@@ -188,7 +189,7 @@ public class LLMNodeExecutor implements NodeExecutor {
             .build();
 
         // 方案一：设置业务属性到 Span Attributes
-        TraceUtil.setAiAttributes("FLOW", ctx.getFlowId(), node.getId(),
+        TraceUtil.setAiAttributes(CallSource.FLOW, ctx.getFlowId(), node.getId(),
             ctx.getOperatorId(), ctx.getOrgId());
 
         // 如果是流式执行且没有工具，则使用流式调用

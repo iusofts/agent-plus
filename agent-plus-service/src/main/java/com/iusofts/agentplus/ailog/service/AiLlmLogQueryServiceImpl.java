@@ -10,6 +10,7 @@ import com.iusofts.agentplus.ailog.entity.AiKnowledgeRetrievalLog;
 import com.iusofts.agentplus.ailog.interfaces.IAiLlmLogQueryService;
 import com.iusofts.agentplus.ailog.mapper.AiLlmCallLogMapper;
 import com.iusofts.agentplus.ailog.mapper.AiKnowledgeRetrievalLogMapper;
+import com.iusofts.agentplus.trace.constants.CallSource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -46,7 +47,11 @@ public class AiLlmLogQueryServiceImpl implements IAiLlmLogQueryService {
             wrapper.like(AiLlmCallLog::getTraceId, request.getTraceId());
         }
         if (request.getCallSource() != null) {
-            wrapper.eq(AiLlmCallLog::getCallSource, request.getCallSource());
+            // 入参经枚举校验后再拼条件，未匹配视为脏数据并忽略
+            CallSource callSource = CallSource.fromCode(request.getCallSource());
+            if (callSource != null) {
+                wrapper.eq(AiLlmCallLog::getCallSource, callSource.getCode());
+            }
         }
         if (request.getModelId() != null) {
             wrapper.eq(AiLlmCallLog::getModelId, request.getModelId());

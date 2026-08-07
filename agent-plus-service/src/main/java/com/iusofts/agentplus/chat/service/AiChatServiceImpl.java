@@ -37,6 +37,7 @@ import com.iusofts.agentplus.tool.dto.ToolExecuteRequest;
 import com.iusofts.agentplus.tool.dto.ToolExecuteResult;
 import com.iusofts.agentplus.tool.dto.ToolParam;
 import com.iusofts.agentplus.trace.TraceUtil;
+import com.iusofts.agentplus.trace.constants.CallSource;
 import com.iusofts.agentplus.trace.annotation.TraceSpan;
 import com.iusofts.agentplus.trace.constants.TraceConstant;
 import io.opentelemetry.api.trace.SpanKind;
@@ -162,7 +163,7 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
         AiChatResponse response = null;
         for (int iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
             // 设置调用来源到 Span（每次循环设置，因为 Span 在当前上下文中）
-            TraceUtil.setCallSource("CHAT", conversation != null ? conversation.getId() : null);
+            TraceUtil.setCallSource(CallSource.CHAT, conversation != null ? conversation.getId() : null);
 
             response = chatModelProvider.chat(AiChatRequest.builder()
                     .modelId(modelId)
@@ -314,7 +315,7 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
         int topK = aiAgent.getRetrievalTopK() == null || aiAgent.getRetrievalTopK() <= 0 ? DEFAULT_RETRIEVAL_TOP_K : aiAgent.getRetrievalTopK();
 
         // 设置调用来源到 Span（知识库检索场景）
-        TraceUtil.setCallSource("AGENT", aiAgent.getId());
+        TraceUtil.setCallSource(CallSource.AGENT, aiAgent.getId());
 
         List<String> chunks = new ArrayList<>();
         for (Long kbId : aiAgent.getKnowledgeBaseIds()) {
@@ -656,7 +657,7 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
                     // 设置 span 属性
                     span.setAttribute(TraceConstant.ATTR_LABEL, finalConversation.getTitle());
                     // 设置AI属性
-                    TraceUtil.setAiAttributes("CHAT", finalConversationId, null, finalOperatorId, finalOrgId);
+                    TraceUtil.setAiAttributes(CallSource.CHAT, finalConversationId, null, finalOperatorId, finalOrgId);
 
                     // 新建会话时，首事件把 conversationId 推回前端
                     if (finalNewConversation && finalConversationId != null) {

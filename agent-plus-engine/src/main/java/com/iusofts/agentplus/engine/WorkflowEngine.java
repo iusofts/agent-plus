@@ -25,6 +25,7 @@ import com.iusofts.agentplus.engine.stream.WorkflowStreamEventCallback;
 import com.iusofts.agentplus.engine.tool.ToolRegistry;
 import com.iusofts.agentplus.tool.ToolQueryProvider;
 import com.iusofts.agentplus.trace.TraceUtil;
+import com.iusofts.agentplus.trace.constants.CallSource;
 import com.iusofts.agentplus.trace.constants.TraceConstant;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanKind;
@@ -336,7 +337,7 @@ public class WorkflowEngine {
         span.setAttribute(TraceConstant.ATTR_WORKFLOW_RUN_ID, effectiveRunId);
 
         // 设置AI属性
-        TraceUtil.setAiAttributes("FLOW", request.getFlowId(), null, request.getOperatorId(), request.getOrgId());
+        TraceUtil.setAiAttributes(CallSource.FLOW, request.getFlowId(), null, request.getOperatorId(), request.getOrgId());
 
         span.setAttribute(TraceConstant.ATTR_TRIAL_FLAG, request.getTrialFlag());
 

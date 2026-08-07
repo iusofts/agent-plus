@@ -7,6 +7,7 @@ import com.iusofts.agentplus.llm.dto.ToolCall;
 import com.iusofts.agentplus.llm.dto.ToolDefinition;
 import com.iusofts.agentplus.knowledge.dto.EmbeddingModelDTO;
 import com.iusofts.agentplus.knowledge.dto.KnowledgeRetrieveResult;
+import com.iusofts.agentplus.trace.constants.CallSource;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -95,12 +96,18 @@ public interface LlmLogRecorder {
         LlmCallRecorder fromApi();
 
         /**
-         * 自定义来源三元组。用于内置枚举无法覆盖的来源，
-         * 如 embedding 向量化：{@code EMBED_RETRIEVE}（检索）/ {@code EMBED_INDEX}（索引）。
+         * 自定义来源三元组。用于内置来源无法覆盖的场景，推荐传入
+         * {@link CallSource} 枚举；如需新增来源请先在枚举中追加。
          *
          * @param callSource   调用来源
          * @param sourceId     来源 ID（如知识库 ID）
          * @param sourceNodeId 来源节点 ID，可空
+         */
+        LlmCallRecorder source(CallSource callSource, Long sourceId, String sourceNodeId);
+
+        /**
+         * 自定义来源三元组（字符串字面量）。仅在来源来自外部不可控的字符串时使用，
+         * 业务代码请优先传入 {@link CallSource} 枚举。
          */
         LlmCallRecorder source(String callSource, Long sourceId, String sourceNodeId);
 
@@ -180,12 +187,12 @@ public interface LlmLogRecorder {
         KnowledgeRetrievalRecorder fromApi();
 
         /**
-         * 自定义来源三元组。用于内置枚举无法覆盖的来源，或由调用方透传
-         * {@link com.iusofts.agentplus.ailog.dto.AiTraceContext} 直接落库。
-         *
-         * @param callSource   调用来源
-         * @param sourceId     来源 ID（如智能体 ID/流程 ID）
-         * @param sourceNodeId 来源节点 ID，可空
+         * 自定义来源三元组。推荐传入 {@link CallSource} 枚举。
+         */
+        KnowledgeRetrievalRecorder source(CallSource callSource, Long sourceId, String sourceNodeId);
+
+        /**
+         * 自定义来源三元组（字符串字面量）。业务代码请优先使用 {@link CallSource} 枚举。
          */
         KnowledgeRetrievalRecorder source(String callSource, Long sourceId, String sourceNodeId);
 

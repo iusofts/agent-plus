@@ -14,6 +14,8 @@ import org.apache.commons.lang3.StringUtils;
 
 import java.util.function.Supplier;
 
+import com.iusofts.agentplus.trace.constants.CallSource;
+
 import static com.iusofts.agentplus.trace.constants.TraceConstant.*;
 
 /**
@@ -29,7 +31,7 @@ import static com.iusofts.agentplus.trace.constants.TraceConstant.*;
  * });
  *
  * // 设置业务属性（存储在 Baggage 中）
- * TraceUtil.setCallSource("CHAT", 123L, null);
+ * TraceUtil.setCallSource(CallSource.CHAT, 123L, null);
  * TraceUtil.setOperator(456L, 789);
  *
  * // 读取业务属性（从 Baggage 中读取）
@@ -198,6 +200,20 @@ public final class TraceUtil {
     }
 
     /**
+     * 设置调用来源信息到 Baggage 和 Span Attributes。推荐入口，避免散落魔法字符串。
+     */
+    public static void setCallSource(CallSource callSource, Long sourceId) {
+        setCallSource(callSource, sourceId, null);
+    }
+
+    /**
+     * 设置调用来源信息（含节点）到 Baggage 和 Span Attributes。推荐入口。
+     */
+    public static void setCallSource(CallSource callSource, Long sourceId, String sourceNodeId) {
+        setCallSource(callSource == null ? null : callSource.getCode(), sourceId, sourceNodeId);
+    }
+
+    /**
      * 设置操作人信息到 Baggage 和 Span Attributes。
      */
     public static void setOperator(Long operatorId, Integer orgId) {
@@ -263,6 +279,14 @@ public final class TraceUtil {
             if (operatorId != null) span.setAttribute(KEY_OPERATOR_ID, operatorId);
             if (orgId != null) span.setAttribute(KEY_ORG_ID, orgId);
         }
+    }
+
+    /**
+     * 一次性设置所有业务属性。{@code callSource} 推荐传入 {@link CallSource} 枚举。
+     */
+    public static void setAiAttributes(CallSource callSource, Long sourceId, String sourceNodeId,
+                                        Long operatorId, Integer orgId) {
+        setAiAttributes(callSource == null ? null : callSource.getCode(), sourceId, sourceNodeId, operatorId, orgId);
     }
 
     // ==================== 业务属性读取（从 Baggage 中读取） ====================

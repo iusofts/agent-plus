@@ -15,6 +15,7 @@ import com.iusofts.agentplus.tool.ToolQueryProvider;
 import com.iusofts.agentplus.tool.dto.ToolExecuteRequest;
 import com.iusofts.agentplus.tool.dto.ToolExecuteResult;
 import com.iusofts.agentplus.trace.TraceUtil;
+import com.iusofts.agentplus.trace.constants.CallSource;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -50,7 +51,7 @@ public class ToolNodeExecutor implements NodeExecutor {
             .build();
 
         // 设置业务属性到 Span Attributes
-        TraceUtil.setAiAttributes("FLOW", ctx.getFlowId(), node.getId(),
+        TraceUtil.setAiAttributes(CallSource.FLOW, ctx.getFlowId(), node.getId(),
             ctx.getOperatorId(), ctx.getOrgId());
 
         ToolExecuteResult result = toolRegistry.execute(request);

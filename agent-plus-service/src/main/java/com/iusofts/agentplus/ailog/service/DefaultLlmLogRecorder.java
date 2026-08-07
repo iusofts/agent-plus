@@ -12,6 +12,7 @@ import com.iusofts.agentplus.knowledge.dto.EmbeddingModelDTO;
 import com.iusofts.agentplus.knowledge.dto.KnowledgeChunk;
 import com.iusofts.agentplus.knowledge.dto.KnowledgeRetrieveResult;
 import com.iusofts.agentplus.llm.log.LlmLogRecorder;
+import com.iusofts.agentplus.trace.constants.CallSource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -91,21 +92,21 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
 
         @Override
         public LlmCallRecorder fromAgent(Long agentId) {
-            entity.setCallSource("AGENT");
+            entity.setCallSource(CallSource.AGENT.getCode());
             entity.setSourceId(agentId);
             return this;
         }
 
         @Override
         public LlmCallRecorder fromChat(Long conversationId) {
-            entity.setCallSource("CHAT");
+            entity.setCallSource(CallSource.CHAT.getCode());
             entity.setSourceId(conversationId);
             return this;
         }
 
         @Override
         public LlmCallRecorder fromFlow(Long flowId, String nodeId) {
-            entity.setCallSource("FLOW");
+            entity.setCallSource(CallSource.FLOW.getCode());
             entity.setSourceId(flowId);
             entity.setSourceNodeId(nodeId);
             return this;
@@ -113,7 +114,15 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
 
         @Override
         public LlmCallRecorder fromApi() {
-            entity.setCallSource("API");
+            entity.setCallSource(CallSource.API.getCode());
+            return this;
+        }
+
+        @Override
+        public LlmCallRecorder source(CallSource callSource, Long sourceId, String sourceNodeId) {
+            entity.setCallSource(callSource == null ? null : callSource.getCode());
+            entity.setSourceId(sourceId);
+            entity.setSourceNodeId(sourceNodeId);
             return this;
         }
 
@@ -284,21 +293,21 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
 
         @Override
         public KnowledgeRetrievalRecorder fromAgent(Long agentId) {
-            entity.setCallSource("AGENT");
+            entity.setCallSource(CallSource.AGENT.getCode());
             entity.setSourceId(agentId);
             return this;
         }
 
         @Override
         public KnowledgeRetrievalRecorder fromChat(Long conversationId) {
-            entity.setCallSource("CHAT");
+            entity.setCallSource(CallSource.CHAT.getCode());
             entity.setSourceId(conversationId);
             return this;
         }
 
         @Override
         public KnowledgeRetrievalRecorder fromFlow(Long flowId, String nodeId) {
-            entity.setCallSource("FLOW");
+            entity.setCallSource(CallSource.FLOW.getCode());
             entity.setSourceId(flowId);
             entity.setSourceNodeId(nodeId);
             return this;
@@ -306,7 +315,15 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
 
         @Override
         public KnowledgeRetrievalRecorder fromApi() {
-            entity.setCallSource("API");
+            entity.setCallSource(CallSource.API.getCode());
+            return this;
+        }
+
+        @Override
+        public KnowledgeRetrievalRecorder source(CallSource callSource, Long sourceId, String sourceNodeId) {
+            entity.setCallSource(callSource == null ? null : callSource.getCode());
+            entity.setSourceId(sourceId);
+            entity.setSourceNodeId(sourceNodeId);
             return this;
         }
 
