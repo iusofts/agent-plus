@@ -275,10 +275,10 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
         }
 
         @Override
-        public KnowledgeRetrievalRecorder source(String callSource, Long sourceId, String sourceNodeId) {
-            entity.setCallSource(callSource);
-            entity.setSourceId(sourceId);
-            entity.setSourceNodeId(sourceNodeId);
+        public KnowledgeRetrievalRecorder sourceFromTrace() {
+            entity.setCallSource(TraceUtil.getCallSource());
+            entity.setSourceId(TraceUtil.getSourceId());
+            entity.setSourceNodeId(TraceUtil.getSourceNodeId());
             return this;
         }
 

@@ -160,10 +160,7 @@ public interface LlmLogRecorder {
          */
         KnowledgeRetrievalRecorder source(CallSource callSource, Long sourceId, String sourceNodeId);
 
-        /**
-         * 自定义来源三元组（字符串字面量）。业务代码请优先使用 {@link CallSource} 枚举。
-         */
-        KnowledgeRetrievalRecorder source(String callSource, Long sourceId, String sourceNodeId);
+        KnowledgeRetrievalRecorder sourceFromTrace();
 
         KnowledgeRetrievalRecorder knowledgeBase(Long kbId, String kbName);
 

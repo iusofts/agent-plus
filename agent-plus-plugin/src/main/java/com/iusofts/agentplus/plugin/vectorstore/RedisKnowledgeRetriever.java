@@ -185,7 +185,7 @@ public class RedisKnowledgeRetriever implements KnowledgeRetriever {
             LlmLogRecorder.KnowledgeRetrievalRecorder call = recorder.recordKnowledgeRetrieval()
                 .traceId(TraceUtil.currentTraceId())
                 .startTime(start)
-                .source(CallSource.fromCode(TraceUtil.getCallSource()), TraceUtil.getSourceId(), TraceUtil.getSourceNodeId())
+                .sourceFromTrace()
                 .knowledgeBase(knowledgeId, kbName)
                 .query(query)
                 .topK(topK)
