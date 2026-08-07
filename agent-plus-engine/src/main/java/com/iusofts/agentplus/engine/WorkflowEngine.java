@@ -26,6 +26,7 @@ import com.iusofts.agentplus.engine.tool.ToolRegistry;
 import com.iusofts.agentplus.tool.ToolQueryProvider;
 import com.iusofts.agentplus.trace.TraceUtil;
 import com.iusofts.agentplus.trace.constants.TraceConstant;
+import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanKind;
 import org.bsc.langgraph4j.CompiledGraph;
 import org.slf4j.Logger;
@@ -78,30 +79,8 @@ public class WorkflowEngine {
     public WorkflowExecutionResult execute(WorkflowExecuteRequest request) {
         // 不传父 Context，使用当前 Context 自动串接（来自自主规划或外部调用）
         return TraceUtil.span(TraceConstant.SPAN_WORKFLOW_EXECUTE, SpanKind.INTERNAL, null, span -> {
-            // 以 OTel traceId 作为 runId;SDK 未初始化时回退传入值
-            String effectiveRunId = span.getSpanContext().isValid()
-                    ? span.getSpanContext().getTraceId()
-                    : request.getRunId();
 
-            span.setAttribute(TraceConstant.ATTR_LABEL, request.getFlowName() != null ? request.getFlowName() : "");
-            span.setAttribute(TraceConstant.ATTR_WORKFLOW_RUN_ID, effectiveRunId);
-            if (request.getFlowId() != null) {
-                span.setAttribute(TraceConstant.ATTR_WORKFLOW_ID, request.getFlowId());
-            }
-            if (request.getOperatorId() != null) {
-                span.setAttribute(TraceConstant.KEY_OPERATOR_ID, request.getOperatorId());
-            }
-            if (request.getOrgId() != null) {
-                span.setAttribute(TraceConstant.KEY_ORG_ID, request.getOrgId().longValue());
-            }
-            if (request.getTrialFlag() != null) {
-                span.setAttribute(TraceConstant.ATTR_TRIAL_FLAG, request.getTrialFlag());
-            }
-
-            // 入参载荷
-            if (request.getInputs() != null && !request.getInputs().isEmpty()) {
-                span.setAttribute(TraceConstant.ATTR_PAYLOAD_INPUT, JSON.toJSONString(request.getInputs()));
-            }
+            String effectiveRunId = initTraceSpan(request, span);
 
             // 保存当前 context 作为 root context，供后续节点 span 使用
             io.opentelemetry.context.Context rootContext = io.opentelemetry.context.Context.current();
@@ -132,30 +111,7 @@ public class WorkflowEngine {
         CompletableFuture.runAsync(() -> {
             try {
                 TraceUtil.span(TraceConstant.SPAN_WORKFLOW_STREAM_EXECUTE, SpanKind.INTERNAL, null, span -> {
-                    // 以 OTel traceId 作为 runId;SDK 未初始化时回退传入值
-                    String effectiveRunId = span.getSpanContext().isValid()
-                            ? span.getSpanContext().getTraceId()
-                            : request.getRunId();
-
-                    span.setAttribute(TraceConstant.ATTR_LABEL, request.getFlowName() != null ? request.getFlowName() : "");
-                    span.setAttribute(TraceConstant.ATTR_WORKFLOW_RUN_ID, effectiveRunId);
-                    if (request.getFlowId() != null) {
-                        span.setAttribute(TraceConstant.ATTR_WORKFLOW_ID, request.getFlowId());
-                    }
-                    if (request.getOperatorId() != null) {
-                        span.setAttribute(TraceConstant.KEY_OPERATOR_ID, request.getOperatorId());
-                    }
-                    if (request.getOrgId() != null) {
-                        span.setAttribute(TraceConstant.KEY_ORG_ID, request.getOrgId().longValue());
-                    }
-                    if (request.getTrialFlag() != null) {
-                        span.setAttribute(TraceConstant.ATTR_TRIAL_FLAG, request.getTrialFlag() != 0);
-                    }
-
-                    // 入参载荷
-                    if (request.getInputs() != null && !request.getInputs().isEmpty()) {
-                        span.setAttribute(TraceConstant.ATTR_PAYLOAD_INPUT, JSON.toJSONString(request.getInputs()));
-                    }
+                    String effectiveRunId = initTraceSpan(request, span);
 
                     // 保存当前 context 作为 root context，供后续节点 span 使用
                     io.opentelemetry.context.Context rootContext = io.opentelemetry.context.Context.current();
@@ -369,5 +325,25 @@ public class WorkflowEngine {
 
             return new WorkflowEngine(registry);
         }
+    }
+
+    private static String initTraceSpan(WorkflowExecuteRequest request, Span span) {
+        // 以 OTel traceId 作为 runId;SDK 未初始化时回退传入值
+        String effectiveRunId = span.getSpanContext().isValid()
+                ? span.getSpanContext().getTraceId()
+                : request.getRunId();
+        span.setAttribute(TraceConstant.ATTR_LABEL, request.getFlowName() != null ? request.getFlowName() : "");
+        span.setAttribute(TraceConstant.ATTR_WORKFLOW_RUN_ID, effectiveRunId);
+
+        // 设置AI属性
+        TraceUtil.setAiAttributes("FLOW", request.getFlowId(), null, request.getOperatorId(), request.getOrgId());
+
+        span.setAttribute(TraceConstant.ATTR_TRIAL_FLAG, request.getTrialFlag());
+
+        // 入参载荷
+        if (request.getInputs() != null && !request.getInputs().isEmpty()) {
+            span.setAttribute(TraceConstant.ATTR_PAYLOAD_INPUT, JSON.toJSONString(request.getInputs()));
+        }
+        return effectiveRunId;
     }
 }

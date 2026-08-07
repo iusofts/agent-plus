@@ -165,11 +165,11 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
             TraceUtil.setCallSource("CHAT", conversation != null ? conversation.getId() : null);
 
             response = chatModelProvider.chat(AiChatRequest.builder()
-                .modelId(modelId)
-                .messages(msgList)
-                .config(config)
-                .tools(toolDefinitions)
-                .build());
+                    .modelId(modelId)
+                    .messages(msgList)
+                    .config(config)
+                    .tools(toolDefinitions)
+                    .build());
 
             // 模型未请求工具调用，得到最终回答，结束循环
             if (CollectionUtils.isEmpty(response.getToolCalls())) {
@@ -178,10 +178,10 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
 
             // 将本轮 assistant 的工具调用请求追加到上下文
             msgList.add(AiChatMessage.builder()
-                .role("assistant")
-                .content(response.getContent())
-                .toolCalls(response.getToolCalls())
-                .build());
+                    .role("assistant")
+                    .content(response.getContent())
+                    .toolCalls(response.getToolCalls())
+                    .build());
 
             // 逐个执行工具，并把结果作为 tool 消息回填
             for (ToolCall toolCall : response.getToolCalls()) {
@@ -324,8 +324,8 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
             // 检索日志（embedding 调用与召回明细）由 KnowledgeRetriever 底层统一落库
             KnowledgeRetrieveResult result = knowledgeRetriever.retrieve(kbId, query, topK);
             List<String> retrievedChunks = result.getChunks() != null
-                ? result.getChunks().stream().map(KnowledgeChunk::getContent).collect(Collectors.toList())
-                : List.of();
+                    ? result.getChunks().stream().map(KnowledgeChunk::getContent).collect(Collectors.toList())
+                    : List.of();
             chunks.addAll(retrievedChunks);
         }
         if (chunks.isEmpty()) {
@@ -352,10 +352,10 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
                 ToolDTO tool = toolQueryProvider.getById(toolId);
                 if (tool == null || tool.getStatus() == null || tool.getStatus() != 1) continue;
                 definitions.add(ToolDefinition.builder()
-                    .name(tool.getName())
-                    .description(tool.getDescription())
-                    .parameters(tool.getParamsSchema())
-                    .build());
+                        .name(tool.getName())
+                        .description(tool.getDescription())
+                        .parameters(tool.getParamsSchema())
+                        .build());
             }
         }
 
@@ -367,10 +367,10 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
                 if (flow == null || flow.getStatus() == null || flow.getStatus() != 1) continue;
 
                 definitions.add(ToolDefinition.builder()
-                    .name("workflow_" + workflowId)
-                    .description(flow.getDescription() != null ? flow.getDescription() : "执行工作流: " + flow.getName())
-                    .parameters(buildWorkflowParamsSchema())
-                    .build());
+                        .name("workflow_" + workflowId)
+                        .description(flow.getDescription() != null ? flow.getDescription() : "执行工作流: " + flow.getName())
+                        .parameters(buildWorkflowParamsSchema())
+                        .build());
             }
         }
 
@@ -463,9 +463,9 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
             } else {
                 trace.setToolId(toolId);
                 result = toolRegistry.execute(ToolExecuteRequest.builder()
-                    .toolId(toolId)
-                    .params(params)
-                    .build());
+                        .toolId(toolId)
+                        .params(params)
+                        .build());
             }
 
             trace.setSuccess(result.isSuccess());
@@ -475,11 +475,11 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
 
         // 回填工具执行结果，供模型下一轮推理
         msgList.add(AiChatMessage.builder()
-            .role("tool")
-            .toolCallId(toolCall.getId())
-            .name(toolCall.getName())
-            .content(serializeToolResult(trace.isSuccess(), trace.getResult(), trace.getErrorMessage()))
-            .build());
+                .role("tool")
+                .toolCallId(toolCall.getId())
+                .name(toolCall.getName())
+                .content(serializeToolResult(trace.isSuccess(), trace.getResult(), trace.getErrorMessage()))
+                .build());
 
         return trace;
     }
@@ -492,7 +492,8 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
             return new HashMap<>();
         }
         try {
-            return objectMapper.readValue(arguments, new TypeReference<Map<String, Object>>() {});
+            return objectMapper.readValue(arguments, new TypeReference<Map<String, Object>>() {
+            });
         } catch (Exception e) {
             log.warn("解析工具调用参数失败, arguments={}", arguments, e);
             return new HashMap<>();
@@ -637,6 +638,7 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
         final boolean finalNewConversation = newConversation;
         final Long finalOperatorId = chatReqVo.getOperatorId();
         final Integer finalOrgId = chatReqVo.getOrgId();
+        final Long finalAgentId = agentId;
 
         // 8. 创建 Flux 流式响应
         // 先捕获当前的 OTel Context，供异步线程使用
@@ -653,140 +655,128 @@ public class AiChatServiceImpl implements IAiChatServiceInterface {
 
                     // 设置 span 属性
                     span.setAttribute(TraceConstant.ATTR_LABEL, finalConversation.getTitle());
-                    span.setAttribute(TraceConstant.ATTR_AGENT_ID, finalAiAgent.getId() != null ? finalAiAgent.getId() : 0L);
-                    if (finalConversationId != null) {
-                        span.setAttribute(TraceConstant.ATTR_CONVERSATION_ID, finalConversationId);
-                    }
-                    if (finalOperatorId != null) {
-                        span.setAttribute(TraceConstant.KEY_OPERATOR_ID, finalOperatorId);
-                    }
-                    if (finalOrgId != null) {
-                        span.setAttribute(TraceConstant.KEY_ORG_ID, finalOrgId.longValue());
-                    }
+                    // 设置AI属性
+                    TraceUtil.setAiAttributes("CHAT", finalConversationId, null, finalOperatorId, finalOrgId);
 
                     // 新建会话时，首事件把 conversationId 推回前端
                     if (finalNewConversation && finalConversationId != null) {
                         sink.next(ConversationInitEvent.create(effectiveRunId, finalConversationId));
                     }
 
-                    // 设置调用来源到 Span
-                    TraceUtil.setCallSource("CHAT", finalConversationId);
+                    // 如果有工具，暂不支持工具调用的流式（工具调用需要同步执行）
+                    if (finalToolDefinitions != null && !finalToolDefinitions.isEmpty()) {
+                        // 有工具绑定，使用非流式调用，然后一次性返回
+                        Map<String, Long> toolNameToId = buildToolNameToIdMap(finalAiAgent);
+                        List<ToolCallTraceVo> toolTraces = new ArrayList<>();
 
-                // 如果有工具，暂不支持工具调用的流式（工具调用需要同步执行）
-                if (finalToolDefinitions != null && !finalToolDefinitions.isEmpty()) {
-                    // 有工具绑定，使用非流式调用，然后一次性返回
-                    Map<String, Long> toolNameToId = buildToolNameToIdMap(finalAiAgent);
-                    List<ToolCallTraceVo> toolTraces = new ArrayList<>();
+                        // 复制一份 msgList 用于工具调用循环
+                        List<AiChatMessage> loopMsgList = new ArrayList<>(finalMsgList);
 
-                    // 复制一份 msgList 用于工具调用循环
-                    List<AiChatMessage> loopMsgList = new ArrayList<>(finalMsgList);
+                        AiChatResponse response = null;
+                        for (int iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
 
-                    AiChatResponse response = null;
-                    for (int iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
-                        TraceUtil.setCallSource("CHAT", finalConversationId);
+                            response = chatModelProvider.chat(AiChatRequest.builder()
+                                    .modelId(finalModelId)
+                                    .messages(loopMsgList)
+                                    .config(finalConfig)
+                                    .tools(finalToolDefinitions)
+                                    .build());
 
-                        response = chatModelProvider.chat(AiChatRequest.builder()
-                            .modelId(finalModelId)
-                            .messages(loopMsgList)
-                            .config(finalConfig)
-                            .tools(finalToolDefinitions)
-                            .build());
+                            if (CollectionUtils.isEmpty(response.getToolCalls())) {
+                                break;
+                            }
 
-                        if (CollectionUtils.isEmpty(response.getToolCalls())) {
-                            break;
+                            loopMsgList.add(AiChatMessage.builder()
+                                    .role("assistant")
+                                    .content(response.getContent())
+                                    .toolCalls(response.getToolCalls())
+                                    .build());
+
+                            for (ToolCall toolCall : response.getToolCalls()) {
+                                ToolCallTraceVo trace = executeToolCall(toolCall, toolNameToId, loopMsgList,
+                                        finalOperatorId, finalOrgId);
+                                toolTraces.add(trace);
+                            }
                         }
 
-                        loopMsgList.add(AiChatMessage.builder()
-                            .role("assistant")
-                            .content(response.getContent())
-                            .toolCalls(response.getToolCalls())
-                            .build());
+                        // 保存 final 引用
+                        final AiChatResponse finalResponse = response;
+                        final List<ToolCallTraceVo> finalToolTraces = toolTraces;
 
-                        for (ToolCall toolCall : response.getToolCalls()) {
-                            ToolCallTraceVo trace = executeToolCall(toolCall, toolNameToId, loopMsgList,
-                                finalOperatorId, finalOrgId);
-                            toolTraces.add(trace);
+                        // 发送完整内容作为一个 LLMTokenEvent (isLast=true)
+                        sink.next(LLMTokenEvent.token(effectiveRunId, "llm", "llm", "LLM",
+                                finalResponse.getContent(), finalResponse.getContent(), true));
+
+                        // 构建输出结果
+                        Map<String, Object> output = new HashMap<>();
+                        output.put("text", finalResponse.getContent());
+                        output.put("inputTokens", finalResponse.getInputTokens());
+                        output.put("outputTokens", finalResponse.getOutputTokens());
+                        output.put("totalTokens", finalResponse.getTotalTokens());
+                        if (!finalToolTraces.isEmpty()) {
+                            output.put("toolCalls", finalToolTraces);
                         }
+
+                        // 发送完成事件
+                        sink.next(WorkflowCompleteEvent.create(effectiveRunId, output));
+
+                        // 保存助手消息和更新会话
+                        saveAssistantMessageAndUpdateConversation(finalResponse.getContent(),
+                                finalResponse.getInputTokens(), finalResponse.getOutputTokens(), finalResponse.getTotalTokens(),
+                                finalConversation, finalAiAgent, chatReqVo, finalToolTraces, newConversation);
+
+                        sink.complete();
+                        return null; // span lambda 需要返回值
+                    } else {
+                        // 无工具绑定，使用真实流式调用
+                        StringBuilder accumulatedContent = new StringBuilder();
+                        final int[] totalTokens = {0, 0}; // inputTokens, outputTokens
+
+                        AiChatResponse response = chatModelProvider.streamChat(
+                                AiChatRequest.builder()
+                                        .modelId(finalModelId)
+                                        .messages(finalMsgList)
+                                        .config(finalConfig)
+                                        .tools(null)
+                                        .build(),
+                                token -> {
+                                    accumulatedContent.append(token);
+                                    sink.next(LLMTokenEvent.token(effectiveRunId, "llm", "llm", "LLM",
+                                            token, accumulatedContent.toString(), false));
+                                }
+                        );
+
+                        // 保存 final 引用
+                        final AiChatResponse finalResponse = response;
+                        final String finalAccumulatedContent = accumulatedContent.toString();
+
+                        // 发送最后一个 token 事件
+                        sink.next(LLMTokenEvent.token(effectiveRunId, "llm", "llm", "LLM",
+                                "", finalAccumulatedContent, true));
+
+                        // 累加 token
+                        if (finalResponse.getInputTokens() != null) totalTokens[0] += finalResponse.getInputTokens();
+                        if (finalResponse.getOutputTokens() != null) totalTokens[1] += finalResponse.getOutputTokens();
+
+                        // 构建输出结果
+                        Map<String, Object> output = new HashMap<>();
+                        output.put("text", finalResponse.getContent());
+                        output.put("inputTokens", totalTokens[0]);
+                        output.put("outputTokens", totalTokens[1]);
+                        output.put("totalTokens", totalTokens[0] + totalTokens[1]);
+
+                        // 发送完成事件
+                        sink.next(WorkflowCompleteEvent.create(effectiveRunId, output));
+
+                        // 保存助手消息和更新会话
+                        saveAssistantMessageAndUpdateConversation(finalResponse.getContent(),
+                                totalTokens[0], totalTokens[1], totalTokens[0] + totalTokens[1],
+                                finalConversation, finalAiAgent, chatReqVo, null, newConversation);
+
+                        sink.complete();
+                        return null; // span lambda 需要返回值
                     }
-
-                    // 保存 final 引用
-                    final AiChatResponse finalResponse = response;
-                    final List<ToolCallTraceVo> finalToolTraces = toolTraces;
-
-                    // 发送完整内容作为一个 LLMTokenEvent (isLast=true)
-                    sink.next(LLMTokenEvent.token(effectiveRunId, "llm", "llm", "LLM",
-                        finalResponse.getContent(), finalResponse.getContent(), true));
-
-                    // 构建输出结果
-                    Map<String, Object> output = new HashMap<>();
-                    output.put("text", finalResponse.getContent());
-                    output.put("inputTokens", finalResponse.getInputTokens());
-                    output.put("outputTokens", finalResponse.getOutputTokens());
-                    output.put("totalTokens", finalResponse.getTotalTokens());
-                    if (!finalToolTraces.isEmpty()) {
-                        output.put("toolCalls", finalToolTraces);
-                    }
-
-                    // 发送完成事件
-                    sink.next(WorkflowCompleteEvent.create(effectiveRunId, output));
-
-                    // 保存助手消息和更新会话
-                    saveAssistantMessageAndUpdateConversation(finalResponse.getContent(),
-                        finalResponse.getInputTokens(), finalResponse.getOutputTokens(), finalResponse.getTotalTokens(),
-                        finalConversation, finalAiAgent, chatReqVo, finalToolTraces, newConversation);
-
-                    sink.complete();
-                    return null; // span lambda 需要返回值
-                } else {
-                    // 无工具绑定，使用真实流式调用
-                    StringBuilder accumulatedContent = new StringBuilder();
-                    final int[] totalTokens = {0, 0}; // inputTokens, outputTokens
-
-                    AiChatResponse response = chatModelProvider.streamChat(
-                        AiChatRequest.builder()
-                            .modelId(finalModelId)
-                            .messages(finalMsgList)
-                            .config(finalConfig)
-                            .tools(null)
-                            .build(),
-                        token -> {
-                            accumulatedContent.append(token);
-                            sink.next(LLMTokenEvent.token(effectiveRunId, "llm", "llm", "LLM",
-                                token, accumulatedContent.toString(), false));
-                        }
-                    );
-
-                    // 保存 final 引用
-                    final AiChatResponse finalResponse = response;
-                    final String finalAccumulatedContent = accumulatedContent.toString();
-
-                    // 发送最后一个 token 事件
-                    sink.next(LLMTokenEvent.token(effectiveRunId, "llm", "llm", "LLM",
-                        "", finalAccumulatedContent, true));
-
-                    // 累加 token
-                    if (finalResponse.getInputTokens() != null) totalTokens[0] += finalResponse.getInputTokens();
-                    if (finalResponse.getOutputTokens() != null) totalTokens[1] += finalResponse.getOutputTokens();
-
-                    // 构建输出结果
-                    Map<String, Object> output = new HashMap<>();
-                    output.put("text", finalResponse.getContent());
-                    output.put("inputTokens", totalTokens[0]);
-                    output.put("outputTokens", totalTokens[1]);
-                    output.put("totalTokens", totalTokens[0] + totalTokens[1]);
-
-                    // 发送完成事件
-                    sink.next(WorkflowCompleteEvent.create(effectiveRunId, output));
-
-                    // 保存助手消息和更新会话
-                    saveAssistantMessageAndUpdateConversation(finalResponse.getContent(),
-                        totalTokens[0], totalTokens[1], totalTokens[0] + totalTokens[1],
-                        finalConversation, finalAiAgent, chatReqVo, null, newConversation);
-
-                    sink.complete();
-                    return null; // span lambda 需要返回值
-                }
-            });
+                });
             } catch (Exception e) {
                 sink.error(e);
             }
