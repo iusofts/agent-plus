@@ -1,6 +1,8 @@
 package com.iusofts.agentplus.ailog.service;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.iusofts.agentplus.ailog.entity.AiTraceSpan;
 import com.iusofts.agentplus.ailog.entity.AiTraceSpanPayload;
 import com.iusofts.agentplus.ailog.interfaces.IAiTraceQueryService;
@@ -11,11 +13,15 @@ import com.iusofts.agentplus.aiflow.vo.AiFlowTraceEventVo;
 import com.iusofts.agentplus.aiflow.vo.AiFlowTraceTreeVo;
 import com.iusofts.agentplus.aiflow.vo.AiFlowTraceVo;
 import com.iusofts.agentplus.aiflow.vo.AiSpanDetailVo;
+import com.iusofts.agentplus.aiflow.vo.AiTraceSpanListVo;
+import com.iusofts.agentplus.aiflow.vo.AiTraceSpanPageReqVo;
 import com.iusofts.agentplus.basic.exception.SystemBusinessException;
+import com.iusofts.agentplus.basic.utils.ModelMapperUtil;
+import com.iusofts.agentplus.basic.web.vo.page.PageResult;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
-import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.*;
@@ -300,6 +306,49 @@ public class AiTraceQueryServiceImpl implements IAiTraceQueryService {
         }
 
         return vo;
+    }
+
+    @Override
+    public PageResult<AiTraceSpanListVo> pageRootSpan(AiTraceSpanPageReqVo reqVo) {
+        // 仅查询根 Span（parent_span_id = ROOT_SPAN_ID），按 start_time 倒序
+        var wrapper = Wrappers.<AiTraceSpan>lambdaQuery()
+                .eq(AiTraceSpan::getParentSpanId, ROOT_SPAN_ID)
+                .orderByDesc(AiTraceSpan::getStartTime);
+
+        if (StringUtils.hasText(reqVo.getTraceId())) {
+            wrapper.like(AiTraceSpan::getTraceId, reqVo.getTraceId());
+        }
+        if (StringUtils.hasText(reqVo.getSpanName())) {
+            wrapper.like(AiTraceSpan::getSpanName, reqVo.getSpanName());
+        }
+        if (StringUtils.hasText(reqVo.getStatus())) {
+            wrapper.eq(AiTraceSpan::getStatus, reqVo.getStatus());
+        }
+        if (reqVo.getOrgId() != null) {
+            wrapper.eq(AiTraceSpan::getOrgId, reqVo.getOrgId());
+        }
+        if (reqVo.getOperatorId() != null) {
+            wrapper.eq(AiTraceSpan::getOperatorId, reqVo.getOperatorId());
+        }
+        if (reqVo.getTrialFlag() != null) {
+            wrapper.eq(AiTraceSpan::getTrialFlag, reqVo.getTrialFlag());
+        }
+
+        Page<AiTraceSpan> pageParam = new Page<>(reqVo.getCurrentPage(), reqVo.getPageSize());
+        IPage<AiTraceSpan> page = aiTraceSpanMapper.selectPage(pageParam, wrapper);
+
+        List<AiTraceSpanListVo> list = page.getRecords().stream()
+                .map(span -> {
+                    AiTraceSpanListVo vo = ModelMapperUtil.strictMap(span, AiTraceSpanListVo.class);
+                    vo.setLabel(getSpanLabel(span));
+                    return vo;
+                })
+                .toList();
+
+        PageResult<AiTraceSpanListVo> pageResult = new PageResult<>();
+        pageResult.setDataList(list);
+        pageResult.setTotalCount(page.getTotal());
+        return pageResult;
     }
 
 }

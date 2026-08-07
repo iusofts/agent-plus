@@ -5,7 +5,10 @@ import com.iusofts.agentplus.aiflow.vo.AiFlowRuntimeTraceReqVo;
 import com.iusofts.agentplus.aiflow.vo.AiFlowTraceTreeVo;
 import com.iusofts.agentplus.aiflow.vo.AiFlowTraceVo;
 import com.iusofts.agentplus.aiflow.vo.AiSpanDetailVo;
+import com.iusofts.agentplus.aiflow.vo.AiTraceSpanListVo;
+import com.iusofts.agentplus.aiflow.vo.AiTraceSpanPageReqVo;
 import com.iusofts.agentplus.basic.web.annotation.OperationLogExclude;
+import com.iusofts.agentplus.basic.web.vo.page.PageResult;
 import com.iusofts.agentplus.common.vo.IdReqVo;
 import com.iusofts.agentplus.web.common.controller.BApiController;
 import io.swagger.v3.oas.annotations.Operation;
@@ -53,6 +56,13 @@ public class AiTraceController extends BApiController {
     @PostMapping("/querySpanDetail")
     public AiSpanDetailVo querySpanDetail(@RequestBody IdReqVo reqVo) {
         return aiTraceQueryService.querySpanDetail(reqVo.getId());
+    }
+
+    @Operation(description = "分页查询根Span列表(parent_span_id=ROOT_SPAN_ID),按start_time倒序")
+    @OperationLogExclude(type = RES)
+    @PostMapping("/pageRootSpan")
+    public PageResult<AiTraceSpanListVo> pageRootSpan(@RequestBody AiTraceSpanPageReqVo reqVo) {
+        return aiTraceQueryService.pageRootSpan(reqVo);
     }
 
 }

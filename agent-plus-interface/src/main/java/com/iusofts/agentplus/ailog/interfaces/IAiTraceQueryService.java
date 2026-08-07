@@ -4,6 +4,9 @@ import com.iusofts.agentplus.aiflow.vo.AiFlowRuntimeTraceReqVo;
 import com.iusofts.agentplus.aiflow.vo.AiFlowTraceTreeVo;
 import com.iusofts.agentplus.aiflow.vo.AiFlowTraceVo;
 import com.iusofts.agentplus.aiflow.vo.AiSpanDetailVo;
+import com.iusofts.agentplus.aiflow.vo.AiTraceSpanListVo;
+import com.iusofts.agentplus.aiflow.vo.AiTraceSpanPageReqVo;
+import com.iusofts.agentplus.basic.web.vo.page.PageResult;
 
 import java.util.List;
 
@@ -38,5 +41,13 @@ public interface IAiTraceQueryService {
      * @return span详情，含出入参
      */
     AiSpanDetailVo querySpanDetail(Long id);
+
+    /**
+     * 分页查询根 Span 列表（parent_span_id = ROOT_SPAN_ID），按 start_time 倒序。
+     *
+     * @param reqVo 分页与过滤条件
+     * @return 根 Span 分页结果
+     */
+    PageResult<AiTraceSpanListVo> pageRootSpan(AiTraceSpanPageReqVo reqVo);
 
 }
