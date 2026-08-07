@@ -101,15 +101,6 @@ public class DefaultLlmLogRecorder implements LlmLogRecorder {
         }
 
         @Override
-        public LlmCallRecorder source(String callSource, Long sourceId, Long sourceFlowId, String sourceNodeId) {
-            entity.setCallSource(callSource);
-            entity.setSourceId(sourceId);
-            entity.setSourceNodeId(sourceNodeId);
-            entity.setSourceFlowId(sourceFlowId);
-            return this;
-        }
-
-        @Override
         public LlmCallRecorder sourceFromTrace() {
             entity.setCallSource(TraceUtil.getCallSource());
             entity.setSourceId(TraceUtil.getSourceId());

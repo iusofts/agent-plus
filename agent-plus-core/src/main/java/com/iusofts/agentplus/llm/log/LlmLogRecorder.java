@@ -85,12 +85,6 @@ public interface LlmLogRecorder {
          */
         LlmCallRecorder source(CallSource callSource, Long sourceId, Long sourceFlowId, String sourceNodeId);
 
-        /**
-         * 自定义来源三元组（字符串字面量）。仅在来源来自外部不可控的字符串时使用，
-         * 业务代码请优先传入 {@link CallSource} 枚举。
-         */
-        LlmCallRecorder source(String callSource, Long sourceId, Long sourceFlowId, String sourceNodeId);
-        
         LlmCallRecorder sourceFromTrace();
 
         LlmCallRecorder model(LlmModelDTO modelDTO);
