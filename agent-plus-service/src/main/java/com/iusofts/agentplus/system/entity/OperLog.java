@@ -16,8 +16,11 @@ import java.time.LocalDateTime;
 
 /**
  * <p>
- * 操作日志记录
+ * 操作日志记录(主表,仅存轻量字段)
  * </p>
+ *
+ * <p>请求参数、返回参数、错误堆栈等大字段拆分到附表
+ * {@link OperLogPayload},通过 {@code oper_log_id} 一对一关联。</p>
  *
  * @author Ivan
  * @since 2020-12-09
@@ -72,17 +75,8 @@ private static final long serialVersionUID=1L;
     @Schema(description = "操作地点")
     private String operLocation;
 
-    @Schema(description = "请求参数")
-    private String operParam;
-
-    @Schema(description = "返回参数")
-    private String jsonResult;
-
     @Schema(description = "操作状态（0正常 1异常）")
     private Integer status;
-
-    @Schema(description = "错误消息")
-    private String errorMsg;
 
     @Schema(description = "操作时间")
     private LocalDateTime operTime;

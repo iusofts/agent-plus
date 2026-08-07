@@ -29,8 +29,12 @@ public class DatabaseConfig {
 
         DynamicTableNameInnerInterceptor dynamicTableNameInnerInterceptor = new DynamicTableNameInnerInterceptor();
         dynamicTableNameInnerInterceptor.setTableNameHandler((sql, tableName) -> {
+            String suffix = "_" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy_MM_dd"));
             if (tableName.equals("sys_oper_log")) {
-                return tableName + "_" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy_MM_dd"));
+                return "sys_oper_log" + suffix;
+            }
+            if (tableName.equals("sys_oper_log_payload")) {
+                return "sys_oper_log_payload" + suffix;
             }
             return tableName;
         });

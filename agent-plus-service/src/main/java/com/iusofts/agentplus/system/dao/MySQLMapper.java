@@ -50,10 +50,7 @@ public interface MySQLMapper {
             "  `token` varchar(255) COLLATE utf8mb4_bin DEFAULT NULL COMMENT '用户身份令牌',\n" +
             "  `oper_ip` varchar(50) COLLATE utf8mb4_bin DEFAULT '' COMMENT '主机地址',\n" +
             "  `oper_location` varchar(255) COLLATE utf8mb4_bin DEFAULT '' COMMENT '操作地点',\n" +
-            "  `oper_param` longtext COLLATE utf8mb4_bin COMMENT '请求参数',\n" +
-            "  `json_result` longtext COLLATE utf8mb4_bin COMMENT '返回参数',\n" +
             "  `status` int(1) DEFAULT '0' COMMENT '操作状态（0正常 1异常）',\n" +
-            "  `error_msg` longtext COLLATE utf8mb4_bin COMMENT '错误消息',\n" +
             "  `oper_time` datetime DEFAULT NULL COMMENT '操作时间',\n" +
             "  `execute_time` int(11) DEFAULT NULL COMMENT '执行时间(单位毫秒)',\n" +
             "  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n" +
@@ -63,6 +60,22 @@ public interface MySQLMapper {
             "  KEY `idx_user_id` (`user_id`)\n" +
             ") ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='操作日志记录'")
     void createOperLogTable(@Param("tableName") String tableName);
+
+    /**
+     * 创建操作日志大字段载荷附表
+     * @param tableName 表名
+     */
+    @Insert("CREATE TABLE `${tableName}` (\n" +
+            "  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '主键',\n" +
+            "  `oper_log_id` bigint(20) NOT NULL COMMENT '关联 sys_oper_log.id,唯一',\n" +
+            "  `oper_param` longtext COLLATE utf8mb4_bin COMMENT '请求参数',\n" +
+            "  `json_result` longtext COLLATE utf8mb4_bin COMMENT '返回参数',\n" +
+            "  `error_msg` longtext COLLATE utf8mb4_bin COMMENT '错误消息',\n" +
+            "  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n" +
+            "  PRIMARY KEY (`id`) USING BTREE,\n" +
+            "  UNIQUE KEY `uk_oper_log_id` (`oper_log_id`) USING BTREE\n" +
+            ") ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='操作日志大字段载荷附表'")
+    void createOperLogPayloadTable(@Param("tableName") String tableName);
 
     /**
      * 删除操作日志表
