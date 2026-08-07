@@ -51,7 +51,7 @@ public class ToolNodeExecutor implements NodeExecutor {
             .build();
 
         // 设置业务属性到 Span Attributes
-        TraceUtil.setAiAttributes(CallSource.FLOW, ctx.getFlowId(), ctx.getRuntimeId(), node.getId(),
+        TraceUtil.setAiAttributes(CallSource.FLOW, ctx.getRuntimeId(), ctx.getFlowId(), node.getId(),
             ctx.getOperatorId(), ctx.getOrgId());
 
         ToolExecuteResult result = toolRegistry.execute(request);
