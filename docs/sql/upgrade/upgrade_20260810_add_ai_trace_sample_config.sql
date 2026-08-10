@@ -57,4 +57,4 @@ CREATE TABLE `ai_trace_sample_config` (
 INSERT INTO `ai_trace_sample_config`
   (config_type, target_id, sample_rate, status, remark, create_by, delete_flag)
 VALUES
-  (1, 0, 1.0000, 1, '系统初始化:全局默认采样率', 0, 0);
+  (1, 0, 0.1000, 1, '系统初始化:全局默认采样率', 0, 0);

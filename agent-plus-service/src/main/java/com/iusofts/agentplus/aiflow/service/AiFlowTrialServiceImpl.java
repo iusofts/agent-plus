@@ -39,6 +39,7 @@ import com.iusofts.agentplus.engine.context.NodeTiming;
 import com.iusofts.agentplus.engine.executor.NodeExecutor;
 import com.iusofts.agentplus.engine.util.ParamResolver;
 import com.iusofts.agentplus.trace.TraceUtil;
+import com.iusofts.agentplus.trace.constants.CallSource;
 import com.iusofts.agentplus.trace.constants.TraceConstant;
 import com.alibaba.fastjson2.JSON;
 import io.opentelemetry.api.trace.SpanKind;
@@ -163,9 +164,10 @@ public class AiFlowTrialServiceImpl implements IAiFlowTrialService {
                 span.setAttribute(TraceConstant.ATTR_NODE_TYPE, target.getType());
                 span.setAttribute(TraceConstant.ATTR_LABEL, resolveNodeName(target));
                 span.setAttribute(TraceConstant.ATTR_TRIAL_FLAG, YesNoEnums.YES.getCode());
-                if (reqVo.getOrgId() != null) {
-                    span.setAttribute(TraceConstant.KEY_ORG_ID, reqVo.getOrgId().longValue());
-                }
+
+                // 设置AI属性
+                TraceUtil.setAiAttributes(CallSource.FLOW, reqVo.getFlowId(), reqVo.getFlowId(), reqVo.getNodeId(), reqVo.getOperatorId(), reqVo.getOrgId());
+                
                 result.setTraceId(traceId);
                 // 先单独更新 traceId 字段，避免后续 updateById 时唯一键冲突
                 AiFlowRuntime traceUpdate = new AiFlowRuntime();
