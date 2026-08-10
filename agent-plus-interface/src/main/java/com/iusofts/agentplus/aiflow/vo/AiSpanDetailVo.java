@@ -3,6 +3,8 @@ package com.iusofts.agentplus.aiflow.vo;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
+import java.util.Map;
+
 /**
  * <p>
  * Span详情VO
@@ -45,5 +47,8 @@ public class AiSpanDetailVo {
 
     @Schema(description = "链路追踪ID")
     private String traceId;
+
+    @Schema(description = "span attribute键值对(含入参/出参等业务信息)")
+    private Map<String, Object> attributes;
 
 }

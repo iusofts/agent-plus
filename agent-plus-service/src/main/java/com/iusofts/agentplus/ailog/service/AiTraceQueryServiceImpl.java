@@ -304,7 +304,7 @@ public class AiTraceQueryServiceImpl implements IAiTraceQueryService {
             vo.setInputPayload(payload.getInputPayload());
             vo.setOutputPayload(payload.getOutputPayload());
         }
-
+        vo.setAttributes(span.getAttributes());
         return vo;
     }
 
