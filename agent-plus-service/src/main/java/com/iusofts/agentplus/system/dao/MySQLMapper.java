@@ -38,7 +38,7 @@ public interface MySQLMapper {
      */
     @Insert("CREATE TABLE `${tableName}` (\n" +
             "  `id` int(11) NOT NULL AUTO_INCREMENT COMMENT '日志主键',\n" +
-            "  `title` varchar(50) COLLATE utf8mb4_bin DEFAULT '' COMMENT '模块标题',\n" +
+            "  `title` varchar(255) COLLATE utf8mb4_bin DEFAULT '' COMMENT '模块标题',\n" +
             "  `business_type` int(2) NOT NULL DEFAULT '0' COMMENT '业务类型（0其它 1新增 2修改 3删除）',\n" +
             "  `method` varchar(100) COLLATE utf8mb4_bin NOT NULL DEFAULT '' COMMENT '方法名称',\n" +
             "  `request_method` varchar(10) COLLATE utf8mb4_bin NOT NULL DEFAULT '' COMMENT '请求方式',\n" +
