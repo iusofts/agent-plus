@@ -99,6 +99,11 @@ agent-plus:
       schedule-delay: 5000
       # 队列最大容量
       max-queue-size: 2048
+    sample:
+      # 兜底默认采样率(DB 中无任何配置时使用),取值 0.0000 ~ 1.0000
+      default-sample-rate: 1.0000
+      # 解析缓存失效时间(秒),0=不缓存(每次解析都查库)
+      cache-ttl-seconds: 60
 
 ---
 
