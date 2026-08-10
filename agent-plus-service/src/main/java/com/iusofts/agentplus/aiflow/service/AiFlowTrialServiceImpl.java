@@ -163,10 +163,12 @@ public class AiFlowTrialServiceImpl implements IAiFlowTrialService {
                 span.setAttribute(TraceConstant.ATTR_NODE_ID, target.getId());
                 span.setAttribute(TraceConstant.ATTR_NODE_TYPE, target.getType());
                 span.setAttribute(TraceConstant.ATTR_LABEL, resolveNodeName(target));
-                span.setAttribute(TraceConstant.ATTR_TRIAL_FLAG, YesNoEnums.YES.getCode());
 
                 // 设置AI属性
                 TraceUtil.setAiAttributes(CallSource.FLOW, reqVo.getFlowId(), reqVo.getFlowId(), reqVo.getNodeId(), reqVo.getOperatorId(), reqVo.getOrgId());
+
+                // 试运行标记同时写入 baggage(供 BusinessAttrSpanProcessor 跨 span 传播)和当前 root span attribute
+                TraceUtil.setTrialFlag(YesNoEnums.YES.getCode());
                 
                 result.setTraceId(traceId);
                 // 先单独更新 traceId 字段，避免后续 updateById 时唯一键冲突

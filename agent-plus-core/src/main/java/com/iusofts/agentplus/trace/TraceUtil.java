@@ -238,6 +238,33 @@ public final class TraceUtil {
     }
 
     /**
+     * 设置试运行标记到 Baggage 和 Span Attributes。
+     *
+     * <p>{@code trialFlag} 写入 Baggage 后，
+     * {@link com.iusofts.agentplus.engine.trace.BusinessAttrSpanProcessor}
+     * 会在每个子 span onStart 阶段自动回写 attributes，
+     * 确保子 span 也能被 {@code MySqlSpanExporter} 与采样判断读到。</p>
+     *
+     * @param trialFlag 0/1(或 null 表示未设置),仅作业务标记
+     */
+    public static void setTrialFlag(Integer trialFlag) {
+        if (trialFlag == null) {
+            return;
+        }
+        // 写入 Baggage 供 BusinessAttrSpanProcessor 跨 span 传播
+        Baggage.current().toBuilder()
+                .put(ATTR_TRIAL_FLAG, String.valueOf(trialFlag))
+                .build()
+                .makeCurrent();
+
+        // 同时设置到当前 Span Attributes 落库
+        Span span = Span.current();
+        if (span != null && span.getSpanContext().isValid()) {
+            span.setAttribute(ATTR_TRIAL_FLAG, trialFlag.longValue());
+        }
+    }
+
+    /**
      * 一次性设置所有业务属性到 Baggage 和 Span Attributes。
      */
     public static void setAiAttributes(String callSource, Long sourceId, Long sourceFlowId, String sourceNodeId,

@@ -1,5 +1,6 @@
 package com.iusofts.agentplus.engine.config;
 
+import com.iusofts.agentplus.engine.trace.BusinessAttrSpanProcessor;
 import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.trace.SdkTracerProvider;
@@ -45,6 +46,10 @@ public class TraceAutoConfiguration {
         SpanExporter exporter = spanExporters.getIfUnique();
 
         io.opentelemetry.sdk.trace.SdkTracerProviderBuilder providerBuilder = SdkTracerProvider.builder();
+        // 业务属性同步:必须先于 BatchSpanProcessor 注册,onStart 触发顺序与注册顺序一致。
+        // 把 baggage 中的 ai.org_id / ai.operator_id / workflow.trial_flag 回写到每个 span 的 attributes,
+        // 确保子 span 也能被 MySqlSpanExporter 与采样判断读到。
+        providerBuilder.addSpanProcessor(new BusinessAttrSpanProcessor());
         if (exporter != null) {
             providerBuilder.addSpanProcessor(BatchSpanProcessor.builder(exporter)
                     .setMaxExportBatchSize(props.getBatchSize())

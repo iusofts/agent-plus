@@ -340,7 +340,8 @@ public class WorkflowEngine {
         // 设置AI属性
         TraceUtil.setAiAttributes(CallSource.FLOW, request.getRuntimeId(), request.getFlowId(), null, request.getOperatorId(), request.getOrgId());
 
-        span.setAttribute(TraceConstant.ATTR_TRIAL_FLAG, request.getTrialFlag());
+        // 试运行标记同时写入 baggage(供 BusinessAttrSpanProcessor 跨 span 传播)和当前 root span attribute
+        TraceUtil.setTrialFlag(request.getTrialFlag());
 
         // 入参载荷
         if (request.getInputs() != null && !request.getInputs().isEmpty()) {
