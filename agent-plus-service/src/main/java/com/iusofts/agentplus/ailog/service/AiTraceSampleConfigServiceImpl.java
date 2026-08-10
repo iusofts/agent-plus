@@ -13,8 +13,10 @@ import com.iusofts.agentplus.basic.exception.SystemBusinessException;
 import com.iusofts.agentplus.basic.utils.ModelMapperUtil;
 import com.iusofts.agentplus.basic.web.vo.page.PageResult;
 import jakarta.annotation.PostConstruct;
+import org.redisson.api.RedissonClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.stereotype.Service;
@@ -58,6 +60,15 @@ public class AiTraceSampleConfigServiceImpl implements IAiTraceSampleConfigServi
     private TraceSampleProperties props;
 
     /**
+     * Redisson 客户端。{@link ObjectProvider} 包装,允许集群下未部署 Redis 时降级(本地缓存照常工作)。
+     */
+    @Autowired
+    private ObjectProvider<RedissonClient> redissonClientProvider;
+
+    /** 集群缓存失效广播通道,所有实例订阅并刷新本地缓存。 */
+    private static final String INVALIDATE_TOPIC = "ai:trace:sample-config:invalidate";
+
+    /**
      * 作用域 → 缓存条目,key 形如 {@code 3:10086} (type:targetId)。
      */
     private final Map<String, CacheEntry> cache = new ConcurrentHashMap<>();
@@ -75,6 +86,7 @@ public class AiTraceSampleConfigServiceImpl implements IAiTraceSampleConfigServi
             // 启动期 DB 不可用不应阻断应用,记日志后继续
             LOGGER.warn("AI Trace 采样率配置初始化失败, 运行时将降级为 yml 兜底", e);
         }
+        subscribeInvalidateTopic();
     }
 
     /**
@@ -157,6 +169,8 @@ public class AiTraceSampleConfigServiceImpl implements IAiTraceSampleConfigServi
         if (row > 0 && entity.getStatus() != null && entity.getStatus() == 1) {
             putCache(entity);
         }
+        // 广播集群失效,其他实例刷新本地缓存
+        publishInvalidate();
     }
 
     @Override
@@ -187,6 +201,8 @@ public class AiTraceSampleConfigServiceImpl implements IAiTraceSampleConfigServi
         if (row > 0 && exist.getStatus() != null && exist.getStatus() == 1) {
             putCache(exist);
         }
+        // 广播集群失效
+        publishInvalidate();
     }
 
     @Override
@@ -196,6 +212,7 @@ public class AiTraceSampleConfigServiceImpl implements IAiTraceSampleConfigServi
             return;
         }
         Long uid = operatorId == null ? 0L : operatorId;
+        boolean changed = false;
         for (Long id : ids) {
             AiTraceSampleConfig entity = mapper.selectById(id);
             if (entity == null || entity.getDeleteFlag() != null && entity.getDeleteFlag() == 1) {
@@ -206,6 +223,10 @@ public class AiTraceSampleConfigServiceImpl implements IAiTraceSampleConfigServi
             entity.setUpdateTime(LocalDateTime.now());
             mapper.updateById(entity);
             evictCache(entity.getConfigType(), entity.getTargetId());
+            changed = true;
+        }
+        if (changed) {
+            publishInvalidate();
         }
     }
 
@@ -232,6 +253,8 @@ public class AiTraceSampleConfigServiceImpl implements IAiTraceSampleConfigServi
         if (status == 1) {
             putCache(entity);
         }
+        // 广播集群失效
+        publishInvalidate();
     }
 
     @Override
@@ -312,6 +335,47 @@ public class AiTraceSampleConfigServiceImpl implements IAiTraceSampleConfigServi
 
     private void evictCache(int type, long targetId) {
         cache.remove(cacheKey(type, targetId));
+    }
+
+    /**
+     * 向 Redis Pub/Sub 广播失效消息,通知集群其他实例刷新本地缓存。
+     * Redisson 不可用时静默降级(本地缓存已同步,集群不一致由 TTL 自然收敛)。
+     */
+    private void publishInvalidate() {
+        RedissonClient client = redissonClientProvider.getIfAvailable();
+        if (client == null) {
+            return;
+        }
+        try {
+            client.getTopic(INVALIDATE_TOPIC).publish("invalidate");
+        } catch (Exception e) {
+            LOGGER.warn("AI Trace 采样率配置集群失效广播失败, 集群节点可能短暂不一致", e);
+        }
+    }
+
+    /**
+     * 启动时订阅失效广播,收到消息后调用 {@link #refreshCache()} 刷新本地缓存。
+     * Redisson 不可用时跳过订阅(单实例或 Redis 暂未就绪场景)。
+     */
+    private void subscribeInvalidateTopic() {
+        RedissonClient client = redissonClientProvider.getIfAvailable();
+        if (client == null) {
+            LOGGER.info("Redisson 不可用, 集群缓存失效广播已降级为 TTL 自然收敛");
+            return;
+        }
+        try {
+            client.getTopic(INVALIDATE_TOPIC).addListener(String.class, (channel, msg) -> {
+                try {
+                    refreshCache();
+                    LOGGER.debug("收到 AI Trace 采样率配置失效广播, 本地缓存已刷新");
+                } catch (Exception e) {
+                    LOGGER.warn("AI Trace 采样率配置本地缓存刷新失败", e);
+                }
+            });
+            LOGGER.info("已订阅 AI Trace 采样率配置失效广播: {}", INVALIDATE_TOPIC);
+        } catch (Exception e) {
+            LOGGER.warn("订阅 AI Trace 采样率配置失效广播失败, 集群缓存可能短暂不一致", e);
+        }
     }
 
     private static String cacheKey(int type, long targetId) {

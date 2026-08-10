@@ -2,6 +2,7 @@ package com.iusofts.agentplus.ailog.exporter;
 
 import com.iusofts.agentplus.ailog.entity.AiTraceSpan;
 import com.iusofts.agentplus.ailog.entity.AiTraceSpanPayload;
+import com.iusofts.agentplus.ailog.sample.AiTraceSampleService;
 import com.iusofts.agentplus.ailog.service.AiTraceSpanPayloadService;
 import com.iusofts.agentplus.ailog.service.AiTraceSpanService;
 import com.iusofts.agentplus.trace.TraceUtil;
@@ -13,6 +14,7 @@ import io.opentelemetry.sdk.trace.export.SpanExporter;
 import jakarta.annotation.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -52,18 +54,27 @@ public class MySqlSpanExporter implements SpanExporter {
     @Resource
     private AiTraceSpanPayloadService aiTraceSpanPayloadService;
 
+    @Autowired
+    private AiTraceSampleService sampleService;
+
     @Override
     public CompletableResultCode export(Collection<SpanData> spans) {
         if (spans.isEmpty()) {
             return CompletableResultCode.ofSuccess();
         }
         try {
-            List<AiTraceSpan> entities = new ArrayList<>(spans.size());
+            // 采样过滤(按 ai_trace_sample_config 配置 + yml 兜底)
+            Collection<SpanData> sampled = sampleService.filter(spans);
+            if (sampled.isEmpty()) {
+                return CompletableResultCode.ofSuccess();
+            }
+
+            List<AiTraceSpan> entities = new ArrayList<>(sampled.size());
             List<AiTraceSpanPayload> payloads = new ArrayList<>();
 
             // 仅做实体转换与载荷拆分落库，不在导出层汇总子级 tokens。
             // 父子级 tokens 聚合改由 AiTraceQueryServiceImpl 在查询时计算。
-            for (SpanData span : spans) {
+            for (SpanData span : sampled) {
                 AiTraceSpanPayload payload = new AiTraceSpanPayload();
                 AiTraceSpan entity = toEntity(span, payload);
                 entities.add(entity);
