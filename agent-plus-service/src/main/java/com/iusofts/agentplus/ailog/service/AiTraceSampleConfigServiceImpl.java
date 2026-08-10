@@ -73,6 +73,12 @@ public class AiTraceSampleConfigServiceImpl implements IAiTraceSampleConfigServi
      */
     private final Map<String, CacheEntry> cache = new ConcurrentHashMap<>();
 
+    /**
+     * 是否存在 user(org)级配置覆盖。由 {@link #refreshHasUserOrOrgOverride()}
+     * 在 cache 变更后维护,供 {@code AiTraceSampleService} 做 short-circuit 优化。
+     */
+    private volatile boolean hasUserOrOrgOverride = false;
+
     // ============================================================
     //  启动初始化
     // ============================================================
@@ -331,10 +337,34 @@ public class AiTraceSampleConfigServiceImpl implements IAiTraceSampleConfigServi
         }
         cache.put(cacheKey(c.getConfigType(), c.getTargetId()),
                 new CacheEntry(c.getSampleRate(), System.currentTimeMillis()));
+        refreshHasUserOrOrgOverride();
     }
 
     private void evictCache(int type, long targetId) {
         cache.remove(cacheKey(type, targetId));
+        refreshHasUserOrOrgOverride();
+    }
+
+    /**
+     * 重新计算 {@link #hasUserOrOrgOverride}:扫描 cache,若存在
+     * org(2:)/user(3:) 类条目则置 true。O(n) 但 cache 极小(启用配置总数),
+     * 每次 cache 变更后调用一次,可接受。
+     */
+    private void refreshHasUserOrOrgOverride() {
+        boolean found = false;
+        for (String key : cache.keySet()) {
+            if (key.startsWith(AiTraceSampleConfig.TYPE_ORG + ":")
+                    || key.startsWith(AiTraceSampleConfig.TYPE_USER + ":")) {
+                found = true;
+                break;
+            }
+        }
+        this.hasUserOrOrgOverride = found;
+    }
+
+    @Override
+    public boolean hasUserOrOrgOverride() {
+        return hasUserOrOrgOverride;
     }
 
     /**

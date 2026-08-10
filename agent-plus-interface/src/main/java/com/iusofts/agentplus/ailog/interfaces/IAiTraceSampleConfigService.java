@@ -81,6 +81,17 @@ public interface IAiTraceSampleConfigService {
     BigDecimal resolveSampleRate(Long userId, Long orgId);
 
     /**
+     * 是否存在用户级或组织级配置覆盖。
+     *
+     * <p>供 {@link com.iusofts.agentplus.ailog.sample.AiTraceSampleService}
+     * 做 short-circuit 优化:当 yml 兜底为 1.0 且无任何 user/org 覆盖时,
+     * 跳过 resolveSampleRate 直接放行所有 span,降低热路径开销。</p>
+     *
+     * @return true 表示存在 user(org)级配置,需要走 resolveSampleRate
+     */
+    boolean hasUserOrOrgOverride();
+
+    /**
      * 清理运行时缓存,运维接口或修改配置后调用。
      */
     void refreshCache();
