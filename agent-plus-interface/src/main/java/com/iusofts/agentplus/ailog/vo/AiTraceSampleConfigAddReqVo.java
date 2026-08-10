@@ -10,21 +10,16 @@ import java.io.Serializable;
 import java.math.BigDecimal;
 
 /**
- * <p>
- * AI Trace 采样率配置新增/修改请求对象
- * </p>
+ * AI Trace 采样率配置新增请求。
  *
  * @author Ivan
  * @since 2026-08-10
  */
 @Data
-@Schema(description = "AI Trace 采样率配置请求")
-public class AiTraceSampleConfigVo implements Serializable {
+@Schema(description = "AI Trace 采样率配置新增请求")
+public class AiTraceSampleConfigAddReqVo implements Serializable {
 
     private static final long serialVersionUID = 1L;
-
-    @Schema(description = "主键ID(修改时必填)")
-    private Long id;
 
     @Schema(description = "配置类型 1:全局 2:组织 3:用户", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = "配置类型不能为空")
@@ -48,6 +43,8 @@ public class AiTraceSampleConfigVo implements Serializable {
     @Schema(description = "备注")
     private String remark;
 
-    @Schema(description = "创建人姓名(展示用,来源于 sys_user.name)")
-    private String createByName;
+    @Schema(description = "操作人ID", hidden = true)
+    private Long operatorId;
+    @Schema(description = "操作人姓名", hidden = true)
+    private String operatorName;
 }

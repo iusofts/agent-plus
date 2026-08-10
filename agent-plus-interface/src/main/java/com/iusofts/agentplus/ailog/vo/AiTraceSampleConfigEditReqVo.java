@@ -10,27 +10,26 @@ import java.io.Serializable;
 import java.math.BigDecimal;
 
 /**
- * <p>
- * AI Trace 采样率配置新增/修改请求对象
- * </p>
+ * AI Trace 采样率配置修改请求。
  *
  * @author Ivan
  * @since 2026-08-10
  */
 @Data
-@Schema(description = "AI Trace 采样率配置请求")
-public class AiTraceSampleConfigVo implements Serializable {
+@Schema(description = "AI Trace 采样率配置修改请求")
+public class AiTraceSampleConfigEditReqVo implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    @Schema(description = "主键ID(修改时必填)")
+    @Schema(description = "主键ID(修改时必填)", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotNull(message = "主键ID不能为空")
     private Long id;
 
     @Schema(description = "配置类型 1:全局 2:组织 3:用户", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = "配置类型不能为空")
     private Integer configType;
 
-    @Schema(description = "目标ID(全局=0;组织=orgId;用户=userId),新建时可省略默认 0", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+    @Schema(description = "目标ID(全局=0;组织=orgId;用户=userId)", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
     private Long targetId;
 
     @Schema(description = "目标名称(展示/搜索用,组织名/用户昵称/全局占位)")
@@ -42,12 +41,14 @@ public class AiTraceSampleConfigVo implements Serializable {
     @DecimalMax(value = "1.0000", message = "采样率不能大于 1")
     private BigDecimal sampleRate;
 
-    @Schema(description = "启用状态 0:禁用 1:启用,默认 1")
+    @Schema(description = "启用状态 0:禁用 1:启用,不传则保持原值")
     private Integer status;
 
     @Schema(description = "备注")
     private String remark;
 
-    @Schema(description = "创建人姓名(展示用,来源于 sys_user.name)")
-    private String createByName;
+    @Schema(description = "操作人ID", hidden = true)
+    private Long operatorId;
+    @Schema(description = "操作人姓名", hidden = true)
+    private String operatorName;
 }

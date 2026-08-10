@@ -1,6 +1,8 @@
 package com.iusofts.agentplus.ailog.entity;
 
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -45,6 +47,16 @@ public class AiTraceSampleConfig implements Serializable {
     @Schema(description = "目标ID(全局=0;组织=orgId;用户=userId)")
     private Long targetId;
 
+    /**
+     * 目标名称(展示/搜索用,组织名/用户昵称/全局占位)。
+     * <p>显式指定列名,避免下划线/驼峰转换在某些环境下的隐式差异;
+     * {@link FieldStrategy#ALWAYS} 保证 INSERT/UPDATE 时即使值为 null 也会被写入 SQL,
+     * 避免 MP 默认 NOT_NULL 策略吞字段。</p>
+     */
+    @Schema(description = "目标名称(展示/搜索用,组织名/用户昵称/全局占位)")
+    @TableField(value = "target_name", insertStrategy = FieldStrategy.ALWAYS, updateStrategy = FieldStrategy.ALWAYS)
+    private String targetName;
+
     @Schema(description = "采样率,取值 0.0000 ~ 1.0000")
     private BigDecimal sampleRate;
 
@@ -56,6 +68,14 @@ public class AiTraceSampleConfig implements Serializable {
 
     @Schema(description = "创建人ID")
     private Long createBy;
+
+    /**
+     * 创建人姓名(展示用,来源于 sys_user.name 或 controller 注入)。
+     * 显式列名 + ALWAYS 策略,见 {@link #targetName} 说明。
+     */
+    @Schema(description = "创建人姓名(展示用,来源于 sys_user.name)")
+    @TableField(value = "create_by_name", insertStrategy = FieldStrategy.ALWAYS, updateStrategy = FieldStrategy.ALWAYS)
+    private String createByName;
 
     @Schema(description = "创建时间")
     private LocalDateTime createTime;

@@ -14,6 +14,8 @@ import com.iusofts.agentplus.system.entity.SysDept;
 import com.iusofts.agentplus.system.interfaces.ISysDeptService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -106,7 +108,15 @@ public class SysDeptServiceImpl extends ServiceImpl<SysDeptMapper, SysDept> impl
      * @param deptId 部门ID
      * @return 部门信息
      */
+    /**
+     * 按主键查部门。
+     *
+     * <p>独立事务 + 只读 + {@code REQUIRES_NEW}:挂起外层事务,在 sys 库上单独开新事务跑只读查询,
+     * 跨库调用失败/异常不会回滚调用方(典型场景:ai_log 写配置时反查部门名)。
+     * 类级 {@link DS}("sys") 已指定数据源。</p>
+     */
     @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
     public SysDeptDto selectDeptById(Long deptId) {
         return deptMapper.selectDeptById(deptId);
     }

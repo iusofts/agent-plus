@@ -22,6 +22,9 @@ public class AiTraceSampleConfigPageReqVo extends PageQuery {
     @Schema(description = "目标ID(全局=0;组织=orgId;用户=userId)")
     private Long targetId;
 
+    @Schema(description = "目标名称(模糊匹配)")
+    private String targetName;
+
     @Schema(description = "启用状态 0:禁用 1:启用")
     private Integer status;
 

@@ -6,13 +6,23 @@ import com.iusofts.agentplus.ailog.config.TraceSampleProperties;
 import com.iusofts.agentplus.ailog.entity.AiTraceSampleConfig;
 import com.iusofts.agentplus.ailog.interfaces.IAiTraceSampleConfigService;
 import com.iusofts.agentplus.ailog.mapper.AiTraceSampleConfigMapper;
+import com.iusofts.agentplus.ailog.vo.AiTraceSampleConfigAddReqVo;
+import com.iusofts.agentplus.ailog.vo.AiTraceSampleConfigEditReqVo;
 import com.iusofts.agentplus.ailog.vo.AiTraceSampleConfigListVo;
 import com.iusofts.agentplus.ailog.vo.AiTraceSampleConfigPageReqVo;
+import com.iusofts.agentplus.ailog.vo.AiTraceSampleConfigRemoveReqVo;
+import com.iusofts.agentplus.ailog.vo.AiTraceSampleConfigResolveReqVo;
+import com.iusofts.agentplus.ailog.vo.AiTraceSampleConfigStatusReqVo;
 import com.iusofts.agentplus.ailog.vo.AiTraceSampleConfigVo;
 import com.iusofts.agentplus.basic.exception.SystemBusinessException;
 import com.iusofts.agentplus.basic.utils.ModelMapperUtil;
 import com.iusofts.agentplus.basic.web.vo.page.PageResult;
+import com.iusofts.agentplus.system.dto.SysDeptDto;
+import com.iusofts.agentplus.system.dto.SysUserDto;
+import com.iusofts.agentplus.system.interfaces.ISysDeptService;
+import com.iusofts.agentplus.system.interfaces.ISysUserService;
 import jakarta.annotation.PostConstruct;
+import jakarta.annotation.Resource;
 import org.redisson.api.RedissonClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,6 +74,15 @@ public class AiTraceSampleConfigServiceImpl implements IAiTraceSampleConfigServi
      */
     @Autowired
     private ObjectProvider<RedissonClient> redissonClientProvider;
+
+    /**
+     * 用户/部门服务。直接注入,新增/修改采样率配置时用于反查 target_name 展示名。
+     */
+    @Resource
+    private ISysUserService sysUserService;
+
+    @Resource
+    private ISysDeptService sysDeptService;
 
     /** 集群缓存失效广播通道,所有实例订阅并刷新本地缓存。 */
     private static final String INVALIDATE_TOPIC = "ai:trace:sample-config:invalidate";
@@ -130,6 +149,9 @@ public class AiTraceSampleConfigServiceImpl implements IAiTraceSampleConfigServi
         if (reqVo.getStatus() != null) {
             qw.eq(AiTraceSampleConfig::getStatus, reqVo.getStatus());
         }
+        if (StringUtils.hasText(reqVo.getTargetName())) {
+            qw.like(AiTraceSampleConfig::getTargetName, reqVo.getTargetName());
+        }
         if (StringUtils.hasText(reqVo.getRemark())) {
             qw.like(AiTraceSampleConfig::getRemark, reqVo.getRemark());
         }
@@ -155,23 +177,29 @@ public class AiTraceSampleConfigServiceImpl implements IAiTraceSampleConfigServi
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void addConfig(AiTraceSampleConfigVo vo) {
-        validateScope(vo.getConfigType(), vo.getTargetId(), null);
+    public void addConfig(AiTraceSampleConfigAddReqVo reqVo) {
+        validateScope(reqVo.getConfigType(), reqVo.getTargetId(), null);
 
         AiTraceSampleConfig entity = new AiTraceSampleConfig();
-        entity.setConfigType(vo.getConfigType());
-        entity.setTargetId(resolveTargetId(vo.getConfigType(), vo.getTargetId()));
-        entity.setSampleRate(vo.getSampleRate());
-        entity.setStatus(vo.getStatus() == null ? 1 : vo.getStatus());
-        entity.setRemark(vo.getRemark());
+        entity.setConfigType(reqVo.getConfigType());
+        entity.setTargetId(resolveTargetId(reqVo.getConfigType(), reqVo.getTargetId()));
+        entity.setTargetName(resolveTargetName(reqVo.getConfigType(), entity.getTargetId(), reqVo.getTargetName()));
+        entity.setSampleRate(reqVo.getSampleRate());
+        entity.setStatus(reqVo.getStatus() == null ? 1 : reqVo.getStatus());
+        entity.setRemark(reqVo.getRemark());
         entity.setDeleteFlag(0);
-        Long uid = vo.getCurrentUserId() == null ? 0L : vo.getCurrentUserId();
+        Long uid = reqVo.getOperatorId() == null ? 0L : reqVo.getOperatorId();
         entity.setCreateBy(uid);
         entity.setUpdateBy(uid);
+        // 创建人姓名:controller 注入的 operatorName 优先,反查 sys_user 兜底,都拿不到则留空
+        entity.setCreateByName(resolveCreateByName(uid, reqVo.getOperatorName()));
         entity.setCreateTime(LocalDateTime.now());
         entity.setUpdateTime(LocalDateTime.now());
 
         int row = mapper.insert(entity);
+        LOGGER.info("新增 AI Trace 采样率配置: id={}, configType={}, targetId={}, targetName={}, createBy={}, createByName={}",
+                entity.getId(), entity.getConfigType(), entity.getTargetId(), entity.getTargetName(),
+                entity.getCreateBy(), entity.getCreateByName());
         if (row > 0 && entity.getStatus() != null && entity.getStatus() == 1) {
             putCache(entity);
         }
@@ -181,23 +209,24 @@ public class AiTraceSampleConfigServiceImpl implements IAiTraceSampleConfigServi
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void updateConfig(AiTraceSampleConfigVo vo) {
-        if (vo.getId() == null) {
+    public void updateConfig(AiTraceSampleConfigEditReqVo reqVo) {
+        if (reqVo.getId() == null) {
             throw new SystemBusinessException("主键ID不能为空");
         }
-        AiTraceSampleConfig exist = mapper.selectById(vo.getId());
+        AiTraceSampleConfig exist = mapper.selectById(reqVo.getId());
         if (exist == null || exist.getDeleteFlag() != null && exist.getDeleteFlag() == 1) {
             throw new SystemBusinessException("采样率配置不存在或已删除");
         }
 
-        validateScope(vo.getConfigType(), vo.getTargetId(), vo.getId());
+        validateScope(reqVo.getConfigType(), reqVo.getTargetId(), reqVo.getId());
 
-        exist.setConfigType(vo.getConfigType());
-        exist.setTargetId(resolveTargetId(vo.getConfigType(), vo.getTargetId()));
-        exist.setSampleRate(vo.getSampleRate());
-        exist.setStatus(vo.getStatus() == null ? exist.getStatus() : vo.getStatus());
-        exist.setRemark(vo.getRemark());
-        exist.setUpdateBy(vo.getCurrentUserId() == null ? 0L : vo.getCurrentUserId());
+        exist.setConfigType(reqVo.getConfigType());
+        exist.setTargetId(resolveTargetId(reqVo.getConfigType(), reqVo.getTargetId()));
+        exist.setTargetName(resolveTargetName(reqVo.getConfigType(), exist.getTargetId(), reqVo.getTargetName()));
+        exist.setSampleRate(reqVo.getSampleRate());
+        exist.setStatus(reqVo.getStatus() == null ? exist.getStatus() : reqVo.getStatus());
+        exist.setRemark(reqVo.getRemark());
+        exist.setUpdateBy(reqVo.getOperatorId() == null ? 0L : reqVo.getOperatorId());
         exist.setUpdateTime(LocalDateTime.now());
 
         int row = mapper.updateById(exist);
@@ -213,13 +242,13 @@ public class AiTraceSampleConfigServiceImpl implements IAiTraceSampleConfigServi
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void deleteConfigByIds(Long[] ids, Long operatorId) {
-        if (ids == null || ids.length == 0) {
+    public void deleteConfigByIds(AiTraceSampleConfigRemoveReqVo reqVo) {
+        if (reqVo == null || reqVo.getIds() == null || reqVo.getIds().isEmpty()) {
             return;
         }
-        Long uid = operatorId == null ? 0L : operatorId;
+        Long uid = reqVo.getOperatorId() == null ? 0L : reqVo.getOperatorId();
         boolean changed = false;
-        for (Long id : ids) {
+        for (Long id : reqVo.getIds()) {
             AiTraceSampleConfig entity = mapper.selectById(id);
             if (entity == null || entity.getDeleteFlag() != null && entity.getDeleteFlag() == 1) {
                 continue;
@@ -238,7 +267,9 @@ public class AiTraceSampleConfigServiceImpl implements IAiTraceSampleConfigServi
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void changeStatus(Long id, Integer status, Long operatorId) {
+    public void changeStatus(AiTraceSampleConfigStatusReqVo reqVo) {
+        Long id = reqVo == null ? null : reqVo.getId();
+        Integer status = reqVo == null ? null : reqVo.getStatus();
         if (id == null || status == null) {
             throw new SystemBusinessException("主键ID和状态不能为空");
         }
@@ -249,7 +280,7 @@ public class AiTraceSampleConfigServiceImpl implements IAiTraceSampleConfigServi
         if (entity == null || entity.getDeleteFlag() != null && entity.getDeleteFlag() == 1) {
             throw new SystemBusinessException("采样率配置不存在或已删除");
         }
-        Long uid = operatorId == null ? 0L : operatorId;
+        Long uid = reqVo.getOperatorId() == null ? 0L : reqVo.getOperatorId();
         entity.setStatus(status);
         entity.setUpdateBy(uid);
         entity.setUpdateTime(LocalDateTime.now());
@@ -274,7 +305,9 @@ public class AiTraceSampleConfigServiceImpl implements IAiTraceSampleConfigServi
     // ============================================================
 
     @Override
-    public BigDecimal resolveSampleRate(Long userId, Long orgId) {
+    public BigDecimal resolveSampleRate(AiTraceSampleConfigResolveReqVo reqVo) {
+        Long userId = reqVo == null ? null : reqVo.getUserId();
+        Long orgId = reqVo == null ? null : reqVo.getOrgId();
         // 1) 用户级
         if (userId != null) {
             BigDecimal rate = lookupEnabled(AiTraceSampleConfig.TYPE_USER, userId);
@@ -447,6 +480,64 @@ public class AiTraceSampleConfigServiceImpl implements IAiTraceSampleConfigServi
         return targetId;
     }
 
+    /**
+     * 解析展示用 target_name。
+     *
+     * <p>优先级:调用方显式传入的 {@code original} > 按 configType 反查(全局=固定占位,
+     * 组织=查部门表,用户=查用户表)。反查失败/异常时静默降级,允许 name 为空入库,
+     * 后续可由批任务回填,避免保存路径因外部查询故障而中断。</p>
+     */
+    private String resolveTargetName(Integer configType, long targetId, String original) {
+        if (StringUtils.hasText(original)) {
+            return original.trim();
+        }
+        if (configType == null) {
+            return null;
+        }
+        try {
+            if (configType == AiTraceSampleConfig.TYPE_GLOBAL) {
+                return "全局";
+            }
+            if (configType == AiTraceSampleConfig.TYPE_ORG) {
+                SysDeptDto dept = sysDeptService.selectDeptById(targetId);
+                LOGGER.debug("反查部门 target_name: targetId={}, result={}", targetId,
+                        dept == null ? "null" : dept.getDeptName());
+                return dept == null ? null : dept.getDeptName();
+            }
+            if (configType == AiTraceSampleConfig.TYPE_USER) {
+                SysUserDto user = sysUserService.selectUserById(targetId);
+                LOGGER.debug("反查用户 target_name: targetId={}, result={}", targetId,
+                        user == null ? "null" : user.getName());
+                return user == null ? null : user.getName();
+            }
+        } catch (Exception e) {
+            LOGGER.warn("自动解析 target_name 失败, configType={}, targetId={}", configType, targetId, e);
+        }
+        return null;
+    }
+
+    /**
+     * 解析创建人姓名(冗余展示)。
+     *
+     * <p>优先级:controller 注入的 {@code operatorName}(来自 session)> 反查 sys_user.name。
+     * 都拿不到/异常时降级为 null,允许 create_by_name 留空入库,不影响配置保存。</p>
+     */
+    private String resolveCreateByName(Long uid, String operatorName) {
+        if (StringUtils.hasText(operatorName)) {
+            return operatorName.trim();
+        }
+        if (uid == null || uid <= 0) {
+            return null;
+        }
+        try {
+            SysUserDto user = sysUserService.selectUserById(uid);
+            return user == null ? null : user.getName();
+        } catch (Exception e) {
+            LOGGER.warn("自动解析 create_by_name 失败, uid={}", uid, e);
+            return null;
+        }
+    }
+
     private static BigDecimal clamp(BigDecimal v) {
         if (v == null) {
             return BigDecimal.ONE;
@@ -466,10 +557,12 @@ public class AiTraceSampleConfigServiceImpl implements IAiTraceSampleConfigServi
         vo.setConfigType(entity.getConfigType());
         vo.setConfigTypeDesc(configTypeDesc(entity.getConfigType()));
         vo.setTargetId(entity.getTargetId());
+        vo.setTargetName(entity.getTargetName());
         vo.setSampleRate(entity.getSampleRate());
         vo.setStatus(entity.getStatus());
         vo.setRemark(entity.getRemark());
         vo.setCreateBy(entity.getCreateBy() == null ? null : String.valueOf(entity.getCreateBy()));
+        vo.setCreateByName(entity.getCreateByName());
         vo.setCreateTime(entity.getCreateTime());
         vo.setUpdateBy(entity.getUpdateBy() == null ? null : String.valueOf(entity.getUpdateBy()));
         vo.setUpdateTime(entity.getUpdateTime());

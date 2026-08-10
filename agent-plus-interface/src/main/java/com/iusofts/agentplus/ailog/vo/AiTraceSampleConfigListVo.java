@@ -34,6 +34,9 @@ public class AiTraceSampleConfigListVo {
     @JsonSerialize(using = RawLongSerializer.class)
     private Long targetId;
 
+    @Schema(description = "目标名称(展示/搜索用,组织名/用户昵称/全局占位)")
+    private String targetName;
+
     @Schema(description = "采样率,取值 0.0000 ~ 1.0000")
     private BigDecimal sampleRate;
 
@@ -45,6 +48,9 @@ public class AiTraceSampleConfigListVo {
 
     @Schema(description = "创建人")
     private String createBy;
+
+    @Schema(description = "创建人姓名")
+    private String createByName;
 
     @Schema(description = "创建时间")
     private LocalDateTime createTime;

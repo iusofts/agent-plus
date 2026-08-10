@@ -2,6 +2,7 @@ package com.iusofts.agentplus.ailog.sample;
 
 import com.iusofts.agentplus.ailog.config.TraceSampleProperties;
 import com.iusofts.agentplus.ailog.interfaces.IAiTraceSampleConfigService;
+import com.iusofts.agentplus.ailog.vo.AiTraceSampleConfigResolveReqVo;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import org.redisson.api.RedissonClient;
@@ -170,7 +171,10 @@ public class AiTraceSampleService {
         Long orgId = root.getAttributes().get(ATTR_ORG_ID);
         BigDecimal rate;
         try {
-            rate = configService.resolveSampleRate(userId, orgId);
+            AiTraceSampleConfigResolveReqVo resolveReq = new AiTraceSampleConfigResolveReqVo();
+            resolveReq.setUserId(userId);
+            resolveReq.setOrgId(orgId);
+            rate = configService.resolveSampleRate(resolveReq);
         } catch (Exception e) {
             rate = props.getDefaultSampleRate();
         }

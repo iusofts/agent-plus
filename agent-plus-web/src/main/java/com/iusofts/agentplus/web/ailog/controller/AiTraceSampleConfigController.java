@@ -1,27 +1,31 @@
 package com.iusofts.agentplus.web.ailog.controller;
 
 import com.iusofts.agentplus.ailog.interfaces.IAiTraceSampleConfigService;
+import com.iusofts.agentplus.ailog.vo.AiTraceSampleConfigAddReqVo;
+import com.iusofts.agentplus.ailog.vo.AiTraceSampleConfigEditReqVo;
 import com.iusofts.agentplus.ailog.vo.AiTraceSampleConfigListVo;
 import com.iusofts.agentplus.ailog.vo.AiTraceSampleConfigPageReqVo;
+import com.iusofts.agentplus.ailog.vo.AiTraceSampleConfigRemoveReqVo;
+import com.iusofts.agentplus.ailog.vo.AiTraceSampleConfigResolveReqVo;
+import com.iusofts.agentplus.ailog.vo.AiTraceSampleConfigStatusReqVo;
 import com.iusofts.agentplus.ailog.vo.AiTraceSampleConfigVo;
+import com.iusofts.agentplus.basic.web.annotation.BLoginUser;
 import com.iusofts.agentplus.basic.web.annotation.OperationLogExclude;
 import com.iusofts.agentplus.basic.web.vo.page.PageResult;
+import com.iusofts.agentplus.common.vo.IdReqVo;
+import com.iusofts.agentplus.system.vo.BLoginUserVo;
 import com.iusofts.agentplus.web.common.controller.BApiController;
 import com.iusofts.agentplus.web.common.util.SessionUtil;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.math.BigDecimal;
 
 import static com.iusofts.agentplus.basic.enums.OperationLogExcludeTypeEnums.RES;
 
@@ -48,42 +52,45 @@ public class AiTraceSampleConfigController extends BApiController {
 
     @Operation(description = "分页查询采样率配置列表")
     @OperationLogExclude(type = RES)
-    @PostMapping("/list")
-    public PageResult<AiTraceSampleConfigListVo> list(@RequestBody AiTraceSampleConfigPageReqVo reqVo) {
+    @PostMapping("/queryPage")
+    public PageResult<AiTraceSampleConfigListVo> queryPage(@RequestBody AiTraceSampleConfigPageReqVo reqVo) {
         return sampleConfigService.pageConfig(reqVo);
     }
 
     @Operation(description = "根据主键查询配置详情")
-    @OperationLogExclude(type = RES)
-    @GetMapping("/{id}")
-    public AiTraceSampleConfigVo getInfo(@PathVariable Long id) {
-        return sampleConfigService.getById(id);
+    @PostMapping("/getById")
+    public AiTraceSampleConfigVo getById(@RequestBody IdReqVo reqVo) {
+        return sampleConfigService.getById(reqVo.getId());
     }
 
     @Operation(description = "新增采样率配置")
-    @PostMapping
-    public void add(@Valid @RequestBody AiTraceSampleConfigVo vo) {
-        vo.setCurrentUserId(currentUserId());
-        sampleConfigService.addConfig(vo);
+    @PostMapping("/add")
+    public void add(@Valid @RequestBody AiTraceSampleConfigAddReqVo reqVo, @BLoginUser BLoginUserVo loginUserVo) {
+        reqVo.setOperatorId(loginUserVo.getUser().getUserId());
+        reqVo.setOperatorName(loginUserVo.getUser().getName());
+        sampleConfigService.addConfig(reqVo);
     }
 
     @Operation(description = "修改采样率配置")
-    @PutMapping
-    public void edit(@Valid @RequestBody AiTraceSampleConfigVo vo) {
-        vo.setCurrentUserId(currentUserId());
-        sampleConfigService.updateConfig(vo);
+    @PostMapping("/edit")
+    public void edit(@Valid @RequestBody AiTraceSampleConfigEditReqVo reqVo, @BLoginUser BLoginUserVo loginUserVo) {
+        reqVo.setOperatorId(loginUserVo.getUser().getUserId());
+        reqVo.setOperatorName(loginUserVo.getUser().getName());
+        sampleConfigService.updateConfig(reqVo);
     }
 
     @Operation(description = "软删除采样率配置")
-    @DeleteMapping("/{ids}")
-    public void remove(@PathVariable Long[] ids) {
-        sampleConfigService.deleteConfigByIds(ids, currentUserId());
+    @PostMapping("/remove")
+    public void remove(@Valid @RequestBody AiTraceSampleConfigRemoveReqVo reqVo) {
+        reqVo.setOperatorId(currentUserId());
+        sampleConfigService.deleteConfigByIds(reqVo);
     }
 
     @Operation(description = "启停采样率配置,status=0禁用/1启用")
     @PostMapping("/changeStatus")
-    public void changeStatus(@RequestParam Long id, @Parameter(description = "0:禁用 1:启用") @RequestParam Integer status) {
-        sampleConfigService.changeStatus(id, status, currentUserId());
+    public void changeStatus(@Valid @RequestBody AiTraceSampleConfigStatusReqVo reqVo) {
+        reqVo.setOperatorId(currentUserId());
+        sampleConfigService.changeStatus(reqVo);
     }
 
     @Operation(description = "刷新运行时缓存(配置变更后可手动触发)")
@@ -94,10 +101,9 @@ public class AiTraceSampleConfigController extends BApiController {
 
     @Operation(description = "预览指定用户/组织命中的生效采样率,优先级:用户>组织>全局>yml")
     @OperationLogExclude(type = RES)
-    @GetMapping("/resolve")
-    public java.math.BigDecimal resolve(@RequestParam(required = false) Long userId,
-                                        @RequestParam(required = false) Long orgId) {
-        return sampleConfigService.resolveSampleRate(userId, orgId);
+    @PostMapping("/resolve")
+    public BigDecimal resolve(@RequestBody AiTraceSampleConfigResolveReqVo reqVo) {
+        return sampleConfigService.resolveSampleRate(reqVo);
     }
 
     private Long currentUserId() {
