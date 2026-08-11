@@ -1,18 +1,3 @@
-/*
- Navicat MySQL Dump SQL
-
- Source Server         : agent-plus
- Source Server Type    : MySQL
- Source Server Version : 50744 (5.7.44)
- Source Host           : 127.0.0.1:3306
- Source Schema         : agent-plus
-
- Target Server Type    : MySQL
- Target Server Version : 50744 (5.7.44)
- File Encoding         : 65001
-
- Date: 27/07/2026 15:12:40
-*/
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
@@ -123,7 +108,7 @@ CREATE TABLE `ai_flow_runtime`  (
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_flow_run`(`flow_id`, `run_status`) USING BTREE,
   INDEX `idx_trace_id`(`trace_id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 110 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '流程运行实例' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 5 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '流程运行实例' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for ai_flow_runtime_node
@@ -147,7 +132,7 @@ CREATE TABLE `ai_flow_runtime_node`  (
   `delete_flag` tinyint(4) NOT NULL DEFAULT 0 COMMENT '软删除',
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_runtime_id`(`runtime_id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 340 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '运行节点明细' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 2 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '运行节点明细' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for ai_flow_version
@@ -172,7 +157,7 @@ CREATE TABLE `ai_flow_version`  (
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `uk_flow_version`(`flow_id`, `version_no`, `delete_flag`) USING BTREE,
   INDEX `idx_flow_id`(`flow_id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 13 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = 'AI流程版本画布表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 17 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = 'AI流程版本画布表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for ai_knowledge_base
@@ -313,7 +298,7 @@ CREATE TABLE `ai_knowledge_retrieval_log`  (
   INDEX `idx_org_id`(`org_id`) USING BTREE,
   INDEX `idx_create_time`(`create_time`) USING BTREE,
   INDEX `idx_time_hour`(`time_sign`, `hour_sign`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 131 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = 'AI知识库检索日志' ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 226 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = 'AI知识库检索日志' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for ai_llm_call_log
@@ -358,7 +343,7 @@ CREATE TABLE `ai_llm_call_log`  (
   INDEX `idx_create_time`(`create_time`) USING BTREE,
   INDEX `idx_call_status`(`call_status`) USING BTREE,
   INDEX `idx_time_hour`(`time_sign`, `hour_sign`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 237 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = 'AI大模型调用日志' ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 546 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = 'AI大模型调用日志' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for ai_message
@@ -393,7 +378,7 @@ DROP TABLE IF EXISTS `ai_model`;
 CREATE TABLE `ai_model`  (
   `id` bigint(20) NOT NULL COMMENT '编号',
   `model_type` int(11) NOT NULL DEFAULT 1 COMMENT '模型类型 1:LLM 2:Embedding',
-  `provider` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '模型提供商：dashscope-阿里云(百炼平台)，volcengine-字节跳动(火山引擎)，openai-OpenAI',
+  `provider` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '模型提供商：dashscope-阿里云(百炼平台)，volcengine-字节跳动(火山引擎)，openai-OpenAI',
   `model_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '模型名称',
   `display_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '模型显示名称',
   `icon` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '模型图标',
@@ -464,6 +449,61 @@ CREATE TABLE `ai_tool`  (
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = 'ai工具表' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
+-- Table structure for ai_trace
+-- ----------------------------
+DROP TABLE IF EXISTS `ai_trace`;
+CREATE TABLE `ai_trace`  (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '自增主键(仅内部使用)',
+  `trace_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'OTel traceId 32位hex，唯一',
+  `org_id` int(11) NULL DEFAULT NULL COMMENT '组织ID',
+  `operator_id` bigint(20) NULL DEFAULT NULL COMMENT '操作人ID',
+  `trial_flag` tinyint(4) NOT NULL DEFAULT 0 COMMENT '试运行标记 0正式 1试运行',
+  `trace_start_time` datetime(3) NOT NULL COMMENT '整条trace最早span开始时间(毫秒)',
+  `trace_end_time` datetime(3) NOT NULL COMMENT '整条trace最晚span结束时间(毫秒)',
+  `trace_duration_ms` bigint(20) NOT NULL COMMENT '整条trace总耗时ms',
+  `span_count` int(11) NOT NULL DEFAULT 0 COMMENT '该trace下span总数量',
+  `has_error` tinyint(4) NOT NULL DEFAULT 0 COMMENT '是否存在错误span：0无错误 1有错误',
+  `error_span_count` int(11) NOT NULL DEFAULT 0 COMMENT '错误span数量',
+  `root_span_name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '根span名称，列表展示用',
+  `root_span_label` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '根span标签，列表展示用',
+  `root_span_id` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '根spanId',
+  `root_status` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '根span状态 OK / ERROR',
+  `root_status_msg` varchar(2000) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '根span错误信息',
+  `tokens` int(11) NOT NULL DEFAULT 0 COMMENT '消耗token数',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '记录入库时间',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间，span到达时更新',
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_trace_id`(`trace_id`) USING BTREE,
+  INDEX `idx_org_trace_start`(`org_id`, `trace_start_time`) USING BTREE,
+  INDEX `idx_has_error`(`has_error`) USING BTREE,
+  INDEX `idx_trial_flag`(`trial_flag`) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = 'Trace聚合主表，一条trace一条记录，用于列表分页' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Table structure for ai_trace_sample_config
+-- ----------------------------
+DROP TABLE IF EXISTS `ai_trace_sample_config`;
+CREATE TABLE `ai_trace_sample_config`  (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `config_type` tinyint(4) NOT NULL DEFAULT 1 COMMENT '配置类型 1:全局 2:组织 3:用户',
+  `target_id` bigint(20) NOT NULL DEFAULT 0 COMMENT '目标ID(全局=0;组织=orgId;用户=userId)',
+  `target_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '目标名称(展示/搜索用,组织名/用户昵称/全局占位)',
+  `sample_rate` decimal(5, 4) NOT NULL DEFAULT 1.0000 COMMENT '采样率(0.0000 ~ 1.0000)',
+  `status` tinyint(4) NOT NULL DEFAULT 1 COMMENT '启用状态 0:禁用 1:启用',
+  `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '备注',
+  `create_by` bigint(20) NOT NULL DEFAULT 0 COMMENT '创建人ID',
+  `create_by_name` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '创建人姓名(展示用,来源于 sys_user.name)',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_by` bigint(20) NOT NULL DEFAULT 0 COMMENT '最后更新人ID',
+  `update_time` datetime NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '最后更新时间',
+  `delete_flag` tinyint(4) NOT NULL DEFAULT 0 COMMENT '软删除 0:正常 1:已删除',
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_type_target`(`config_type`, `target_id`, `delete_flag`) USING BTREE,
+  INDEX `idx_config_type`(`config_type`) USING BTREE,
+  INDEX `idx_target_name`(`target_name`(64)) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 4 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = 'AI Trace 采样率配置表' ROW_FORMAT = DYNAMIC;
+
+-- ----------------------------
 -- Table structure for ai_trace_span
 -- ----------------------------
 DROP TABLE IF EXISTS `ai_trace_span`;
@@ -480,13 +520,14 @@ CREATE TABLE `ai_trace_span`  (
   `start_time` datetime(3) NOT NULL COMMENT 'span开始时间(毫秒精度)',
   `end_time` datetime(3) NOT NULL COMMENT 'span结束时间(毫秒精度)',
   `duration_ms` bigint(20) NOT NULL COMMENT 'span耗时(毫秒)',
+  `operator_id` bigint(20) NOT NULL DEFAULT 0 COMMENT '操作人ID',
   `org_id` int(11) NULL DEFAULT NULL COMMENT '组织ID',
   `trial_flag` tinyint(4) NULL DEFAULT 0 COMMENT '试运行标记 0:正式 1:试运行',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_trace_id`(`trace_id`) USING BTREE,
   INDEX `idx_start_time`(`start_time`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 283 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = 'AI Trace Span记录' ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 24 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = 'AI Trace Span记录' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for ai_trace_span_payload
@@ -502,7 +543,7 @@ CREATE TABLE `ai_trace_span_payload`  (
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `uk_trace_span`(`trace_id`, `span_id`) USING BTREE,
   INDEX `idx_trace_id`(`trace_id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 275 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = 'Span入参返回值载荷附表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 23 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = 'Span入参返回值载荷附表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for id_generator
